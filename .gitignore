@@ -1,0 +1,24 @@
+# ==== 运行时不需要的目录/文件 ====
+# 肿瘤知识库是独立构建工程（含 node_modules / 大 PDF / 文档），非前端运行时
+/肿瘤知识库/
+
+# ==== DSH/Agent 工作目录 ====
+/.agent-teams/
+/.dsh-vision-router/
+/.dsh-vision-toolkit/
+/.joycode/
+
+# ==== 调试、探针、截图等临时文件 ====
+/__*.png
+/__*.js
+/__probe_source.html
+/__filter_bug.png
+/__paste_ref.png
+
+# ==== 备份文件 ====
+*.bak*
+!*.bak
+
+# ==== Node 等 ====
+node_modules/
+*.log
