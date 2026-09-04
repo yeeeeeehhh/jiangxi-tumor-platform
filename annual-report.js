@@ -1,5 +1,5 @@
 /* 年报模块 —— 江西省肿瘤登记年报（省级编制业务闭环）
- * 子页：年报任务 / 编制工作台 / 模板管理 / 上报记录 / 归档记录
+ * 子页：年报任务 / 编制工作台 / 模板管理 / 归档记录（上报记录页面代码保留，暂无页签入口）
  * 状态机：draft(草稿)->submitted(待审核)->approved(待发布)->published(已发布)->archived(已归档)；voided=作废
  * 持久化：localStorage（jx_ar_tasks/templates/submissions/archives/current），草稿随任务持久化
  */
@@ -35,18 +35,17 @@
     ".ar-corr-item{position:relative;padding:0 0 12px 14px}" +
     ".ar-corr-item:before{content:\"\";position:absolute;left:-24px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}" +
     ".ar-corr-item .meta{font-size:12px;color:#64748b}.ar-corr-item .note{font-size:13px;color:#1f2937;margin-top:3px}" +
-    ".ar-stat-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:14px}" +
+    ".ar-stat-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:14px}" +
     ".ar-stat{background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px 14px}" +
     ".ar-stat .v{font-size:24px;font-weight:700;color:#1f2937}.ar-stat .l{font-size:12px;color:#64748b;margin-top:4px}.ar-stat.primary .v{color:var(--primary)}" +
-    ".ar-timeline{display:flex;align-items:flex-start;gap:0;flex-wrap:wrap;padding:12px 4px 4px;margin-bottom:14px}" +
-    ".ar-tl-node{display:flex;flex-direction:column;align-items:center;min-width:78px;text-align:center}" +
-    ".ar-tl-node .dot{width:14px;height:14px;border-radius:50%;background:#e2e8f0;border:2px solid #cbd5e1}" +
-    ".ar-tl-node.done .dot{background:var(--primary);border-color:var(--primary)}" +
-    ".ar-tl-node.current .dot{box-shadow:0 0 0 4px var(--primary-soft)}" +
-    ".ar-tl-node .tl-label{font-size:12px;color:#475569;margin-top:6px;font-weight:600}" +
+    ".ar-timeline{display:flex;align-items:flex-start;gap:0;flex-wrap:wrap;padding:6px 4px 4px;margin-bottom:14px}" +
+    ".ar-tl-node{display:flex;flex-direction:column;align-items:center;min-width:90px;text-align:center}" +
+    ".ar-tl-node .dot{width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid #cbd5e1;box-sizing:border-box}" +
+    ".ar-tl-node.done .dot{background:#3b5b7d;border-color:#3b5b7d;box-shadow:0 0 0 4px #d7e3f1}" +
+    ".ar-tl-node .tl-label{font-size:12px;color:#475569;margin-top:8px;font-weight:600;white-space:nowrap}" +
     ".ar-tl-node.done .tl-label{color:#1f2937}" +
-    ".ar-tl-node .tl-time{font-size:11px;color:#94a3b8;margin-top:2px}" +
-    ".ar-tl-line{flex:1;height:2px;background:#e2e8f0;margin-top:19px;min-width:24px}" +
+    ".ar-tl-node .tl-time{font-size:11px;color:#94a3b8;margin-top:2px;white-space:nowrap}" +
+    ".ar-tl-line{flex:1;height:1px;background:#e2e7ee;margin-top:20px;min-width:24px}" +
     "#pageContainer .ar-check{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:#334155;cursor:pointer;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:#fff}" +
     "#pageContainer .ar-check input[type=checkbox]{width:16px;height:16px;min-width:16px;flex:0 0 16px;margin:0;padding:0;accent-color:var(--primary);cursor:pointer}" +
     "#pageContainer .ar-check.on{border-color:var(--primary);background:var(--primary-soft)}" +
@@ -237,9 +236,7 @@
   };
   var AR_ROLES = { province_reporter: "省级上报岗", province_reviewer: "省级审核岗" };
   var CHANNELS = [
-    { id: "nccr", label: "国家平台上报（NCCR）" },
-    { id: "gov", label: "省卫健委备案" },
-    { id: "screen", label: "院内可视化大屏" }
+    { id: "nccr", label: "国家平台上报（NCCR）" }
   ];
 /* ===================== 3. 种子数据 ===================== */
   function seedTemplates() {
@@ -292,7 +289,7 @@
   var arState = {
     page: "ar-tasks",
     currentTaskId: (function () { try { return localStorage.getItem(LS.cur) || "AR-2024-0001"; } catch (e) { return "AR-2024-0001"; } })(),
-    stage: 1, chartTab: "pyramid", editChapter: "ch1", role: "province_reporter",
+    stage: 1, chartTab: "pyramid", editChapter: "ch1", role: "province_reporter", taskTab: "tasks",
     filters: { year: "", status: "", keyword: "" },
     tplView: "list", tplEditingId: null, editSectionId: null, tplPreview: null, reportPreview: null,
     agg: { running: false, pct: 0 }, valid: { running: false, pct: 0 }
@@ -370,8 +367,11 @@
     return '<div class="page-toolbar" style="margin-bottom:14px"><div style="font-size:16px;font-weight:700;color:#1f2937;display:flex;align-items:center;gap:8px"><span style="width:4px;height:18px;background:var(--primary);border-radius:2px;display:inline-block"></span>' + title + '</div>' + roleSwitchHtml() + '</div>';
   }
 
+  window.arSwitchTaskTab = function (k) { arState.taskTab = (k === 'subs') ? 'subs' : 'tasks'; renderPage('ar-tasks'); };
+
 /* ===================== 6. 年报任务台账 ===================== */
   function renderTasks() {
+    if (arState.taskTab === 'subs') return renderSubmissions();
     var f = arState.filters;
     var list = tasks.filter(function (t) {
       if (f.year && String(t.year) !== f.year) return false;
@@ -379,14 +379,6 @@
       if (f.keyword) { var kw = String(f.keyword).toLowerCase(); if (t.title.toLowerCase().indexOf(kw) < 0 && t.id.toLowerCase().indexOf(kw) < 0) return false; }
       return true;
     });
-    var statHtml = '<div class="ar-stat-row">' +
-      '<div class="ar-stat primary"><div class="v">' + tasks.length + '</div><div class="l">年报任务总数</div></div>' +
-      '<div class="ar-stat"><div class="v" style="color:#b54708">' + tasks.filter(function (t) { return t.status === 'draft'; }).length + '</div><div class="l">草稿（待编制）</div></div>' +
-      '<div class="ar-stat"><div class="v" style="color:#027a48">' + tasks.filter(function (t) { return t.status === 'submitted' || t.status === 'approved'; }).length + '</div><div class="l">流转中</div></div>' +
-      '<div class="ar-stat"><div class="v">' + tasks.filter(function (t) { return t.status === 'archived'; }).length + '</div><div class="l">已归档</div></div>' +
-      '<div class="ar-stat"><div class="v">' + submissions.length + '</div><div class="l">上报记录</div></div>' +
-      '</div>';
-
     var filterHtml = '<div class="filter-toolbar">' +
       '<div class="form-group"><label>报告年度</label><select onchange="arSetFilter(\'year\',this.value)">' +
       '<option value="">全部年度</option>' + ['2024','2023','2022'].map(function (y) { return '<option value="' + y + '"' + (f.year === y ? ' selected' : '') + '>' + y + '</option>'; }).join('') + '</select></div>' +
@@ -414,8 +406,7 @@
         '<td style="padding:10px 8px;border-bottom:1px solid var(--border)">' + (ops || '<span style="color:#94a3b8;font-size:12px">—</span>') + '</td></tr>';
     }).join('');
 
-    return pageToolbar('年报任务') + statHtml + '<div class="panel" style="margin-bottom:16px"><div class="panel-body">' +
-      '<div style="font-size:13px;color:#475569;margin-bottom:6px">编制台账：草稿随任务持久化保存，可从「继续编制」进入工作台；提交审核后按状态机流转到发布与归档。</div>' +
+    return pageToolbar('年报任务') + '<div class="panel" style="margin-bottom:16px"><div class="panel-body">' +
       filterHtml +
       (list.length === 0 ? '<div style="text-align:center;color:#94a3b8;padding:36px 18px;font-size:13px">暂无符合条件的年报任务</div>' :
         '<div class="table-wrap"><table class="data-table" style="width:100%;min-width:1060px"><thead><tr>' +
@@ -447,16 +438,8 @@
       '<div style="font-size:16px;font-weight:700;color:#1f2937;display:flex;align-items:center;gap:8px"><span style="width:4px;height:18px;background:var(--primary);border-radius:2px;display:inline-block"></span>' + e(t.title) + '</div>' +
       '<div style="display:flex;gap:8px;align-items:center">' + statusBadge(t.status) + badge('neutral', '版本 ' + t.version) + roleSwitchHtml() + '</div></div>';
 
-    var context = '<div class="ar-context">' +
-      '<span class="ar-ctx-chip"><b>任务编号</b> ' + e(t.id) + '</span>' +
-      '<span class="ar-ctx-chip"><b>统计年度</b> ' + e(t.year) + ' 年</span>' +
-      '<span class="ar-ctx-chip"><b>覆盖范围</b> ' + e(scopeLabel(t)) + '</span>' +
-      '<span class="ar-ctx-chip"><b>编制模板</b> ' + e(tplName(t.templateId)) + (t.templateSnapshot ? ' · ' + e(t.templateSnapshot.version || '') : '') + '</span>' +
-      '<span class="ar-ctx-chip"><b>标准人口</b> ' + (t.stdPop === 'cn' ? '中国 2000' : 'Segi 世界') + '</span></div>' +
-      lifecycleTimeline(t);
-
     var stepper = '<div class="entry-step-tabs" style="margin:0 0 18px"><div class="step-tabs-inner">' +
-      ['编制口径','数据汇总','质量校验','指标与图表','报告编制','导出上报'].map(function (label, i) {
+      ['口径与取数','质量校验','指标与图表','报告编制','导出'].map(function (label, i) {
         var n = i + 1; var cls = 'step-btn'; if (n === arState.stage) cls += ' active'; else if (n < arState.stage) cls += ' done';
         return '<button class="' + cls + '" onclick="arGoStage(' + n + ')"><span class="step-index">' + (n < arState.stage ? '✓' : n) + '</span><span>' + label + '</span></button>';
       }).join('') + '</div></div>';
@@ -466,19 +449,18 @@
     else if (arState.stage === 2) stageHtml = renderStage2(t);
     else if (arState.stage === 3) stageHtml = renderStage3(t);
     else if (arState.stage === 4) stageHtml = renderStage4(t);
-    else if (arState.stage === 5) stageHtml = renderStage5(t);
-    else stageHtml = renderStage6(t);
+    else stageHtml = renderStage5(t);
 
     var footer = '<div class="form-actions" style="position:static;border-top:1px solid var(--border);padding-top:14px;margin-top:4px;display:flex;gap:8px;flex-wrap:wrap">' +
       (arState.stage > 1 ? '<button class="btn btn-ghost" onclick="arGoStage(' + (arState.stage - 1) + ')">上一步</button>' : '') +
-      (arState.stage < 6 ? '<button class="btn btn-primary" onclick="arGoStage(' + (arState.stage + 1) + ')">下一步</button>' : '') +
+      (arState.stage < 5 ? '<button class="btn btn-primary" onclick="arGoStage(' + (arState.stage + 1) + ')">下一步</button>' : '') +
       '<button class="btn btn-ghost" onclick="arSaveDraft()">保存草稿</button>' + workbenchActions(t) + '</div>';
 
     var preview = '';
     if (arState.reportPreview) {
       preview = '<div class="panel" style="margin-bottom:16px;border-color:var(--primary)"><div class="panel-header">报告全文预览（Word 版式）<div class="toolbar-actions"><button class="btn btn-ghost btn-sm" onclick="arCloseReport()">关闭预览</button></div></div><div class="panel-body" style="background:#eef1f5"><div class="ar-doc-scroll" style="max-height:640px;display:flex;flex-direction:column;gap:18px">' + arState.reportPreview + '</div></div></div>';
     }
-    return header + context + stepper + preview + stageHtml + footer;
+    return header + stepper + preview + stageHtml + footer;
   }
 
   function enabledTplCards() {
@@ -505,8 +487,8 @@
         return '<label class="ar-check' + (on ? ' on' : '') + '" style="padding:7px 10px;font-size:12px"><input type="checkbox" ' + (on ? 'checked' : '') + ' onchange="arToggleCity(\'' + r.id + '\',this.checked)"><span>' + e(r.name) + '</span></label>';
       }).join('') + '</div></div>' : '';
 
-    return '<div class="panel" style="margin-bottom:16px"><div class="panel-body">' +
-      '<div style="font-size:13px;color:#475569;margin-bottom:14px"><span style="color:var(--primary);font-weight:700">第 1 步 · 编制口径</span>　确定年报模板与统计口径（含覆盖范围、标准人口、癌种），保存后随任务持久化。</div>' +
+    var html = '<div class="panel" style="margin-bottom:16px"><div class="panel-body">' +
+      '<div style="font-size:13px;color:#475569;margin-bottom:14px"><span style="color:var(--primary);font-weight:700">第 1 步 · 口径与取数</span>　选模板、定口径，再点「开始跨库汇总」取数；结果保存到任务快照。</div>' +
       '<div class="panel-header" style="padding:0 0 10px">报告模板</div>' +
       '<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-bottom:18px">' + cards + '</div>' +
       '<div class="panel-header" style="padding:0 0 10px">统计口径</div>' +
@@ -522,9 +504,13 @@
       cityPicker + '</div>' +
       '<div style="margin-top:14px;padding:11px 13px;background:#f8fafc;border:1px solid var(--border);border-radius:6px;font-size:12px;color:#64748b;line-height:1.7">模板章节结构可在「模板管理」中配置；质控指标分母统一为发病数。</div>' +
       '</div></div>';
+
+    html += renderAggregateSection(t);
+    return html;
   }
 
-  function renderStage2(t) {
+  /* 口径定好后执行的跨库取数（原第 2 步数据汇总，去掉了重复的只读范围框） */
+  function renderAggregateSection(t) {
     var agg = t.agg || { done: false, result: null };
     var cityRows = REGIONS.filter(function (r) { return r.level === 'city'; }).map(function (r) {
       return '<tr><td style="padding:9px 8px;border-bottom:1px solid var(--border);font-size:13px;color:#1f2937">' + r.name + '</td>' +
@@ -536,14 +522,8 @@
         '<td style="padding:9px 8px;border-bottom:1px solid var(--border)">' + badge('success', '完整') + '</td></tr>';
     }).join('');
 
-    var body = '<div class="panel" style="margin-bottom:16px"><div class="panel-header">汇总配置与取数</div><div class="panel-body">' +
-      '<div style="font-size:13px;color:#475569;margin-bottom:14px"><span style="color:var(--primary);font-weight:700">第 2 步 · 数据汇总</span>　跨库取数、合并去重、多原发识别与省市县分层抽取，结果保存到任务快照。</div>' +
-      '<div class="form-grid">' +
-      '<div class="form-group"><label>报告年度</label><input value="' + e(t.year) + ' 年" readonly></div>' +
-      '<div class="form-group"><label>统计区域</label><input value="' + e(scopeLabel(t)) + '" readonly></div>' +
-      '<div class="form-group"><label>癌种范围</label><input value="' + e(t.cancer) + '" readonly></div>' +
-      '<div class="form-group"><label>标准人口</label><input value="' + e(STD_POP[t.stdPop].label) + '" readonly></div></div>' +
-      '<div style="margin-top:16px;display:flex;gap:8px;align-items:center">' +
+    var body = '<div class="panel" style="margin-bottom:16px"><div class="panel-header">数据汇总取数</div><div class="panel-body">' +
+      '<div style="margin-top:0;display:flex;gap:8px;align-items:center">' +
       '<button class="btn btn-primary" onclick="arRunAggregate()">' + (arState.agg.running ? '汇总进行中...' : (agg.done ? '重新汇总' : '开始跨库汇总')) + '</button>' +
       '<span style="font-size:12px;color:#667085">数据源：报告卡主档 + 死因库 + 随访库 + 人口库</span></div>' +
       (arState.agg.running || agg.done ? '<div style="margin-top:14px"><div style="display:flex;justify-content:space-between;font-size:12px;color:#64748b;margin-bottom:6px"><span>' + (arState.agg.running ? '正在跨库汇总...' : '汇总完成') + '</span><span>' + Math.round(arState.agg.pct) + '%</span></div><div class="progress-track" style="margin-top:0;height:8px"><div class="progress-bar" style="height:100%;width:' + arState.agg.pct + '%"></div></div></div>' : '') +
@@ -569,8 +549,8 @@
     return body;
   }
 
-/* ===================== 8. 阶段3 · 质量校验 ===================== */
-  function renderStage3(t) {
+/* ===================== 8. 阶段2 · 质量校验 ===================== */
+  function renderStage2(t) {
     var v = t.valid || { done: false, result: null };
     var rules = VALIDATE_RULES.slice();
     var qcPass = QC_PROV.mv >= QC_THRESH.mvMin && QC_PROV.mv <= QC_THRESH.mvMax && QC_PROV.dco <= QC_THRESH.dco && QC_PROV.mi >= QC_THRESH.miLow && QC_PROV.mi <= QC_THRESH.miHigh && QC_PROV.ou <= QC_THRESH.ou && QC_PROV.ub <= QC_THRESH.ub;
@@ -606,7 +586,7 @@
     }).join('') : (v.done ? '<tr><td colspan="6" style="padding:20px;text-align:center;color:#059669">✓ 数据校验通过，无水印错误项</td></tr>' : '<tr><td colspan="6" style="padding:20px;text-align:center;color:#94a3b8">点击「开始智能校验」后展示问题清单</td></tr>');
 
     return '<div class="panel" style="margin-bottom:16px"><div class="panel-header">数据质量校验<div class="toolbar-actions"><button class="btn btn-outline btn-sm" onclick="arRunValidate()">' + (arState.valid.running ? '校验中...' : (v.done ? '重新校验' : '开始智能校验')) + '</button></div></div><div class="panel-body">' +
-      '<div style="font-size:13px;color:#475569;margin-bottom:14px"><span style="color:var(--primary);font-weight:700">第 3 步 · 质量校验</span>　对标国家登记质量考核，校验结果写入任务快照。</div>' +
+      '<div style="font-size:13px;color:#475569;margin-bottom:14px"><span style="color:var(--primary);font-weight:700">第 2 步 · 质量校验</span>　对标国家登记质量考核，校验结果写入任务快照。</div>' +
       (arState.valid.running ? '<div style="margin:10px 0 16px"><div style="display:flex;justify-content:space-between;font-size:12px;color:#64748b;margin-bottom:6px"><span>正在执行 8 条校验规则...</span><span>' + Math.round(arState.valid.pct) + '%</span></div><div class="progress-track" style="margin-top:0;height:8px"><div class="progress-bar" style="height:100%;width:' + arState.valid.pct + '%"></div></div></div>' :
         (v.done && v.result ? '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 16px">' + badge('success', '通过 ' + v.result.ok) + badge('warning', '警告 ' + v.result.warn) + badge('danger', '错误 ' + v.result.bad) + '<span style="font-size:12px;color:#64748b;align-self:center">存在错误项建议整改后再提交审核。</span></div>' : '')) +
       '<div class="ar-qc-grid" style="margin-bottom:14px">' +
@@ -665,7 +645,7 @@
     return '<div class="analysis-chart-panel"><h4>主要癌种五年相对生存率</h4><div class="viz-hbar">' + rows + '</div></div>';
   }
 
-  function renderStage4(t) {
+  function renderStage3(t) {
     var incCards = '<div class="ar-metric-grid" style="margin-bottom:10px">' + metric('新发病例', fmt(AGG_RESULT.valid), '全省合计') + metric('粗发病率', f1(173.3), '/10 万') + metric('中标发病率', f1(119.4), '/10 万 · 中国 2000') + metric('世标发病率', f1(158.1), '/10 万 · Segi') + metric('累积发病率 0-74', f1(22.4), '%') + '</div>';
     var deathCards = '<div class="ar-metric-grid" style="margin-bottom:14px">' + metric('死亡例数', fmt(AGG_RESULT.death), '全省合计', true) + metric('粗死亡率', f1(102.2), '/10 万', true) + metric('中标死亡率', f1(67.8), '/10 万 · 中国 2000', true) + metric('世标死亡率', f1(93.6), '/10 万 · Segi', true) + metric('累积死亡率 0-74', f1(13.3), '%', true) + '</div>';
     var tabs = [ { id: 'pyramid', label: '年龄-性别金字塔' }, { id: 'rank', label: '癌种顺位' }, { id: 'region', label: '地区分布' }, { id: 'trend', label: '时间趋势' }, { id: 'survival', label: '生存情况' } ];
@@ -680,7 +660,7 @@
     else if (arState.chartTab === 'trend') chart = chartTrend();
     else chart = chartSurvival();
     return '<div class="panel" style="margin-bottom:16px"><div class="panel-body">' +
-      '<div style="font-size:13px;color:#475569;margin-bottom:14px"><span style="color:var(--primary);font-weight:700">第 4 步 · 指标与图表</span>　按省级统一口径计算标化率并生成标准可视化。</div>' +
+      '<div style="font-size:13px;color:#475569;margin-bottom:14px"><span style="color:var(--primary);font-weight:700">第 3 步 · 指标与图表</span>　按省级统一口径计算标化率并生成标准可视化。</div>' +
       '<div class="panel-header" style="padding:0 0 10px">核心负担指标</div>' + incCards + deathCards + tabHtml + chart + '</div></div>';
   }
 
@@ -760,7 +740,7 @@
       '<button class="ar-tb-btn" onclick="arDocCmd(\'redo\')" title="重做">↷</button>' +
       '</div>';
   }
-  function renderStage5(t) {
+  function renderStage4(t) {
     var chapterList = activeTemplateChapters(t);
     var idx = 0;
     for (var ci = 0; ci < chapterList.length; ci++) if (chapterList[ci].id === arState.editChapter) { idx = ci; break; }
@@ -804,7 +784,7 @@
     }).join('') || '<div style="color:#94a3b8;font-size:12px">暂无校订记录</div>';
 
     return '<div class="panel" style="margin-bottom:16px"><div class="panel-body">' +
-      '<div style="font-size:13px;color:#475569;margin-bottom:12px"><span style="color:var(--primary);font-weight:700">第 5 步 · 报告编制</span>　左侧为报告目录，右侧为所见即所得正文编辑器，支持格式、表格与图表插入；保存后写入校订记录。</div>' +
+      '<div style="font-size:13px;color:#475569;margin-bottom:12px"><span style="color:var(--primary);font-weight:700">第 4 步 · 报告编制</span>　左侧为报告目录，右侧为所见即所得正文编辑器，支持格式、表格与图表插入；保存后写入校订记录。</div>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">' +
       '<button class="btn btn-primary btn-sm" onclick="arSaveChapter()"' + (readonly ? ' disabled' : '') + '>保存本章</button>' +
       '<button class="btn btn-outline btn-sm" onclick="arGenerateChapter()"' + (t.agg && t.agg.done && !readonly ? '' : ' disabled') + '>按数据生成本章</button>' +
@@ -819,8 +799,8 @@
       '</div></div>';
   }
 
-  /* ===================== 11. 阶段6 · 导出上报 ===================== */
-  function renderStage6(t) {
+  /* ===================== 11. 阶段5 · 导出 ===================== */
+  function renderStage5(t) {
     var cfg = t.exportCfg || { format: 'pdf', ci5: true, channels: ['nccr'] };
     var formats = [ { id: 'pdf', label: 'PDF', desc: '标准排版，适合归档 / 上报' }, { id: 'word', label: 'Word', desc: '可编辑报告正文' }, { id: 'excel', label: 'Excel', desc: '统计附表 + 图表' } ];
     var formatHtml = '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">' + formats.map(function (fm) {
@@ -833,6 +813,10 @@
       return '<label class="ar-check' + (sel ? ' on' : '') + '">' +
         '<input type="checkbox" ' + (sel ? 'checked' : '') + ' onchange="arToggleChannel(\'' + c.id + '\',this.checked)"><span>' + e(c.label) + '</span></label>';
     }).join('') + '</div>';
+    var otherHtml = '<div class="ar-check-grid">' +
+      '<label class="ar-check' + (cfg.govFiling ? ' on' : '') + '"><input type="checkbox" ' + (cfg.govFiling ? 'checked' : '') + ' onchange="arToggleGovFiling(this.checked)"><span>省卫健委备案</span></label>' +
+      '<label class="ar-check' + (cfg.bigScreen ? ' on' : '') + '"><input type="checkbox" ' + (cfg.bigScreen ? 'checked' : '') + ' onchange="arToggleBigScreen(this.checked)"><span>同步院内可视化大屏</span></label>' +
+      '</div>';
 
     var subRows = submissions.filter(function (s) { return s.taskId === t.id; }).map(function (s) {
       return '<tr><td style="padding:9px 8px;border-bottom:1px solid var(--border);font-size:12px;color:#334155">' + s.id + '</td>' +
@@ -843,12 +827,13 @@
         '<td style="padding:9px 8px;border-bottom:1px solid var(--border);font-size:12px;color:#64748b">' + s.sentAt + '</td></tr>';
     }).join('');
 
-    return '<div class="panel" style="margin-bottom:16px"><div class="panel-header">导出与上报配置</div><div class="panel-body">' +
-      '<div style="font-size:13px;color:#475569;margin-bottom:14px"><span style="color:var(--primary);font-weight:700">第 6 步 · 导出上报</span>　导出配置随任务保存；「发布」生成上报记录，「归档」落入归档库。</div>' +
+    return '<div class="panel" style="margin-bottom:16px"><div class="panel-header">导出配置</div><div class="panel-body">' +
+      '<div style="font-size:13px;color:#475569;margin-bottom:14px"><span style="color:var(--primary);font-weight:700">第 5 步 · 导出</span>　只配导出格式与去向，配置随任务保存；真正的「发布 → 归档」走下方按钮，不必走完本步。</div>' +
       '<div class="form-grid">' +
       '<div class="form-group full"><label>输出格式</label>' + formatHtml + '</div>' +
       '<div class="form-group full"><label>CI5 / IARC 数据包</label><div class="ar-check-grid"><label class="ar-check' + (cfg.ci5 ? ' on' : '') + '"><input type="checkbox" ' + (cfg.ci5 ? 'checked' : '') + ' onchange="arToggleCi5(this.checked)"><span>同时导出 CI5/IARC 适配数据包</span></label></div></div>' +
-      '<div class="form-group full"><label>发布 / 上报渠道</label>' + channelHtml + '</div></div>' +
+      '<div class="form-group full"><label>上报渠道</label>' + channelHtml + '</div>' +
+      '<div class="form-group full"><label>其他去向（非上报）</label>' + otherHtml + '</div></div>' +
       '<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">' +
       '<button class="btn btn-primary" onclick="arSaveCfg()">保存配置</button><button class="btn btn-outline" onclick="arViewReport()">预览报告全文</button><button class="btn btn-ghost" onclick="arPreview()">预览图表</button></div></div></div>' +
       '<div class="panel" style="margin-bottom:16px"><div class="panel-header">本任务上报记录</div><div class="panel-body" style="padding-top:8px">' +
@@ -1218,8 +1203,7 @@
         '<td style="padding:10px 8px;border-bottom:1px solid var(--border)">' + ops + '</td></tr>';
     }).join('');
     return pageToolbar('模板管理') + '<div class="panel" style="margin-bottom:16px"><div class="panel-body">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">' +
-      '<div style="font-size:13px;color:#475569">模板决定年报章节结构、统计口径与图表维度；默认模板在新任务中优先引用。</div>' +
+      '<div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:14px">' +
       (arCan('tpl-edit') ? '<button class="btn btn-primary" onclick="arNewTemplate()">新增模板</button>' : '') + '</div>' +
       '<div class="table-wrap"><table class="data-table" style="width:100%;min-width:1080px"><thead><tr>' +
       '<th style="text-align:left">模板名称</th><th style="text-align:left">类型</th><th style="text-align:left">周期 / 范围</th><th style="text-align:right">章节数</th><th style="text-align:left">状态</th><th style="text-align:left">版本</th><th style="text-align:left">更新时间 / 人</th><th style="text-align:left">操作</th>' +
@@ -1288,8 +1272,7 @@
         '<td style="padding:10px 8px;border-bottom:1px solid var(--border);font-size:12px;color:#64748b">' + s.sentAt + '</td>' +
         '<td style="padding:10px 8px;border-bottom:1px solid var(--border)">' + ops + '</td></tr>';
     }).join('');
-    return pageToolbar('上报记录') + statHtml + '<div class="panel" style="margin-bottom:16px"><div class="panel-body">' +
-      '<div style="font-size:13px;color:#475569;margin-bottom:6px">发布年报时自动生成上报记录，按「待投递 → 已投递待回执 → 已回执归档」流转，未通过可退回并重新投递。</div>' +
+    return pageToolbar('年报任务') + statHtml + '<div class="panel" style="margin-bottom:16px"><div class="panel-body">' +
       (rows ? '<div class="table-wrap"><table class="data-table" style="width:100%;min-width:1160px"><thead><tr><th style="text-align:left">上报编号</th><th style="text-align:left">年度</th><th style="text-align:left">年报 / 来源</th><th style="text-align:left">渠道</th><th style="text-align:right">数据包</th><th style="text-align:left">状态</th><th style="text-align:left">回执号</th><th style="text-align:left">上报时间</th><th style="text-align:left">操作</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div style="text-align:center;color:#94a3b8;padding:30px;font-size:13px">暂无上报记录</div>') +
       '</div></div>';
   }
@@ -1315,7 +1298,6 @@
       '<div class="ar-stat"><div class="v">PDF</div><div class="l">归档格式</div></div>' +
       '</div>';
     return pageToolbar('归档记录') + statHtml + '<div class="panel" style="margin-bottom:16px"><div class="panel-body">' +
-      '<div style="font-size:13px;color:#475569;margin-bottom:6px">归档文件落入报表文件库，可在线预览、下载与删除；每条归档可追溯来源任务与版本。</div>' +
       (rows ? '<div class="table-wrap"><table class="data-table" style="width:100%;min-width:1040px"><thead><tr>' +
       '<th style="text-align:left">文件名 / 来源任务</th><th style="text-align:left">年度 / 版本</th><th style="text-align:right">页数</th><th style="text-align:left">大小</th><th style="text-align:left">状态</th><th style="text-align:left">归档时间 / 人</th><th style="text-align:left">操作</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div style="text-align:center;color:#94a3b8;padding:44px;font-size:13px">暂无归档记录</div>') +
@@ -1360,7 +1342,7 @@
     tasks.unshift(task);
     arState.currentTaskId = id; arState.stage = 1;
     persist(); goPage('ar-workbench');
-    toast('已新建草稿 ' + id + '，请在编制口径中调整年度与模板');
+    toast('已新建草稿 ' + id + '，请在口径与取数中调整年度与模板');
   };
   function pad4(n) { var s = String(n); while (s.length < 4) s = '0' + s; return s; }
 
@@ -1378,8 +1360,8 @@
   };
   window.arSubmit = function () {
     var t = curTask(); if (!t) return;
-    if (!t.agg || !t.agg.done) { toast('请先完成第 2 步数据汇总', 'error'); return; }
-    if (!t.valid || !t.valid.done) { toast('请先完成第 3 步质量校验', 'error'); return; }
+    if (!t.agg || !t.agg.done) { toast('请先完成口径与取数（跨库汇总）', 'error'); return; }
+    if (!t.valid || !t.valid.done) { toast('请先完成质量校验', 'error'); return; }
     if (t.valid.result && t.valid.result.bad > 0) { toast('存在错误项，请整改后再提交', 'error'); return; }
     t.status = 'submitted'; t.submittedAt = nowStr(); t.updatedAt = nowStr();
     persist(); renderPage('ar-workbench'); toast('已提交审核，等待省级审核岗处理');
@@ -1403,7 +1385,8 @@
     if (t.status !== 'approved') { toast('仅审核通过（待发布）状态可发布', 'error'); return; }
     t.status = 'published'; t.publishedAt = nowStr(); t.updatedAt = nowStr();
     var cfg = t.exportCfg || { format: 'pdf', ci5: true, channels: ['nccr'] };
-    var chLabels = (cfg.channels || ['nccr']).map(function (c) { for (var i = 0; i < CHANNELS.length; i++) if (CHANNELS[i].id === c) return CHANNELS[i].label; return c; }).join('、');
+    var selCh = (cfg.channels && cfg.channels.length) ? cfg.channels : ['nccr'];
+    var chLabels = selCh.map(function (c) { for (var i = 0; i < CHANNELS.length; i++) if (CHANNELS[i].id === c) return CHANNELS[i].label; return c; }).join('、');
     var seq = 0; submissions.forEach(function (s) { if (String(s.year) === String(t.year)) { var n = parseInt(s.id.slice(s.id.lastIndexOf('-') + 1), 10); if (!isNaN(n) && n > seq) seq = n; } });
     submissions.unshift({ id: 'SB-' + t.year + '-' + pad4(seq + 1), taskId: t.id, year: t.year, title: t.title, channel: 'nccr', channelLabel: chLabels, ci5: cfg.ci5, format: cfg.format, status: '待投递', receiptNo: '', sentAt: nowStr(), remark: '待投递至上报渠道' });
     persist(); renderPage('ar-workbench'); toast('已发布并生成上报记录');
@@ -1595,7 +1578,9 @@
     touch(t); renderPage('ar-workbench');
   };
   window.arToggleCi5 = function (on) { var t = curTask(); if (!t) return; t.exportCfg = t.exportCfg || {}; t.exportCfg.ci5 = on; touch(t); renderPage('ar-workbench'); };
-  window.arPreview = function () { goPage('ar-workbench'); arState.stage = 4; arState.chartTab = 'pyramid'; renderPage('ar-workbench'); };
+  window.arToggleGovFiling = function (on) { var t = curTask(); if (!t) return; t.exportCfg = t.exportCfg || {}; t.exportCfg.govFiling = on; touch(t); renderPage('ar-workbench'); };
+  window.arToggleBigScreen = function (on) { var t = curTask(); if (!t) return; t.exportCfg = t.exportCfg || {}; t.exportCfg.bigScreen = on; touch(t); renderPage('ar-workbench'); };
+  window.arPreview = function () { goPage('ar-workbench'); arState.stage = 3; arState.chartTab = 'pyramid'; renderPage('ar-workbench'); };
 
   /* 任务口径 */
   window.arSetTaskYear = function (v) { var t = curTask(); if (!t) return; t.year = v; touch(t); renderPage('ar-workbench'); };
@@ -1819,20 +1804,20 @@
     var s = subById(id); if (!s) return;
     if (s.status !== '待投递' && s.status.indexOf('退') < 0 && s.status.indexOf('未过') < 0) { toast('当前状态不可投递', 'error'); return; }
     s.status = '已投递'; s.sentAt = nowStr(); s.remark = '已通过 ' + s.channelLabel + ' 投递，等待回执';
-    persist(); renderPage('ar-submissions'); toast('已投递至 ' + s.channelLabel + '，等待回执');
+    persist(); renderPage('ar-tasks'); toast('已投递至 ' + s.channelLabel + '，等待回执');
   };
   window.arSubConfirm = function (id) {
     var s = subById(id); if (!s) return;
     if (s.status !== '已投递' && s.status !== '待回执') { toast('仅已投递记录可确认回执', 'error'); return; }
     s.status = '已回执归档'; s.receiptNo = s.receiptNo || ('NCCR-R-' + s.year + '-' + pad4(Math.floor(Math.random() * 9000) + 1000)); s.remark = '回执已确认并归档';
-    persist(); renderPage('ar-submissions'); toast('回执已确认：' + s.receiptNo);
+    persist(); renderPage('ar-tasks'); toast('回执已确认：' + s.receiptNo);
   };
   window.arSubReject = function (id) {
     var s = subById(id); if (!s) return;
     if (s.status !== '已投递' && s.status !== '待回执') { toast('仅已投递记录可标记退回', 'error'); return; }
     showConfirm('标记退回', '确认「' + s.id + '」被上报渠道退回吗？可整改后重新投递。', function () {
       s.status = '已退回'; s.remark = '上报渠道退回，待整改后重新投递';
-      persist(); renderPage('ar-submissions'); toast('已标记退回，可重新投递');
+      persist(); renderPage('ar-tasks'); toast('已标记退回，可重新投递');
     });
   };
   window.arSubReceipt = function (id) {
@@ -1870,7 +1855,6 @@
     { id: 'ar-tasks', label: '年报任务' },
     { id: 'ar-workbench', label: '编制工作台' },
     { id: 'ar-templates', label: '模板管理' },
-    { id: 'ar-submissions', label: '上报记录' },
     { id: 'ar-archives', label: '归档记录' }
   ];
   var OWNED_IDS = ['annual-report', 'ar-tasks', 'ar-workbench', 'ar-templates', 'ar-submissions', 'ar-archives'];
@@ -1915,9 +1899,10 @@
       var isOwn = OWNED_IDS.indexOf(id) >= 0 || isStep;
       if (!isOwn) { if (arBaseNavigate) return arBaseNavigate(id); return; }
       var target = id;
-      if (id === 'annual-report') target = 'ar-tasks';
-      else if (isStep) { arState.page = 'ar-workbench'; var n = parseInt(String(id).replace(/[^0-9]/g, ''), 10) || 1; arState.stage = Math.max(1, Math.min(6, n)); }
-      else arState.page = target;
+      if (id === 'annual-report') { target = 'ar-tasks'; arState.taskTab = 'tasks'; }
+      else if (id === 'ar-submissions') { target = 'ar-tasks'; arState.taskTab = 'subs'; arState.page = 'ar-tasks'; }
+      else if (isStep) { arState.page = 'ar-workbench'; var n = parseInt(String(id).replace(/[^0-9]/g, ''), 10) || 1; arState.stage = Math.max(1, Math.min(5, n)); }
+      else { if (target === 'ar-tasks') arState.taskTab = 'tasks'; arState.page = target; }
       if (window.location) { try { window.location.hash = '#/' + target; } catch (e) {} }
       if (arBaseNavigate) arBaseNavigate(target);
     };
@@ -1930,8 +1915,10 @@
       var isStep = STEP_IDS.indexOf(id) >= 0;
       var isOwn = OWNED_IDS.indexOf(id) >= 0 || isStep;
       if (!isOwn) { if (arBaseRender) return arBaseRender(id); return; }
-      var target = (id === 'annual-report') ? 'ar-tasks' : id;
-      if (isStep) { arState.page = 'ar-workbench'; var n = parseInt(String(id).replace(/[^0-9]/g, ''), 10) || 1; arState.stage = Math.max(1, Math.min(6, n)); }
+      var target = id;
+      if (id === 'annual-report' || id === 'ar-submissions') target = 'ar-tasks';
+      if (id === 'ar-submissions') arState.taskTab = 'subs';
+      if (isStep) { arState.page = 'ar-workbench'; var n = parseInt(String(id).replace(/[^0-9]/g, ''), 10) || 1; arState.stage = Math.max(1, Math.min(5, n)); }
       else arState.page = target;
       if (arState.page === 'ar-workbench' && !curTask() && tasks.length) arState.currentTaskId = tasks[0].id;;
       var container = document.getElementById('pageContainer');

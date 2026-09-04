@@ -50,6 +50,30 @@ spStyle.textContent = `
 .sp-risk-title{font-size:var(--fs-sm);font-weight:600;color:var(--color-text-title);margin-bottom:4px}
 .sp-risk-level{font-size:var(--fs-xs);font-weight:600}
 .sp-chart-placeholder{height:220px;background:var(--color-bg-subtle);border:1px dashed var(--color-border);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;color:var(--color-text-muted);font-size:var(--fs-sm);margin-bottom:16px}
+.sp-chart-body{display:flex;align-items:center;gap:20px;min-height:220px;padding:6px 2px}
+.sp-pie{position:relative;width:160px;height:160px;flex:0 0 160px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(15,23,42,.06)}
+.sp-pie-center{position:absolute;inset:34%;background:var(--surface);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--font-num);font-weight:700;font-size:var(--fs-body);color:var(--color-text-title);box-shadow:inset 0 0 0 1px rgba(15,23,42,.05)}
+.sp-pie-center small{font-size:var(--fs-xs);font-weight:500;color:var(--color-text-muted)}
+.sp-legend{display:flex;flex-direction:column;gap:9px;font-size:var(--fs-sm);flex:1;min-width:0}
+.sp-legend-item{display:flex;align-items:center;gap:8px;color:var(--color-text-body)}
+.sp-legend-dot{width:10px;height:10px;border-radius:3px;flex:0 0 10px}
+.sp-legend-val{margin-left:auto;font-family:var(--font-num);font-weight:700;color:var(--color-text-title)}
+.sp-legend-pct{font-size:var(--fs-xs);color:var(--color-text-muted);width:42px;text-align:right;font-family:var(--font-num)}
+.sp-vbars{display:flex;align-items:flex-end;gap:20px;height:220px;padding:14px 8px 0;flex:1}
+.sp-vbar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0}
+.sp-vbar-num{font-size:var(--fs-xs);font-weight:700;color:var(--color-text-title);margin-bottom:5px;font-family:var(--font-num)}
+.sp-vbar-fill{width:100%;max-width:48px;border-radius:6px 6px 0 0;background:linear-gradient(180deg,#60a5fa,#2563eb)}
+.sp-vbar-lab{font-size:var(--fs-xs);color:var(--color-text-muted);margin-top:8px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp-stack-wrap{flex:1;display:flex;flex-direction:column;gap:16px;min-width:0;padding:6px 2px}
+.sp-stack-bar{display:flex;height:32px;border-radius:8px;overflow:hidden;background:var(--color-bg-subtle)}
+.sp-stack-seg{display:flex;align-items:center;justify-content:center;color:#fff;font-size:var(--fs-xs);font-weight:700;font-family:var(--font-num);min-width:0}
+.sp-hbars{flex:1;display:flex;flex-direction:column;gap:13px;min-width:0;padding:10px 2px}
+.sp-hbar-row{display:flex;align-items:center;gap:10px}
+.sp-hbar-lab{width:58px;flex:0 0 58px;text-align:right;font-size:var(--fs-sm);color:var(--color-text-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp-hbar-track{flex:1;height:16px;background:var(--color-bg-subtle);border-radius:8px;overflow:hidden}
+.sp-hbar-fill{height:100%;border-radius:8px;background:linear-gradient(90deg,#2563eb,#60a5fa)}
+.sp-hbar-num{width:26px;flex:0 0 26px;font-size:var(--fs-sm);font-weight:700;color:var(--color-text-title);font-family:var(--font-num)}
+.sp-chart-empty{height:220px;display:flex;align-items:center;justify-content:center;color:var(--color-text-muted);font-size:var(--fs-sm)}
 @media(max-width:1200px){.sp-stat-row,.sp-qc-summary{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:768px){.sp-stat-row,.sp-qc-summary{grid-template-columns:1fr}.sp-filter-bar{flex-direction:column}.sp-filter-bar .form-group,.sp-filter-bar .form-group.wide{width:100%}.sp-filter-actions{margin-left:0;width:100%}}
 `;
@@ -141,6 +165,58 @@ function renderQC(){
   return catTabs+table;
 }
 
+/* ===================== 图表绘制（纯 CSS，无图表库） ===================== */
+var SP_COLORS=['#2563eb','#0ea5e9','#10b981','#f59e0b','#8b5cf6','#ef4444','#14b8a6','#f97316'];
+function spEmpty(){return '<div class="sp-chart-empty">暂无数据</div>';}
+/* 环形饼图 + 图例 */
+function spPieChart(dist){
+  var keys=Object.keys(dist).filter(function(k){return dist[k]>0});
+  var total=keys.reduce(function(s,k){return s+dist[k]},0);
+  if(!total) return spEmpty();
+  var acc=0,stops=[];
+  keys.forEach(function(k,i){
+    var c=SP_COLORS[i%SP_COLORS.length];
+    var from=acc/total*360; acc+=dist[k]; var to=acc/total*360;
+    stops.push(c+' '+from.toFixed(2)+'deg '+to.toFixed(2)+'deg');
+  });
+  var legend=keys.map(function(k,i){
+    var c=SP_COLORS[i%SP_COLORS.length];
+    return '<div class="sp-legend-item"><span class="sp-legend-dot" style="background:'+c+'"></span><span>'+esc(k)+'</span><span class="sp-legend-val">'+dist[k]+'</span><span class="sp-legend-pct">'+(dist[k]/total*100).toFixed(0)+'%</span></div>';
+  }).join('');
+  return '<div class="sp-chart-body"><div class="sp-pie" style="background:conic-gradient('+stops.join(',')+')"><div class="sp-pie-center">'+total+'<small>例</small></div></div><div class="sp-legend">'+legend+'</div></div>';
+}
+/* 纵向柱状图 */
+function spVBarChart(dist){
+  var keys=Object.keys(dist).filter(function(k){return dist[k]>0});
+  if(!keys.length) return spEmpty();
+  var max=Math.max.apply(null,keys.map(function(k){return dist[k]}));
+  return '<div class="sp-vbars">'+keys.map(function(k){
+    return '<div class="sp-vbar"><div class="sp-vbar-num">'+dist[k]+'</div><div class="sp-vbar-fill" style="height:'+Math.max(6,Math.round(dist[k]/max*100))+'%"></div><div class="sp-vbar-lab" title="'+esc(k)+'">'+esc(k)+'</div></div>';
+  }).join('')+'</div>';
+}
+/* 100% 堆叠条 + 图例（items: [{label,value,color}]） */
+function spStackedChart(items){
+  var total=items.reduce(function(s,x){return s+x.value},0);
+  if(!total) return spEmpty();
+  var segs=items.filter(function(x){return x.value>0}).map(function(x){
+    var pct=x.value/total*100;
+    return '<div class="sp-stack-seg" style="width:'+pct.toFixed(2)+'%;background:'+x.color+'" title="'+esc(x.label)+'：'+x.value+' 例">'+(pct>=9?x.value:'')+'</div>';
+  }).join('');
+  var legend=items.map(function(x){
+    return '<div class="sp-legend-item"><span class="sp-legend-dot" style="background:'+x.color+'"></span><span>'+esc(x.label)+'</span><span class="sp-legend-val">'+x.value+'</span><span class="sp-legend-pct">'+(x.value/total*100).toFixed(0)+'%</span></div>';
+  }).join('');
+  return '<div class="sp-stack-wrap"><div class="sp-stack-bar">'+segs+'</div><div class="sp-legend">'+legend+'</div></div>';
+}
+/* 横向柱状图 */
+function spHBarChart(dist){
+  var keys=Object.keys(dist).filter(function(k){return dist[k]>0});
+  if(!keys.length) return spEmpty();
+  var max=Math.max.apply(null,keys.map(function(k){return dist[k]}));
+  return '<div class="sp-hbars">'+keys.map(function(k){
+    return '<div class="sp-hbar-row"><div class="sp-hbar-lab" title="'+esc(k)+'">'+esc(k)+'</div><div class="sp-hbar-track"><div class="sp-hbar-fill" style="width:'+Math.max(4,Math.round(dist[k]/max*100))+'%"></div></div><div class="sp-hbar-num">'+dist[k]+'</div></div>';
+  }).join('')+'</div>';
+}
+
 /* ===================== 子页面：画像统计（肿瘤个案专业指标） ===================== */
 function renderStats(){
   // 计算肿瘤个案维度指标
@@ -150,7 +226,8 @@ function renderStats(){
   var riskTypeCount={};
   tumorEvents.forEach(function(e){
     stageDist[e.stage]=(stageDist[e.stage]||0)+1;
-    var pathType=e.diagnosis.replace(/.*(癌|瘤|病)/,'$1')||'其他';
+    var pm=e.diagnosis.match(/(鳞状细胞癌|腺鳞癌|导管癌|腺癌|鳞癌|细胞癌|母细胞瘤|肉瘤|淋巴瘤|癌|瘤|病)$/);
+    var pathType=pm?pm[1]:'其他';
     pathologyDist[pathType]=(pathologyDist[pathType]||0)+1;
     if(responseDist.hasOwnProperty(e.response)) responseDist[e.response]++;
     e.risks.forEach(function(r){riskTypeCount[r.type]=(riskTypeCount[r.type]||0)+1});
@@ -167,16 +244,18 @@ function renderStats(){
     '<div class="sp-stat-card"><div class="sp-stat-label">质控达标率</div><div class="sp-stat-value">87.5%</div><div class="sp-stat-sub">目标 ≥90%</div></div>'+
   '</div>';
 
-  var stageStr=Object.keys(stageDist).map(function(k){return k+' '+stageDist[k]}).join(' · ');
-  var pathStr=Object.keys(pathologyDist).map(function(k){return k+' '+pathologyDist[k]}).join(' · ');
-  var riskStr=Object.keys(riskTypeCount).map(function(k){return k+' '+riskTypeCount[k]}).join(' · ');
-  var respStr='CR '+responseDist.CR+' · PR '+responseDist.PR+' · SD '+responseDist.SD+' · PD '+responseDist.PD;
+  var respItems=[
+    {label:'CR 完全缓解',value:responseDist.CR,color:'#10b981'},
+    {label:'PR 部分缓解',value:responseDist.PR,color:'#2563eb'},
+    {label:'SD 疾病稳定',value:responseDist.SD,color:'#94a3b8'},
+    {label:'PD 疾病进展',value:responseDist.PD,color:'#ef4444'}
+  ];
 
   var charts='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">'+
-    '<div class="panel"><div class="panel-header">分期构成比</div><div class="panel-body"><div class="sp-chart-placeholder">📊 饼图：'+esc(stageStr)+'</div></div></div>'+
-    '<div class="panel"><div class="panel-header">病理类型分布</div><div class="panel-body"><div class="sp-chart-placeholder">📊 柱状图：'+esc(pathStr)+'</div></div></div>'+
-    '<div class="panel"><div class="panel-header">治疗响应评价</div><div class="panel-body"><div class="sp-chart-placeholder">📊 堆叠柱状图：'+esc(respStr)+'</div></div></div>'+
-    '<div class="panel"><div class="panel-header">风险标签分布</div><div class="panel-body"><div class="sp-chart-placeholder">📊 横向柱状图：'+esc(riskStr)+'</div></div></div>'+
+    '<div class="panel"><div class="panel-header">分期构成比</div><div class="panel-body">'+spPieChart(stageDist)+'</div></div>'+
+    '<div class="panel"><div class="panel-header">病理类型分布</div><div class="panel-body">'+spVBarChart(pathologyDist)+'</div></div>'+
+    '<div class="panel"><div class="panel-header">治疗响应评价</div><div class="panel-body">'+spStackedChart(respItems)+'</div></div>'+
+    '<div class="panel"><div class="panel-header">风险标签分布</div><div class="panel-body">'+spHBarChart(riskTypeCount)+'</div></div>'+
   '</div>';
   return overview+charts;
 }

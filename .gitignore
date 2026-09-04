@@ -14,6 +14,10 @@
 /__probe_source.html
 /__filter_bug.png
 /__paste_ref.png
+/_*.png
+/_patch*.js
+/_patch*.mjs
+/image.png
 
 # ==== 备份文件 ====
 *.bak*

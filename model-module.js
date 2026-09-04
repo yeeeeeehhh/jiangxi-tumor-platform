@@ -224,7 +224,7 @@
     { code: 'F-DEMO-001', name: '常住人口数（区县-年）', domain: 'DEMO', tier: 'COLD', type: '数值', source: '统计年鉴 / 人口普查', nullRate: 0.0, drift: 0.4, importance: 0.061, note: '所有率值的分母，缺失或跳变会同时污染全部率类特征。' },
     { code: 'F-DEMO-002', name: '65岁及以上人口占比', domain: 'DEMO', tier: 'COLD', type: '数值', source: '统计年鉴', nullRate: 0.0, drift: 0.6, importance: 0.088, note: '年龄结构是发病率地区差异的首要解释变量。' },
     { code: 'F-DEMO-003', name: '城镇化率', domain: 'DEMO', tier: 'COLD', type: '数值', source: '统计年鉴', nullRate: 0.0, drift: 1.1, importance: 0.043, note: '与生活方式、就诊可及性相关。' },
-    { code: 'F-DEMO-004', name: '区县地理编码（GIS 质心）', domain: 'DEMO', tier: 'COLD', type: '地理', source: '空间地址信息管理', nullRate: 1.8, drift: 0.0, importance: 0.027, note: '用于空间自相关与邻域特征构造。' },
+    { code: 'F-DEMO-004', name: '区县地理编码（GIS 质心）', domain: 'DEMO', tier: 'COLD', type: '地理', source: '行政区划管理', nullRate: 1.8, drift: 0.0, importance: 0.027, note: '用于空间自相关与邻域特征构造。' },
     { code: 'F-INC-001', name: '近5年中标发病率（癌种别）', domain: 'INC', tier: 'WARM', type: '序列', source: '多维发病指标立方体', nullRate: 0.3, drift: 1.9, importance: 0.152, note: '模型最重要的历史基线特征，直接取自预计算立方体。' },
     { code: 'F-INC-002', name: '近5年中标死亡率（癌种别）', domain: 'INC', tier: 'WARM', type: '序列', source: '多维死亡指标立方体', nullRate: 0.4, drift: 1.7, importance: 0.118, note: '与发病率联合使用可识别登记不全导致的假性低发。' },
     { code: 'F-INC-003', name: 'M/I 比（癌种别）', domain: 'INC', tier: 'WARM', type: '数值', source: '死亡-发病关联分析', nullRate: 1.1, drift: 2.2, importance: 0.096, note: '既是疾病特征也是质量特征，需与 F-QUAL-* 联合判读。' },

@@ -717,7 +717,7 @@
           targetType: 'REGION_POP', targetId: p.region + '|人口基数', targetLabel: period + '年 ' + p.region + ' 人口基数变动 ' + percent(change), period,
           metricValue: change, metricLabel: '人口基数 ' + percent(change), severity: denomRule.defaultSeverity,
           snapshot: { 地区: p.region, 本年人口: p.pop.toLocaleString('zh-CN'), 上年人口: p.prevPop.toLocaleString('zh-CN'), 变动幅度: percent(change), 触发线: '±' + denomRule.thresholdDisplay(), 依据材料: '缺失' },
-          evidence: makeEvidence([['指标依据', denomRule.basis], ['人口基数变动', p.prevPop.toLocaleString('zh-CN') + ' → ' + p.pop.toLocaleString('zh-CN')], ['影响范围', '该地区所有发病率、死亡率、标化率均不可用'], ['处理入口', '基础信息管理 · 人口基数管理']])
+          evidence: makeEvidence([['指标依据', denomRule.basis], ['人口基数变动', p.prevPop.toLocaleString('zh-CN') + ' → ' + p.pop.toLocaleString('zh-CN')], ['影响范围', '该地区所有发病率、死亡率、标化率均不可用'], ['处理入口', '基础数据 · 人口基数管理']])
         })) created++;
       }
     });
