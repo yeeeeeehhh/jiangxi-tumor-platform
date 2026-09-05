@@ -221,10 +221,10 @@
     { id: "qc", name: "国家质量考核", desc: "MV% 66–95 / DCO%<15 / M/I 0.6–0.8 / O&U%<5 阈值判定", status: "ok" }
   ];
   var ISSUES = [
-    { no: "HN-2024-001289", region: "南昌市", rule: "死亡日期早于确诊日期", level: "bad", detail: "死亡日期 2024-03-02，确诊日期 2024-05-18" },
-    { no: "HN-2024-007431", region: "赣州市", rule: "形态学编码与部位不匹配", level: "warn", detail: "部位 C34，形态 8500/3" },
-    { no: "HN-2024-014208", region: "九江市", rule: "身份证校验位异常", level: "warn", detail: "证件号码校验位不通过" },
-    { no: "HN-2024-020917", region: "上饶市", rule: "死亡日期早于确诊日期", level: "bad", detail: "死亡日期 2024-06-11，确诊日期 2024-06-20" }
+    { no: "JX-2024-001289", region: "南昌市", rule: "死亡日期早于确诊日期", level: "bad", detail: "死亡日期 2024-03-02，确诊日期 2024-05-18" },
+    { no: "JX-2024-007431", region: "赣州市", rule: "形态学编码与部位不匹配", level: "warn", detail: "部位 C34，形态 8500/3" },
+    { no: "JX-2024-014208", region: "九江市", rule: "身份证校验位异常", level: "warn", detail: "证件号码校验位不通过" },
+    { no: "JX-2024-020917", region: "上饶市", rule: "死亡日期早于确诊日期", level: "bad", detail: "死亡日期 2024-06-11，确诊日期 2024-06-20" }
   ];
   var TASK_STATUS = {
     draft: { label: "草稿", cls: "neutral" },
@@ -290,7 +290,7 @@
     page: "ar-tasks",
     currentTaskId: (function () { try { return localStorage.getItem(LS.cur) || "AR-2024-0001"; } catch (e) { return "AR-2024-0001"; } })(),
     stage: 1, chartTab: "pyramid", editChapter: "ch1", role: "province_reporter", taskTab: "tasks",
-    filters: { year: "", status: "", keyword: "" },
+    filters: { year: "", keyword: "" },
     tplView: "list", tplEditingId: null, editSectionId: null, tplPreview: null, reportPreview: null,
     agg: { running: false, pct: 0 }, valid: { running: false, pct: 0 }
   };
@@ -312,7 +312,6 @@
   function f1(n) { return Number(n || 0).toFixed(1); }
   function badge(cls, text) { return '<span class="badge badge-' + cls + '">' + text + '</span>'; }
   function statusBadge(s) { var m = TASK_STATUS[s] || TASK_STATUS.draft; return badge(m.cls, m.label); }
-  function tplName(id) { var t = tplById(id); return t ? t.name : (id || ""); }
   function tplTypeName(type) { for (var i = 0; i < TPL_TYPES.length; i++) if (TPL_TYPES[i].id === type) return TPL_TYPES[i].name; return type; }
   function scopeLabel(t) { if (!t) return ""; if (t.scope === "city") return t.cities.length === 0 ? "未选择设区市" : "已选 " + t.cities.length + " 个设区市"; return "全省（11 设区市）"; }
   function regionName(id) { for (var i = 0; i < REGIONS.length; i++) if (REGIONS[i].id === id) return REGIONS[i].name; return id; }
@@ -375,15 +374,12 @@
     var f = arState.filters;
     var list = tasks.filter(function (t) {
       if (f.year && String(t.year) !== f.year) return false;
-      if (f.status && t.status !== f.status) return false;
       if (f.keyword) { var kw = String(f.keyword).toLowerCase(); if (t.title.toLowerCase().indexOf(kw) < 0 && t.id.toLowerCase().indexOf(kw) < 0) return false; }
       return true;
     });
     var filterHtml = '<div class="filter-toolbar">' +
       '<div class="form-group"><label>报告年度</label><select onchange="arSetFilter(\'year\',this.value)">' +
       '<option value="">全部年度</option>' + ['2024','2023','2022'].map(function (y) { return '<option value="' + y + '"' + (f.year === y ? ' selected' : '') + '>' + y + '</option>'; }).join('') + '</select></div>' +
-      '<div class="form-group"><label>状态</label><select onchange="arSetFilter(\'status\',this.value)">' +
-      '<option value="">全部状态</option>' + Object.keys(TASK_STATUS).map(function (k) { return '<option value="' + k + '"' + (f.status === k ? ' selected' : '') + '>' + TASK_STATUS[k].label + '</option>'; }).join('') + '</select></div>' +
       '<div class="form-group search-group"><label>关键字</label><input type="text" placeholder="任务编号 / 标题" value="' + e(f.keyword) + '" onchange="arSetFilter(\'kw\',this.value)"></div>' +
       '<div class="filter-actions"><button class="btn btn-primary btn-sm" onclick="arNewTask()">新建年报</button><button class="btn btn-ghost btn-sm" onclick="arResetFilter()">重置</button></div>' +
       '</div>';
@@ -392,14 +388,11 @@
       var aggState = t.agg && t.agg.done ? badge('success', '已汇总') : badge('neutral', '未汇总');
       var valState = t.valid && t.valid.done ? (t.valid.result && t.valid.result.bad > 0 ? badge('warning', '校验有误') : badge('success', '已校验')) : badge('neutral', '未校验');
       var ops = '';
-      if (t.status === 'draft' || t.status === 'submitted' || t.status === 'approved' || t.status === 'published') ops += '<button class="btn btn-outline btn-xs" onclick="arOpenTask(\'' + t.id + '\')">继续编制</button> ';
-      if (t.status === 'draft' || t.status === 'submitted') ops += '<button class="btn btn-ghost btn-xs" onclick="arVoidFromList(\'' + t.id + '\')">作废</button> ';
+      if (t.status === 'draft' || t.status === 'submitted' || t.status === 'approved' || t.status === 'published') ops += '<button class="btn btn-outline btn-xs" onclick="arOpenTask(\'' + t.id + '\')">编制</button> ';
       if (t.status === 'voided' || t.status === 'draft') ops += '<button class="btn btn-ghost btn-xs" onclick="arDeleteTask(\'' + t.id + '\')">删除</button>';
       return '<tr><td style="padding:10px 8px;border-bottom:1px solid var(--border);font-size:12px;color:#334155">' + t.id + '</td>' +
         '<td style="padding:10px 8px;border-bottom:1px solid var(--border);font-size:13px;color:#1f2937;font-weight:600">' + e(t.title) + '</td>' +
         '<td style="padding:10px 8px;border-bottom:1px solid var(--border);font-size:12px;color:#64748b">' + t.year + '</td>' +
-        '<td style="padding:10px 8px;border-bottom:1px solid var(--border);font-size:12px;color:#64748b">' + e(tplName(t.templateId)) + '</td>' +
-        '<td style="padding:10px 8px;border-bottom:1px solid var(--border)">' + statusBadge(t.status) + '</td>' +
         '<td style="padding:10px 8px;border-bottom:1px solid var(--border);font-size:12px;color:#64748b">' + t.version + '</td>' +
         '<td style="padding:10px 8px;border-bottom:1px solid var(--border)">' + aggState + ' ' + valState + '</td>' +
         '<td style="padding:10px 8px;border-bottom:1px solid var(--border);font-size:12px;color:#64748b">' + t.updatedAt + '</td>' +
@@ -409,8 +402,8 @@
     return pageToolbar('年报任务') + '<div class="panel" style="margin-bottom:16px"><div class="panel-body">' +
       filterHtml +
       (list.length === 0 ? '<div style="text-align:center;color:#94a3b8;padding:36px 18px;font-size:13px">暂无符合条件的年报任务</div>' :
-        '<div class="table-wrap"><table class="data-table" style="width:100%;min-width:1060px"><thead><tr>' +
-        '<th style="text-align:left">任务编号</th><th style="text-align:left">年报标题</th><th style="text-align:left">年度</th><th style="text-align:left">模板</th><th style="text-align:left">状态</th><th style="text-align:left">版本</th><th style="text-align:left">数据状态</th><th style="text-align:left">更新时间</th><th style="text-align:left">操作</th>' +
+        '<div class="table-wrap"><table class="data-table" style="width:100%;min-width:880px"><thead><tr>' +
+        '<th style="text-align:left">任务编号</th><th style="text-align:left">年报标题</th><th style="text-align:left">年度</th><th style="text-align:left">版本</th><th style="text-align:left">数据状态</th><th style="text-align:left">更新时间</th><th style="text-align:left">操作</th>' +
         '</tr></thead><tbody>' + rows + '</tbody></table></div>') +
       '</div></div>';
   }
@@ -1287,17 +1280,7 @@
         '<td style="padding:10px 8px;border-bottom:1px solid var(--border);font-size:12px;color:#64748b">' + a.archivedAt + ' · ' + a.archivedBy + '</td>' +
         '<td style="padding:10px 8px;border-bottom:1px solid var(--border)"><button class="btn btn-ghost btn-xs" onclick="arPreviewArchive(\'' + a.id + '\')">预览</button> <button class="btn btn-ghost btn-xs" onclick="arDownloadArchive(\'' + a.id + '\')">下载</button> <button class="btn btn-ghost btn-xs" onclick="arDeleteArchive(\'' + a.id + '\')">删除</button></td></tr>';
     }).join('');
-    var years = {};
-    archives.forEach(function (a) { years[a.year] = true; });
-    var totalPages = archives.reduce(function (sum, a) { return sum + (a.pages || 0); }, 0);
-    var statHtml = '<div class="ar-stat-row">' +
-      '<div class="ar-stat primary"><div class="v">' + archives.length + '</div><div class="l">归档年报总数</div></div>' +
-      '<div class="ar-stat"><div class="v">' + Object.keys(years).length + '</div><div class="l">覆盖年度</div></div>' +
-      '<div class="ar-stat"><div class="v">' + totalPages + '</div><div class="l">累计页数</div></div>' +
-      '<div class="ar-stat"><div class="v">' + submissions.filter(function (s) { return s.status === '已回执归档'; }).length + '</div><div class="l">已回执上报</div></div>' +
-      '<div class="ar-stat"><div class="v">PDF</div><div class="l">归档格式</div></div>' +
-      '</div>';
-    return pageToolbar('归档记录') + statHtml + '<div class="panel" style="margin-bottom:16px"><div class="panel-body">' +
+    return pageToolbar('归档记录') + '<div class="panel" style="margin-bottom:16px"><div class="panel-body">' +
       (rows ? '<div class="table-wrap"><table class="data-table" style="width:100%;min-width:1040px"><thead><tr>' +
       '<th style="text-align:left">文件名 / 来源任务</th><th style="text-align:left">年度 / 版本</th><th style="text-align:right">页数</th><th style="text-align:left">大小</th><th style="text-align:left">状态</th><th style="text-align:left">归档时间 / 人</th><th style="text-align:left">操作</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div style="text-align:center;color:#94a3b8;padding:44px;font-size:13px">暂无归档记录</div>') +
@@ -1318,11 +1301,10 @@
 
   window.arSetFilter = function (key, val) {
     if (key === 'year') arState.filters.year = val;
-    else if (key === 'status') arState.filters.status = val;
     else if (key === 'kw') arState.filters.keyword = val;
     renderPage('ar-tasks');
   };
-  window.arResetFilter = function () { arState.filters = { year: '', status: '', keyword: '' }; renderPage('ar-tasks'); };
+  window.arResetFilter = function () { arState.filters = { year: '', keyword: '' }; renderPage('ar-tasks'); };
 
   window.arNewTask = function () {
     var year = new Date().getFullYear();
@@ -1407,14 +1389,6 @@
       t.status = 'voided'; t.voidReason = '人工作废'; t.updatedAt = nowStr();
       t.corrections.push({ ver: t.version, at: nowStr(), by: AR_ROLES[arState.role], note: '任务作废：人工作废' });
       persist(); renderPage('ar-workbench'); toast('任务已作废');
-    });
-  };
-  window.arVoidFromList = function (id) {
-    var t = taskById(id); if (!t) return;
-    showConfirm('作废任务', '确定将「' + t.title + '」作废吗？', function () {
-      t.status = 'voided'; t.voidReason = '人工作废'; t.updatedAt = nowStr();
-      t.corrections.push({ ver: t.version, at: nowStr(), by: AR_ROLES[arState.role], note: '任务作废：人工作废' });
-      persist(); renderPage('ar-tasks'); toast('任务已作废');
     });
   };
   window.arDeleteTask = function (id) {

@@ -90,50 +90,50 @@
   /* ===================== 4. 数据层 nccrData（演示数据 + 取数 stub） ===================== */
   // 预览：登记处年度质量快照（与门禁口径同源）【原型演示数据】
   var DEMO_SNAPSHOTS = [
-    { year: 2024, code: '410100001', name: '郑州市肿瘤登记中心', mv: 68.5, dco: 2.8, mi: 0.62, ub: 1.2, ou: 0.8, incidence: 1256, death: 780, popOk: true, candidates: 1256 },
-    { year: 2024, code: '410300001', name: '洛阳市肿瘤登记中心', mv: 64.2, dco: 4.1, mi: 0.69, ub: 2.1, ou: 1.5, incidence: 890, death: 610, popOk: true, candidates: 890 },
-    { year: 2024, code: '410200001', name: '开封市肿瘤登记中心', mv: 70.1, dco: 3.2, mi: 0.71, ub: 0.9, ou: 0.6, incidence: 620, death: 440, popOk: true, candidates: 620 },
-    { year: 2024, code: '410000001', name: '河南省肿瘤登记中心（汇总）', mv: 66.8, dco: 3.5, mi: 0.65, ub: 1.5, ou: 1.0, incidence: 4200, death: 2730, popOk: true, candidates: 4200 },
-    { year: 2023, code: '410000001', name: '河南省肿瘤登记中心（汇总）', mv: 58.0, dco: 16.2, mi: 0.42, ub: 6.0, ou: 3.5, incidence: 4100, death: 1722, popOk: false, candidates: 4100 }
+    { year: 2024, code: '360100001', name: '南昌市肿瘤登记中心', mv: 68.5, dco: 2.8, mi: 0.62, ub: 1.2, ou: 0.8, incidence: 1256, death: 780, popOk: true, candidates: 1256 },
+    { year: 2024, code: '360700001', name: '赣州市肿瘤登记中心', mv: 64.2, dco: 4.1, mi: 0.69, ub: 2.1, ou: 1.5, incidence: 890, death: 610, popOk: true, candidates: 890 },
+    { year: 2024, code: '360400001', name: '九江市肿瘤登记中心', mv: 70.1, dco: 3.2, mi: 0.71, ub: 0.9, ou: 0.6, incidence: 620, death: 440, popOk: true, candidates: 620 },
+    { year: 2024, code: '360000001', name: '江西省肿瘤登记中心（汇总）', mv: 66.8, dco: 3.5, mi: 0.65, ub: 1.5, ou: 1.0, incidence: 4200, death: 2730, popOk: true, candidates: 4200 },
+    { year: 2023, code: '360000001', name: '江西省肿瘤登记中心（汇总）', mv: 58.0, dco: 16.2, mi: 0.42, ub: 6.0, ou: 3.5, incidence: 4100, death: 1722, popOk: false, candidates: 4100 }
   ];
 
   var REGISTRY_NAMES = {
-    '410100001': '郑州市肿瘤登记中心',
-    '410300001': '洛阳市肿瘤登记中心',
-    '410200001': '开封市肿瘤登记中心',
-    '410000001': '河南省肿瘤登记中心（汇总）'
+    '360100001': '南昌市肿瘤登记中心',
+    '360700001': '赣州市肿瘤登记中心',
+    '360400001': '九江市肿瘤登记中心',
+    '360000001': '江西省肿瘤登记中心（汇总）'
   };
 
   function demoMetricsFor(registry) {
-    if (registry === '410000001') return { mv: 58.0, dco: 16.2, mi: 0.42, ub: 6.0, ou: 3.5, incidence: 4200, death: 1764 };
-    if (registry === '410300001') return { mv: 64.2, dco: 4.1, mi: 0.69, ub: 2.1, ou: 1.5, incidence: 890, death: 610 };
+    if (registry === '360000001') return { mv: 58.0, dco: 16.2, mi: 0.42, ub: 6.0, ou: 3.5, incidence: 4200, death: 1764 };
+    if (registry === '360700001') return { mv: 64.2, dco: 4.1, mi: 0.69, ub: 2.1, ou: 1.5, incidence: 890, death: 610 };
     return { mv: 68.5, dco: 2.8, mi: 0.62, ub: 1.2, ou: 0.8, incidence: 1256, death: 780 };
   }
 
   // 上报批次【原型演示数据】
   var DEMO_BATCHES = [
     {
-      id: 'NCCR-HN-2024-0001', year: 2024, registry: '410100001', registryName: '郑州市肿瘤登记中心',
+      id: 'NCCR-JX-2024-0001', year: 2024, registry: '360100001', registryName: '南昌市肿瘤登记中心',
       packages: ['A', 'B', 'C', 'D'], templateVersion: TEMPLATE_VERSION, transport: 'file',
       status: '已回执归档', gate: 'pass', caseCount: 1256,
       metrics: { mv: 68.5, dco: 2.8, mi: 0.62, ub: 1.2, ou: 0.8, incidence: 1256, death: 780 },
-      caseErrors: [], fileName: '41_410100001_2024_ABCD_NCCR-2024-v1_20260315103000.csv', fileHash: 'a1b2c3d4e5f67890',
+      caseErrors: [], fileName: '41_360100001_2024_ABCD_NCCR-2024-v1_20260315103000.csv', fileHash: 'a1b2c3d4e5f67890',
       remoteRef: '', receiptNo: 'NCCR-R-20260320-001', receiptStatus: 'accepted', receiptRemark: '国家平台受理通过',
-      createdBy: '省级上报岗', createdAt: '2026-03-10 09:20', exportedAt: '2026-03-15 10:30', remark: '2024年度郑州包',
+      createdBy: '省级上报岗', createdAt: '2026-03-10 09:20', exportedAt: '2026-03-15 10:30', remark: '2024年度南昌包',
       forcePassBy: '', forcePassReason: '', forcePassAt: '', frozen: true, individualCheck: null, popCheck: null, receiptAt: '2026-03-20 14:00', deliver: { channel: 'file', at: '2026-03-15 10:30', by: '省级上报岗' }
     },
     {
-      id: 'NCCR-HN-2024-0002', year: 2024, registry: '410300001', registryName: '洛阳市肿瘤登记中心',
+      id: 'NCCR-JX-2024-0002', year: 2024, registry: '360700001', registryName: '赣州市肿瘤登记中心',
       packages: ['A', 'B', 'D'], templateVersion: TEMPLATE_VERSION, transport: 'http',
       status: '待投递', gate: 'warn', caseCount: 890,
       metrics: { mv: 64.2, dco: 4.1, mi: 0.69, ub: 2.1, ou: 1.5, incidence: 890, death: 610 },
-      caseErrors: [{ sourceId: 'HN-2024-000188', ruleId: 'G-C04', message: '形态学编码缺失' }, { sourceId: 'HN-2024-000201', ruleId: 'G-C07', message: 'DCO 缺死亡日期' }],
+      caseErrors: [{ sourceId: 'JX-2024-000188', ruleId: 'G-C04', message: '形态学编码缺失' }, { sourceId: 'JX-2024-000201', ruleId: 'G-C07', message: 'DCO 缺死亡日期' }],
       fileName: '', fileHash: '', remoteRef: '', receiptNo: '', receiptStatus: '', receiptRemark: '',
       forcePassBy: '', forcePassReason: '', forcePassAt: '', frozen: false, individualCheck: null, popCheck: null, receiptAt: '', deliver: null,
-      createdBy: '省级上报岗', createdAt: '2026-07-20 14:10', exportedAt: '', remark: '洛阳包 MV% 偏低'
+      createdBy: '省级上报岗', createdAt: '2026-07-20 14:10', exportedAt: '', remark: '赣州包 MV% 偏低'
     },
     {
-      id: 'NCCR-HN-2023-0003', year: 2023, registry: '410000001', registryName: '河南省肿瘤登记中心（汇总）',
+      id: 'NCCR-JX-2023-0003', year: 2023, registry: '360000001', registryName: '江西省肿瘤登记中心（汇总）',
       packages: ['A', 'B', 'C', 'D'], templateVersion: TEMPLATE_VERSION, transport: 'file',
       status: '门禁未过·待整改', gate: 'block', caseCount: 0,
       metrics: { mv: 58.0, dco: 16.2, mi: 0.42, ub: 6.0, ou: 3.5, incidence: 4200, death: 1764 },
@@ -179,7 +179,7 @@
     previewRegion: '',
     filters: { year: '', gate: '', status: '', keyword: '' },
     recordFilters: { year: '', receipt: '', keyword: '' },
-    form: { year: '2024', registry: '410100001', packages: ['A', 'B', 'C', 'D'], transport: 'file', remark: '' }
+    form: { year: '2024', registry: '360100001', packages: ['A', 'B', 'C', 'D'], transport: 'file', remark: '' }
   };
 
   var ROLES = { province_reporter: '省级上报岗', province_reviewer: '省级审核岗', registry: '登记处操作员', admin: '系统管理员' };
@@ -292,9 +292,9 @@
   function runIndividualCheck(batch) {
     var total = batch.caseCount || 0;
     var failList = [];
-    if (batch.registry === '410300001' && batch.year === 2024) {
-      failList.push({ cardId: 'HN-2024-000188', ruleId: 'G-C04', message: '形态学编码缺失（ICD-O-3 必填）' });
-      failList.push({ cardId: 'HN-2024-000201', ruleId: 'G-C07', message: 'DCO 病例缺死亡日期' });
+    if (batch.registry === '360700001' && batch.year === 2024) {
+      failList.push({ cardId: 'JX-2024-000188', ruleId: 'G-C04', message: '形态学编码缺失（ICD-O-3 必填）' });
+      failList.push({ cardId: 'JX-2024-000201', ruleId: 'G-C07', message: 'DCO 病例缺死亡日期' });
     }
     if (batch.gate === 'block') {
       failList.push({ cardId: '—', ruleId: 'G-C01', message: '存在未确认核对/锁定的卡片' });
@@ -364,14 +364,14 @@
   }
   function sampleARows(batch) {
     return [
-      [batch.registry, 'HN' + batch.year + '00000001', 'HN-' + batch.year + '-000091', '张伟', '01', '410105196503121234', '1', '1965-03-12', '59', '01', '2', '6', '', '13800001111', '5', '张芳', '13900002222', '410105', '花园路街道XX号', '410105', '花园路街道XX号', '1', 'C34.1', '8070', '3', '2', '1', '7', '0', batch.year + '-03-15', 'C34.1', 'T2', 'N1', 'M0', '1;2', '肺恶性肿瘤', '右肺上叶鳞状细胞癌', '410100H001', '河南省肿瘤医院', 'MZ240501', 'ZY240088', '王医生', batch.year + '-03-18', '1', '2', '2026-07-31', '0'],
-      [batch.registry, 'HN' + batch.year + '00000002', 'HN-' + batch.year + '-000102', '李娜', '01', '410102197808152345', '2', '1978-08-15', '46', '01', '2', '2', '', '13800003333', '', '', '', '410102', '德化街XX号', '410102', '德化街XX号', '1', 'C50.9', '8500', '3', '2', '2', '7', '0', batch.year + '-05-20', 'C50.9', 'T1', 'N0', 'M0', '1', '乳房恶性肿瘤', '左乳浸润性导管癌', '410100H002', '郑州大学第一附属医院', 'MZ240622', 'ZY240103', '李医生', batch.year + '-05-22', '1', '1', '2026-07-31', '0']
+      [batch.registry, 'JX' + batch.year + '00000001', 'JX-' + batch.year + '-000091', '张伟', '01', '360102196503121234', '1', '1965-03-12', '59', '01', '2', '6', '', '13800001111', '5', '张芳', '13900002222', '360102', '董家窑街道XX号', '360102', '董家窑街道XX号', '1', 'C34.1', '8070', '3', '2', '1', '7', '0', batch.year + '-03-15', 'C34.1', 'T2', 'N1', 'M0', '1;2', '肺恶性肿瘤', '右肺上叶鳞状细胞癌', '360100H001', '江西省肿瘤医院', 'MZ240501', 'ZY240088', '王医生', batch.year + '-03-18', '1', '2', '2026-07-31', '0'],
+      [batch.registry, 'JX' + batch.year + '00000002', 'JX-' + batch.year + '-000102', '李娜', '01', '360103197808152345', '2', '1978-08-15', '46', '01', '2', '2', '', '13800003333', '', '', '', '360103', '站前西路XX号', '360103', '站前西路XX号', '1', 'C50.9', '8500', '3', '2', '2', '7', '0', batch.year + '-05-20', 'C50.9', 'T1', 'N0', 'M0', '1', '乳房恶性肿瘤', '左乳浸润性导管癌', '360100H002', '南昌大学第一附属医院', 'MZ240622', 'ZY240103', '李医生', batch.year + '-05-22', '1', '1', '2026-07-31', '0']
     ];
   }
   function sampleBRows(batch) {
     return [
-      [batch.registry, 'HN' + batch.year + '00000001', 'HN-' + batch.year + '-000091', (batch.year + 1) + '-12-01', '1', '21', '', '', '', '', ''],
-      [batch.registry, 'HN' + batch.year + '00000002', 'HN-' + batch.year + '-000102', (batch.year + 1) + '-08-10', '3', '15', '1', '1', 'C50.9', (batch.year + 1) + '-08-10', '周医生']
+      [batch.registry, 'JX' + batch.year + '00000001', 'JX-' + batch.year + '-000091', (batch.year + 1) + '-12-01', '1', '21', '', '', '', '', ''],
+      [batch.registry, 'JX' + batch.year + '00000002', 'JX-' + batch.year + '-000102', (batch.year + 1) + '-08-10', '3', '15', '1', '1', 'C50.9', (batch.year + 1) + '-08-10', '周医生']
     ];
   }
   function sampleCRows(batch) {
@@ -513,11 +513,11 @@
         '<div class="panel"><div class="panel-header">数据预览</div><div class="panel-body">' +
         emptyState('该统计年暂无预览数据（演示数据仅含 2023 / 2024）。') + '</div></div>';
     }
-    var province = rows.filter(function (r) { return r.code === '410000001'; })[0] || null;
-    var cities = rows.filter(function (r) { return r.code !== '410000001'; });
+    var province = rows.filter(function (r) { return r.code === '360000001'; })[0] || null;
+    var cities = rows.filter(function (r) { return r.code !== '360000001'; });
     if (!province && cities.length) {
       province = {
-        name: '全省（演示汇总）', code: '410000001', year: Number(year),
+        name: '全省（演示汇总）', code: '360000001', year: Number(year),
         mv: cities.reduce(function (s, x) { return s + x.mv; }, 0) / cities.length,
         dco: cities.reduce(function (s, x) { return s + x.dco; }, 0) / cities.length,
         mi: cities.reduce(function (s, x) { return s + x.mi; }, 0) / cities.length,
@@ -530,11 +530,11 @@
       };
     }
     var focus = province, tableSource = cities.length ? cities : rows;
-    if (region === '410000001') { focus = province; tableSource = cities.length ? cities : (province ? [province] : []); }
+    if (region === '360000001') { focus = province; tableSource = cities.length ? cities : (province ? [province] : []); }
     else if (region) { var hit = rows.filter(function (r) { return r.code === region; })[0] || null; focus = hit; tableSource = hit ? [hit] : []; }
 
     var level = focus ? snapshotLevel(focus) : 'block';
-    var scopeLabel = !region || region === '410000001' ? '全省' : (focus ? focus.name.replace(/肿瘤登记中心.*$/, '') : '所选区域');
+    var scopeLabel = !region || region === '360000001' ? '全省' : (focus ? focus.name.replace(/肿瘤登记中心.*$/, '') : '所选区域');
     var summaryKpis =
       '<div class="analysis-kpi-row">' +
       kpi(scopeLabel + '结论（' + year + '）', focus ? levelLabel(level) : '—', level === 'pass' ? 'ok' : level === 'warn' ? 'warn' : 'bad') +
@@ -552,8 +552,8 @@
     ) : '';
 
     var regionOpts = [
-      { code: '', name: '全部' }, { code: '410000001', name: '河南省（全省）' },
-      { code: '410100001', name: '郑州市' }, { code: '410200001', name: '开封市' }, { code: '410300001', name: '洛阳市' }
+      { code: '', name: '全部' }, { code: '360000001', name: '江西省（全省）' },
+      { code: '360100001', name: '南昌市' }, { code: '360400001', name: '九江市' }, { code: '360700001', name: '赣州市' }
     ];
     var regionSelect = regionOpts.map(function (o) { return '<option value="' + o.code + '"' + (region === o.code ? ' selected' : '') + '>' + o.name + '</option>'; }).join('');
 
@@ -647,8 +647,8 @@
       '<div class="nccr-grid-2">' +
       '<div class="form-group"><label>统计年度 <span class="required">*</span></label><select id="nccrYear"><option' + (form.year === '2024' ? ' selected' : '') + '>2024</option><option' + (form.year === '2023' ? ' selected' : '') + '>2023</option><option' + (form.year === '2025' ? ' selected' : '') + '>2025</option></select></div>' +
       '<div class="form-group"><label>登记处 <span class="required">*</span></label><select id="nccrRegistry">' +
-      // 上报单位 = 肿瘤登记处（population-based registry）；全省汇总(410000001)仅作预览聚合，不作为可组批上报的登记处
-      Object.keys(REGISTRY_NAMES).filter(function (k) { return k !== '410000001'; }).map(function (k) { return '<option value="' + k + '"' + (form.registry === k ? ' selected' : '') + '>' + REGISTRY_NAMES[k] + '</option>'; }).join('') +
+      // 上报单位 = 肿瘤登记处（population-based registry）；全省汇总(360000001)仅作预览聚合，不作为可组批上报的登记处
+      Object.keys(REGISTRY_NAMES).filter(function (k) { return k !== '360000001'; }).map(function (k) { return '<option value="' + k + '"' + (form.registry === k ? ' selected' : '') + '>' + REGISTRY_NAMES[k] + '</option>'; }).join('') +
       '</select><div class="nccr-hint">上报单位是以人群为基础的「肿瘤登记处」，由省级中心统一向国家平台投递。全省汇总仅用于预览。</div></div>' +
       '</div></div>' +
       '<div class="nccr-section"><div class="nccr-section-title">② 选择上报内容</div>' +
@@ -834,7 +834,7 @@
     nccrState.page = 'nccr-list'; nccrState.view = 'form';
     nccrState.form = {
       year: nccrState.filters.year || nccrState.previewYear || '2024',
-      registry: nccrState.form.registry || nccrState.previewRegion || '410100001',
+      registry: nccrState.form.registry || nccrState.previewRegion || '360100001',
       packages: ['A', 'B', 'C', 'D'], transport: 'file', remark: ''
     };
     nccrRefresh();
@@ -933,7 +933,7 @@
     if (!pkgs.length) { if (errEl) errEl.textContent = '请至少勾选一项上报内容'; toast('请至少勾选一项上报内容', 'error'); return; }
     if (errEl) errEl.textContent = '';
     var seq = nccrData.nextSeq(year);
-    var id = 'NCCR-HN-' + year + '-' + seq;
+    var id = 'NCCR-JX-' + year + '-' + seq;
     var metrics = demoMetricsFor(registry);
     var batch = {
       id: id, year: Number(year), registry: registry, registryName: REGISTRY_NAMES[registry] || registry,
@@ -965,10 +965,10 @@
       if (b.popCheck && b.popCheck.complete === false) { level = 'block'; reasons.push('人口分母缺失：' + b.popCheck.missingGroups.join('、')); }
       b.gate = level;
       b.caseErrors = reasons.map(function (msg, i) { return { sourceId: '—', ruleId: 'Q-' + (i + 1), message: msg }; });
-      if (b.registry === '410300001' && !b.caseErrors.some(function (x) { return x.sourceId !== '—'; })) {
+      if (b.registry === '360700001' && !b.caseErrors.some(function (x) { return x.sourceId !== '—'; })) {
         b.caseErrors = b.caseErrors.concat([
-          { sourceId: 'HN-2024-000188', ruleId: 'G-C04', message: '形态学编码缺失' },
-          { sourceId: 'HN-2024-000201', ruleId: 'G-C07', message: 'DCO 缺死亡日期' }
+          { sourceId: 'JX-2024-000188', ruleId: 'G-C04', message: '形态学编码缺失' },
+          { sourceId: 'JX-2024-000201', ruleId: 'G-C07', message: 'DCO 缺死亡日期' }
         ]);
       }
       b.status = level === 'block' ? '门禁未过·待整改' : '待投递';
@@ -1045,7 +1045,7 @@
   };
 
   window.nccrDownloadTemplate = function () {
-    downloadCsv('A_发病个案_NCCR-2024-v1.csv', A_HEADERS, sampleARows({ registry: '410100001', year: 2024 }));
+    downloadCsv('A_发病个案_NCCR-2024-v1.csv', A_HEADERS, sampleARows({ registry: '360100001', year: 2024 }));
     setTimeout(function () {
       downloadCsv('字段说明_NCCR-2024-v1.csv', ['上报内容', '中文列名', '说明'], A_HEADERS.map(function (h) { return ['报告卡个案', h, '见 docs/templates/nccr']; }));
     }, 250);
@@ -1103,7 +1103,7 @@
     if (!nccrCan('clone')) { toast('当前角色无复制权限', 'error'); return; }
     var seq = nccrData.nextSeq(src.year);
     var copy = JSON.parse(JSON.stringify(src));
-    copy.id = 'NCCR-HN-' + src.year + '-' + seq;
+    copy.id = 'NCCR-JX-' + src.year + '-' + seq;
     copy.status = '草稿'; copy.gate = '';
     copy.fileName = ''; copy.fileHash = ''; copy.remoteRef = '';
     copy.receiptNo = ''; copy.receiptStatus = ''; copy.exportedAt = '';

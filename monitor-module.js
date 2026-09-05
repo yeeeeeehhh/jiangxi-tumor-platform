@@ -170,8 +170,7 @@
     { id: 'mon-model-reg', group: 'mon-model', label: '预警模型元信息注册', desc: '管理风险预测模型的基本信息与生命周期状态。' },
     { id: 'mon-model-train', group: 'mon-model', label: '模型训练与超参记录', desc: '详细记录模型训练过程，确保实验可复现与性能可追溯。' },
     { id: 'mon-model-snapshot', group: 'mon-model', label: '风险预测结果快照', desc: '存储模型预测结果，用于预警触发与决策支持。' },
-    { id: 'mon-model-eval', group: 'mon-model', label: '模型验证与评估报告', desc: '定期评估模型在真实场景中的表现，驱动迭代优化。' },
-    { id: 'mon-model-ticket', group: 'mon-model', label: '风险预警干预工单', desc: '将模型预测的高风险区域转化为可执行的干预任务。' }
+    { id: 'mon-model-eval', group: 'mon-model', label: '模型验证与评估报告', desc: '定期评估模型在真实场景中的表现，驱动迭代优化。' }
   ];
 
   function groupPage(g) {
@@ -185,12 +184,12 @@
   /* ==================== 发病监测 ==================== */
   function renderIncImport() {
     var r = [
-      { o: '河南省肿瘤医院', t: '报告卡(发病)', b: 'B20260821-01', c: 1284, s: '成功', e: '—', d: '08-21 09:32' },
-      { o: '郑州市第一人民医院', t: 'HIS 接口', b: 'B20260821-02', c: 892, s: '成功', e: '—', d: '08-21 09:41' },
-      { o: '洛阳市中心医院', t: '批量导入', b: 'B20260820-07', c: 421, s: '部分成功', e: '3 条身份证号格式错误', d: '08-20 16:18' },
-      { o: '开封市肿瘤医院', t: '报告卡(发病)', b: 'B20260820-05', c: 236, s: '失败', e: 'ICD-10 编码缺失', d: '08-20 14:02' },
-      { o: '新乡医学院三附院', t: 'HIS 接口', b: 'B20260819-03', c: 674, s: '成功', e: '—', d: '08-19 11:55' },
-      { o: '安阳市人民医院', t: '批量导入', b: 'B20260819-02', c: 398, s: '处理中', e: '正在校验重复卡', d: '08-19 10:20' }
+      { o: '江西省肿瘤医院', t: '报告卡(发病)', b: 'B20260821-01', c: 1284, s: '成功', e: '—', d: '08-21 09:32' },
+      { o: '南昌市第一人民医院', t: 'HIS 接口', b: 'B20260821-02', c: 892, s: '成功', e: '—', d: '08-21 09:41' },
+      { o: '赣州市中心医院', t: '批量导入', b: 'B20260820-07', c: 421, s: '部分成功', e: '3 条身份证号格式错误', d: '08-20 16:18' },
+      { o: '九江市肿瘤医院', t: '报告卡(发病)', b: 'B20260820-05', c: 236, s: '失败', e: 'ICD-10 编码缺失', d: '08-20 14:02' },
+      { o: '上饶医学院三附院', t: 'HIS 接口', b: 'B20260819-03', c: 674, s: '成功', e: '—', d: '08-19 11:55' },
+      { o: '景德镇市人民医院', t: '批量导入', b: 'B20260819-02', c: 398, s: '处理中', e: '正在校验重复卡', d: '08-19 10:20' }
     ];
     var tr = r.map(function (x) {
       var st = x.s === '成功' ? 'success' : x.s === '部分成功' ? 'warn' : x.s === '失败' ? 'danger' : 'info';
@@ -215,14 +214,14 @@
       return '<tr><td>' + esc(x.n) + '</td><td>' + esc(x.icd) + '</td><td class="num">' + x.cnt + '</td><td class="num">' + x.rate + '</td><td class="num">' + x.p + '</td><td class="num" style="color:' + (x.d.charAt(0) === '+' ? '#2e7d32' : '#b42335') + '">' + x.d + '</td></tr>';
     }).join('');
     return heads('多维发病统计指标立方体', '预计算按地区、癌种、年龄、性别等维度组合的发病率指标。') +
-      filterBar([{ label: '统计维度', type: 'select', options: ['癌种', '地区', '年龄组', '性别'] }, { label: '年份', type: 'select', options: ['2026', '2025', '2024'] }, { label: '指标', type: 'select', options: ['发病率', '发病数', '构成比'] }, { label: '地区', type: 'select', options: ['全省', '郑州市', '洛阳市'] }, { label: '性别', type: 'select', options: ['全部', '男', '女'] }]) +
+      filterBar([{ label: '统计维度', type: 'select', options: ['癌种', '地区', '年龄组', '性别'] }, { label: '年份', type: 'select', options: ['2026', '2025', '2024'] }, { label: '指标', type: 'select', options: ['发病率', '发病数', '构成比'] }, { label: '地区', type: 'select', options: ['全省', '南昌市', '赣州市'] }, { label: '性别', type: 'select', options: ['全部', '男', '女'] }]) +
       kpis([{ l: '总发病数', v: '23,846', m: '2026 年 1-8 月' }, { l: '粗发病率', v: '210.6', m: '1/10万', tone: 'info' }, { l: '年龄标化率', v: '182.4', m: 'ASR(W)', tone: 'info' }, { l: '环比变化', v: '+3.8%', m: '较去年同期', tone: 'up' }]) +
       '<div class="mon-grid13"><div>' + card('各癌种发病率（1/10万）', barChart([{ l: '肺', v: 42.6 }, { l: '胃', v: 27.6 }, { l: '结直肠', v: 25.5 }, { l: '肝', v: 18.9 }, { l: '乳腺', v: 17.5 }, { l: '食管', v: 14.6 }, { l: '甲状腺', v: 10.8 }])) + '</div>' +
       '<div>' + card('指标明细（癌种维度）', table(['癌种', 'ICD-10', '#发病数', '#发病率', '#构成比', '#环比'], tr)) + '</div></div>';
   }
   function renderIncTrend() {
     return heads('发病趋势可视化配置', '配置发病率趋势图的展示参数，支持高性能可视化。') +
-      filterBar([{ label: '时间范围', type: 'select', options: ['近 12 个月', '近 6 个月', '近 24 个月'] }, { label: '癌种', type: 'select', options: ['全部癌种', '肺癌', '胃癌', '结直肠癌'] }, { label: '地区', type: 'select', options: ['全省', '郑州市', '洛阳市'] }, { label: '图表类型', type: 'select', options: ['折线图', '柱状图', '面积图'] }, { label: '粒度', type: 'select', options: ['按月', '按季度', '按年'] }]) +
+      filterBar([{ label: '时间范围', type: 'select', options: ['近 12 个月', '近 6 个月', '近 24 个月'] }, { label: '癌种', type: 'select', options: ['全部癌种', '肺癌', '胃癌', '结直肠癌'] }, { label: '地区', type: 'select', options: ['全省', '南昌市', '赣州市'] }, { label: '图表类型', type: 'select', options: ['折线图', '柱状图', '面积图'] }, { label: '粒度', type: 'select', options: ['按月', '按季度', '按年'] }]) +
       '<div class="mon-grid13"><div>' + card('发病率趋势预览（1/10万）', lineChart([{ l: '1月', v: 24.1 }, { l: '2月', v: 22.8 }, { l: '3月', v: 25.6 }, { l: '4月', v: 26.9 }, { l: '5月', v: 27.4 }, { l: '6月', v: 28.7 }, { l: '7月', v: 29.2 }, { l: '8月', v: 30.5 }]), '按月 · 全省 · 全部癌种') + '</div>' +
       '<div>' + card('展示参数', '<div class="mon-meta">基线：2026 年全省；虚线为 3 期移动平均。可切换癌种、地区与粒度，点击「查询」应用配置。</div>') + '</div></div>';
   }
@@ -245,10 +244,10 @@
   }
   function renderIncTicket() {
     var r = [
-      { id: 'AI-202608-017', rule: '环比暴增规则', rng: '洛阳市·肺癌', d: '发病率环比 +62%', lv: '高', st: '核查中', who: '王医生', dt: '08-21' },
-      { id: 'AI-202608-015', rule: '空间聚集规则', rng: '开封市·胃癌', d: '空间聚集 3 个街道', lv: '高', st: '待处理', who: '—', dt: '08-20' },
-      { id: 'AI-202608-012', rule: '连续上升规则', rng: '新乡市·结直肠癌', d: '连续 4 期上升', lv: '中', st: '待处理', who: '—', dt: '08-19' },
-      { id: 'AI-202608-010', rule: '环比暴增规则', rng: '郑州市·乳腺癌', d: '发病率环比 +51%', lv: '中', st: '已闭环', who: '李医生', dt: '08-18' },
+      { id: 'AI-202608-017', rule: '环比暴增规则', rng: '赣州市·肺癌', d: '发病率环比 +62%', lv: '高', st: '核查中', who: '王医生', dt: '08-21' },
+      { id: 'AI-202608-015', rule: '空间聚集规则', rng: '九江市·胃癌', d: '空间聚集 3 个街道', lv: '高', st: '待处理', who: '—', dt: '08-20' },
+      { id: 'AI-202608-012', rule: '连续上升规则', rng: '上饶市·结直肠癌', d: '连续 4 期上升', lv: '中', st: '待处理', who: '—', dt: '08-19' },
+      { id: 'AI-202608-010', rule: '环比暴增规则', rng: '南昌市·乳腺癌', d: '发病率环比 +51%', lv: '中', st: '已闭环', who: '李医生', dt: '08-18' },
       { id: 'AI-202608-008', rule: '超阈值规则', rng: '全省·M/I 比', d: 'M/I 比 0.88', lv: '中', st: '已闭环', who: '赵医生', dt: '08-15' }
     ];
     var tr = r.map(function (x) {
@@ -264,11 +263,11 @@
   /* ==================== 死亡监测 ==================== */
   function renderDeathImport() {
     var r = [
-      { o: '郑州市殡葬管理所', t: '死亡登记', b: 'D20260821-01', c: 96, s: '成功', e: '—', d: '08-21 08:55' },
-      { o: '河南省肿瘤医院', t: '随访死亡数据', b: 'D20260820-03', c: 58, s: '成功', e: '—', d: '08-20 15:30' },
-      { o: '洛阳市疾控中心', t: '死亡登记', b: 'D20260820-02', c: 41, s: '部分成功', e: '2 条死因编码缺失', d: '08-20 13:10' },
-      { o: '开封市人民医院', t: 'HIS 接口', b: 'D20260819-04', c: 32, s: '失败', e: '报告单位未匹配', d: '08-19 17:42' },
-      { o: '新乡市一附院', t: '死亡登记', b: 'D20260819-01', c: 67, s: '成功', e: '—', d: '08-19 09:18' }
+      { o: '南昌市殡葬管理所', t: '死亡登记', b: 'D20260821-01', c: 96, s: '成功', e: '—', d: '08-21 08:55' },
+      { o: '江西省肿瘤医院', t: '随访死亡数据', b: 'D20260820-03', c: 58, s: '成功', e: '—', d: '08-20 15:30' },
+      { o: '赣州市疾控中心', t: '死亡登记', b: 'D20260820-02', c: 41, s: '部分成功', e: '2 条死因编码缺失', d: '08-20 13:10' },
+      { o: '九江市人民医院', t: 'HIS 接口', b: 'D20260819-04', c: 32, s: '失败', e: '报告单位未匹配', d: '08-19 17:42' },
+      { o: '上饶市一附院', t: '死亡登记', b: 'D20260819-01', c: 67, s: '成功', e: '—', d: '08-19 09:18' }
     ];
     var tr = r.map(function (x) {
       var st = x.s === '成功' ? 'success' : x.s === '部分成功' ? 'warn' : 'danger';
@@ -292,14 +291,14 @@
       return '<tr><td>' + esc(x.n) + '</td><td class="num">' + x.cnt + '</td><td class="num">' + x.rate + '</td><td class="num">' + x.fat + '</td><td class="num" style="color:' + (x.d.charAt(0) === '+' ? '#2e7d32' : '#b42335') + '">' + x.d + '</td></tr>';
     }).join('');
     return heads('多维死亡统计指标立方体', '预计算死亡相关核心指标，支持快速分析。') +
-      filterBar([{ label: '统计维度', type: 'select', options: ['癌种', '地区', '年龄组', '性别'] }, { label: '年份', type: 'select', options: ['2026', '2025', '2024'] }, { label: '指标', type: 'select', options: ['死亡率', '死亡数', '病死率'] }, { label: '地区', type: 'select', options: ['全省', '郑州市', '洛阳市'] }, { label: '性别', type: 'select', options: ['全部', '男', '女'] }]) +
+      filterBar([{ label: '统计维度', type: 'select', options: ['癌种', '地区', '年龄组', '性别'] }, { label: '年份', type: 'select', options: ['2026', '2025', '2024'] }, { label: '指标', type: 'select', options: ['死亡率', '死亡数', '病死率'] }, { label: '地区', type: 'select', options: ['全省', '南昌市', '赣州市'] }, { label: '性别', type: 'select', options: ['全部', '男', '女'] }]) +
       kpis([{ l: '总死亡数', v: '18,420', m: '2026 年 1-8 月' }, { l: '粗死亡率', v: '162.8', m: '1/10万', tone: 'info' }, { l: '总体病死率', v: '77.3%', m: '死亡/发病', tone: 'warn' }, { l: '年龄标化率', v: '138.6', m: 'ASR(W)', tone: 'info' }]) +
       '<div class="mon-grid13"><div>' + card('各癌种死亡率（1/10万）', barChart([{ l: '肺', v: 27.6 }, { l: '肝', v: 18.0 }, { l: '胃', v: 16.3 }, { l: '食管', v: 12.5 }, { l: '结直肠', v: 10.4 }, { l: '胰腺', v: 7.2 }])) + '</div>' +
       '<div>' + card('指标明细（癌种维度）', table(['癌种', '#死亡数', '#死亡率', '#病死率', '#环比'], tr)) + '</div></div>';
   }
   function renderDeathTrend() {
     return heads('死亡趋势可视化配置', '配置死亡率趋势图的展示参数。') +
-      filterBar([{ label: '时间范围', type: 'select', options: ['近 12 个月', '近 6 个月', '近 24 个月'] }, { label: '癌种', type: 'select', options: ['全部癌种', '肺癌', '肝癌', '胃癌'] }, { label: '地区', type: 'select', options: ['全省', '郑州市', '洛阳市'] }, { label: '图表类型', type: 'select', options: ['折线图', '柱状图', '面积图'] }, { label: '粒度', type: 'select', options: ['按月', '按季度', '按年'] }]) +
+      filterBar([{ label: '时间范围', type: 'select', options: ['近 12 个月', '近 6 个月', '近 24 个月'] }, { label: '癌种', type: 'select', options: ['全部癌种', '肺癌', '肝癌', '胃癌'] }, { label: '地区', type: 'select', options: ['全省', '南昌市', '赣州市'] }, { label: '图表类型', type: 'select', options: ['折线图', '柱状图', '面积图'] }, { label: '粒度', type: 'select', options: ['按月', '按季度', '按年'] }]) +
       '<div class="mon-grid13"><div>' + card('死亡率趋势预览（1/10万）', lineChart([{ l: '1月', v: 19.2 }, { l: '2月', v: 18.7 }, { l: '3月', v: 20.1 }, { l: '4月', v: 19.6 }, { l: '5月', v: 20.8 }, { l: '6月', v: 20.4 }, { l: '7月', v: 21.3 }, { l: '8月', v: 21.9 }]), '按月 · 全省 · 全部癌种') + '</div>' +
       '<div>' + card('展示参数', '<div class="mon-meta">基线：2026 年全省。切换癌种、地区、粒度后点击「查询」应用。</div>') + '</div></div>';
   }
@@ -342,11 +341,11 @@
   }
   function renderCapRecord() {
     var r = [
-      { o: '河南省肿瘤医院', t: '胸腔镜肺癌根治术', cnt: 1286, q: 96.2, comp: '2.1%', y: '2026' },
-      { o: '郑州大学一附院', t: '调强放疗(IMRT)', cnt: 964, q: 94.8, comp: '1.8%', y: '2026' },
-      { o: '洛阳中心医院', t: '超声内镜(EUS)', cnt: 512, q: 92.5, comp: '1.4%', y: '2026' },
-      { o: '开封市肿瘤医院', t: '肝动脉灌注化疗', cnt: 386, q: 90.1, comp: '2.6%', y: '2026' },
-      { o: '新乡医学院一附院', t: '肿瘤基因检测(NGS)', cnt: 640, q: 93.7, comp: '0.9%', y: '2026' }
+      { o: '江西省肿瘤医院', t: '胸腔镜肺癌根治术', cnt: 1286, q: 96.2, comp: '2.1%', y: '2026' },
+      { o: '南昌大学一附院', t: '调强放疗(IMRT)', cnt: 964, q: 94.8, comp: '1.8%', y: '2026' },
+      { o: '赣州中心医院', t: '超声内镜(EUS)', cnt: 512, q: 92.5, comp: '1.4%', y: '2026' },
+      { o: '九江市肿瘤医院', t: '肝动脉灌注化疗', cnt: 386, q: 90.1, comp: '2.6%', y: '2026' },
+      { o: '上饶医学院一附院', t: '肿瘤基因检测(NGS)', cnt: 640, q: 93.7, comp: '0.9%', y: '2026' }
     ];
     var tr = r.map(function (x) {
       var grade = x.q >= 94 ? '优秀' : x.q >= 91 ? '良好' : '待改进';
@@ -359,11 +358,11 @@
   }
   function renderCapQuality() {
     var r = [
-      { o: '河南省肿瘤医院', d: '0.8%', c: '1.6%', days: '7.2 天', re: '1.1%', s: '98.2', g: '优秀' },
-      { o: '郑州大学一附院', d: '0.9%', c: '1.8%', days: '7.6 天', re: '1.3%', s: '96.8', g: '优秀' },
-      { o: '洛阳中心医院', d: '1.2%', c: '2.2%', days: '8.1 天', re: '1.8%', s: '93.4', g: '良好' },
-      { o: '新乡医学院一附院', d: '1.4%', c: '2.5%', days: '8.6 天', re: '2.0%', s: '91.7', g: '良好' },
-      { o: '开封市人民医院', d: '1.7%', c: '2.9%', days: '9.0 天', re: '2.4%', s: '89.2', g: '待改进' }
+      { o: '江西省肿瘤医院', d: '0.8%', c: '1.6%', days: '7.2 天', re: '1.1%', s: '98.2', g: '优秀' },
+      { o: '南昌大学一附院', d: '0.9%', c: '1.8%', days: '7.6 天', re: '1.3%', s: '96.8', g: '优秀' },
+      { o: '赣州中心医院', d: '1.2%', c: '2.2%', days: '8.1 天', re: '1.8%', s: '93.4', g: '良好' },
+      { o: '上饶医学院一附院', d: '1.4%', c: '2.5%', days: '8.6 天', re: '2.0%', s: '91.7', g: '良好' },
+      { o: '九江市人民医院', d: '1.7%', c: '2.9%', days: '9.0 天', re: '2.4%', s: '89.2', g: '待改进' }
     ];
     var tr = r.map(function (x) {
       var gt = x.g === '优秀' ? 'success' : x.g === '良好' ? 'info' : 'warn';
@@ -375,11 +374,11 @@
   }
   function renderCapDifficulty() {
     var r = [
-      { n: '杨某', d: '肺癌 IIIB 期伴纵隔转移', lv: 'IV 级', o: '河南省肿瘤医院', m: 'MDT 会诊', o2: '稳定' },
-      { n: '李某', d: '胃癌 IV 期多发转移', lv: 'IV 级', o: '郑州大学一附院', m: 'MDT 会诊', o2: '进展' },
-      { n: '王某', d: '肝癌伴门静脉癌栓', lv: 'III 级', o: '洛阳中心医院', m: '单科', o2: '稳定' },
-      { n: '张某', d: '胰腺癌局部晚期', lv: 'IV 级', o: '河南省肿瘤医院', m: 'MDT 会诊', o2: '好转' },
-      { n: '刘某', d: '食管癌侵及主动脉', lv: 'III 级', o: '新乡一附院', m: 'MDT 会诊', o2: '稳定' }
+      { n: '杨某', d: '肺癌 IIIB 期伴纵隔转移', lv: 'IV 级', o: '江西省肿瘤医院', m: 'MDT 会诊', o2: '稳定' },
+      { n: '李某', d: '胃癌 IV 期多发转移', lv: 'IV 级', o: '南昌大学一附院', m: 'MDT 会诊', o2: '进展' },
+      { n: '王某', d: '肝癌伴门静脉癌栓', lv: 'III 级', o: '赣州中心医院', m: '单科', o2: '稳定' },
+      { n: '张某', d: '胰腺癌局部晚期', lv: 'IV 级', o: '江西省肿瘤医院', m: 'MDT 会诊', o2: '好转' },
+      { n: '刘某', d: '食管癌侵及主动脉', lv: 'III 级', o: '上饶一附院', m: 'MDT 会诊', o2: '稳定' }
     ];
     var tr = r.map(function (x) {
       var lvt = x.lv.indexOf('IV') === 0 ? 'danger' : 'warn';
@@ -392,11 +391,11 @@
   }
   function renderCapScore() {
     var r = [
-      { o: '河南省肿瘤医院', total: 96.2, t: 98, q: 95, d: 97, i: 94, rank: '#1' },
-      { o: '郑州大学一附院', total: 93.8, t: 95, q: 92, d: 96, i: 91, rank: '#2' },
-      { o: '洛阳中心医院', total: 88.4, t: 89, q: 86, d: 90, i: 88, rank: '#5' },
-      { o: '新乡一附院', total: 85.1, t: 86, q: 83, d: 87, i: 84, rank: '#8' },
-      { o: '开封市人民医院', total: 79.6, t: 80, q: 77, d: 81, i: 78, rank: '#14' }
+      { o: '江西省肿瘤医院', total: 96.2, t: 98, q: 95, d: 97, i: 94, rank: '#1' },
+      { o: '南昌大学一附院', total: 93.8, t: 95, q: 92, d: 96, i: 91, rank: '#2' },
+      { o: '赣州中心医院', total: 88.4, t: 89, q: 86, d: 90, i: 88, rank: '#5' },
+      { o: '上饶一附院', total: 85.1, t: 86, q: 83, d: 87, i: 84, rank: '#8' },
+      { o: '九江市人民医院', total: 79.6, t: 80, q: 77, d: 81, i: 78, rank: '#14' }
     ];
     var tr = r.map(function (x) {
       var tc = x.total >= 90 ? '#2e7d32' : x.total >= 82 ? '#b54708' : '#b42335';
@@ -489,24 +488,6 @@
       kpis([{ l: '评估报告', v: '35', m: '本年度' }, { l: '平均 AUC', v: '0.916', m: '较上季 +0.009', tone: 'up' }, { l: '通过率', v: '85.7%', m: '环比 -2.1pp', tone: 'warn' }, { l: '待验证模型', v: '4', m: '本月队列' }]) +
       card('模型评估明细', table(['模型/版本', '评估集', '#AUC', '#敏感度', '#特异度', '#KS', '#PR-AUC', '结论', '操作'], tr));
   }
-  function renderModelTicket() {
-    var r = [
-      { id: 'RI-202608-09', rng: '登封市·网格 07', lv: '高', d: '发病率预测超阈值，建议加强宣教筛查', o: '郑州市疾控', st: '待受理' },
-      { id: 'RI-202608-07', rng: '杞县·胃癌高发村', lv: '高', d: '空间聚集，建议开展流调与营养干预', o: '开封市疾控', st: '处理中' },
-      { id: 'RI-202608-05', rng: '老城区·肺癌网格', lv: '中', d: '趋势上升，建议戒烟与早筛', o: '洛阳市疾控', st: '处理中' },
-      { id: 'RI-202608-03', rng: '通许县·3 个村', lv: '中', d: '死亡率偏高，建议强化随访', o: '开封市疾控', st: '已办结' },
-      { id: 'RI-202608-01', rng: '卫辉市·网格 12', lv: '低', d: '异常波动，建议例行核查', o: '新乡市疾控', st: '已办结' }
-    ];
-    var tr = r.map(function (x) {
-      var lvt = x.lv === '高' ? 'danger' : x.lv === '中' ? 'warn' : 'info';
-      var st = x.st === '已办结' ? 'success' : x.st === '处理中' ? 'info' : 'warn';
-      return '<tr><td>' + esc(x.id) + '</td><td>' + esc(x.rng) + '</td><td>' + tone(x.lv, lvt) + '</td><td style="max-width:240px">' + esc(x.d) + '</td><td>' + esc(x.o) + '</td><td>' + tone(x.st, st) + '</td><td>' + actBtn('办理', 'view', x.id) + '</td></tr>';
-    }).join('');
-    return heads('风险预警干预工单', '将模型预测的高风险区域转化为可执行的干预任务。') +
-      kpis([{ l: '待受理', v: '3', m: '含 2 条高优先级', tone: 'bad' }, { l: '处理中', v: '5', m: '跟进中' }, { l: '已办结', v: '18', m: '本月办结率 69%' }, { l: '平均闭环时长', v: '2.4', m: '天', tone: 'info' }]) +
-      card('干预工单列表', table(['工单号', '高风险区域', '风险等级', '建议干预', '责任机构', '状态', '操作'], tr));
-  }
-
   var ROUTES = {
     'mon-inc-import': renderIncImport, 'mon-inc-cube': renderIncCube, 'mon-inc-trend': renderIncTrend,
     'mon-inc-rule': renderIncRule, 'mon-inc-ticket': renderIncTicket,
@@ -514,7 +495,7 @@
     'mon-cap-tech': renderCapTech, 'mon-cap-record': renderCapRecord, 'mon-cap-quality': renderCapQuality,
     'mon-cap-difficulty': renderCapDifficulty, 'mon-cap-score': renderCapScore,
     'mon-model-warehouse': renderModelWarehouse, 'mon-model-reg': renderModelReg, 'mon-model-train': renderModelTrain,
-    'mon-model-snapshot': renderModelSnapshot, 'mon-model-eval': renderModelEval, 'mon-model-ticket': renderModelTicket
+    'mon-model-snapshot': renderModelSnapshot, 'mon-model-eval': renderModelEval
   };
 
   function renderMonitorPage(pageId) {

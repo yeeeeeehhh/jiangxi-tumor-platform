@@ -31,16 +31,16 @@
 
   /* ========== 主数据（确定性） ========== */
   var REGIONS = [
-    { id: '410000', name: '河南省', level: 'prov', parent: null },
-    { id: '410100', name: '郑州市', level: 'city', parent: '410000' },
-    { id: '410300', name: '洛阳市', level: 'city', parent: '410000' },
-    { id: '410200', name: '开封市', level: 'city', parent: '410000' },
-    { id: '410102', name: '中原区', level: 'dist', parent: '410100' },
-    { id: '410105', name: '金水区', level: 'dist', parent: '410100' },
-    { id: '410302', name: '老城区', level: 'dist', parent: '410300' },
-    { id: '410303', name: '西工区', level: 'dist', parent: '410300' },
-    { id: '410202', name: '龙亭区', level: 'dist', parent: '410200' },
-    { id: '410204', name: '鼓楼区', level: 'dist', parent: '410200' }
+    { id: '360000', name: '江西省', level: 'prov', parent: null },
+    { id: '360100', name: '南昌市', level: 'city', parent: '360000' },
+    { id: '360700', name: '赣州市', level: 'city', parent: '360000' },
+    { id: '360400', name: '九江市', level: 'city', parent: '360000' },
+    { id: '360103', name: '西湖区', level: 'dist', parent: '360100' },
+    { id: '360102', name: '东湖区', level: 'dist', parent: '360100' },
+    { id: '360704', name: '赣县区', level: 'dist', parent: '360700' },
+    { id: '360703', name: '南康区', level: 'dist', parent: '360700' },
+    { id: '360402', name: '濂溪区', level: 'dist', parent: '360400' },
+    { id: '360403', name: '浔阳区', level: 'dist', parent: '360400' }
   ];
   /* 简化寿命表：年龄组 → 年预期生存概率（用于相对生存） */
   var LIFE_TABLE = [
@@ -66,16 +66,16 @@
   var POP = {};
   (function buildPop() {
     var base = {
-      '410000': 99400000,
-      '410100': 12800000,
-      '410300': 7000000,
-      '410200': 4800000,
-      '410102': 980000,
-      '410105': 1600000,
-      '410302': 220000,
-      '410303': 380000,
-      '410202': 260000,
-      '410204': 180000
+      '360000': 99400000,
+      '360100': 12800000,
+      '360700': 7000000,
+      '360400': 4800000,
+      '360103': 980000,
+      '360102': 1600000,
+      '360704': 220000,
+      '360703': 380000,
+      '360402': 260000,
+      '360403': 180000
     };
     var ageShare = [
       0.055, 0.057, 0.060, 0.064, 0.068, 0.071,
@@ -85,8 +85,8 @@
     for (var y = 2014; y <= 2023; y++) {
       POP[y] = {};
       Object.keys(base).forEach(function (rid) {
-        // 开封市及下辖区县 2023 人口缺失（验收用）
-        if ((rid === '410200' || rid === '410202' || rid === '410204') && y === 2023) {
+        // 九江市及下辖区县 2023 人口缺失（验收用）
+        if ((rid === '360400' || rid === '360402' || rid === '360403') && y === 2023) {
           POP[y][rid] = { total: null, age: null, missing: true };
           return;
         }
@@ -117,9 +117,9 @@
 
   function regionShare(rid) {
     return {
-      '410000': 1, '410100': 0.32, '410300': 0.18, '410200': 0.12,
-      '410102': 0.08, '410105': 0.12, '410302': 0.03, '410303': 0.05,
-      '410202': 0.04, '410204': 0.03
+      '360000': 1, '360100': 0.32, '360700': 0.18, '360400': 0.12,
+      '360103': 0.08, '360102': 0.12, '360704': 0.03, '360703': 0.05,
+      '360402': 0.04, '360403': 0.03
     }[rid] || 0.05;
   }
 
@@ -276,8 +276,8 @@
     year: 2023,
     yearStart: 2014,
     yearEnd: 2023,
-    regionId: '410000',
-    regionIds: ['410000'],
+    regionId: '360000',
+    regionIds: ['360000'],
     siteId: 'ALL',
     sex: '合计',
     cardStatus: '有效主档',
@@ -286,7 +286,7 @@
     survSite: 'C34',
     survYears: 5,
     survStrata: 'stage',
-    survRegion: '410000',
+    survRegion: '360000',
     drill: null
   };
 
@@ -744,7 +744,7 @@ function renderStats() {
   function renderSurvival() {
     var hasLife = LIFE_TABLE && LIFE_TABLE.length === 18;
     var filter = '<div class="st-filter">' +
-      '<div class="form-group"><label>地区</label><select onchange="STATS.set(\'survRegion\',this.value)">' + regionOptions(state.survRegion || '410000') + '</select></div>' +
+      '<div class="form-group"><label>地区</label><select onchange="STATS.set(\'survRegion\',this.value)">' + regionOptions(state.survRegion || '360000') + '</select></div>' +
       '<div class="form-group"><label>癌种</label><select onchange="STATS.set(\'survSite\',this.value)">' + siteOptions(state.survSite) + '</select></div>' +
       '<div class="form-group"><label>随访终点</label><select onchange="STATS.set(\'survYears\',+this.value)"><option value="1"' + (state.survYears === 1 ? ' selected' : '') + '>1年</option><option value="3"' + (state.survYears === 3 ? ' selected' : '') + '>3年</option><option value="5"' + (state.survYears === 5 ? ' selected' : '') + '>5年</option></select></div>' +
       '<div class="form-group"><label>分层</label><select onchange="STATS.set(\'survStrata\',this.value)"><option value="none"' + (state.survStrata === 'none' ? ' selected' : '') + '>不分层</option><option value="stage"' + (state.survStrata === 'stage' ? ' selected' : '') + '>分期</option><option value="sex"' + (state.survStrata === 'sex' ? ' selected' : '') + '>性别</option></select></div>' +
@@ -795,7 +795,7 @@ function renderStats() {
     var rows = '';
     for (var i = 0; i < 8; i++) {
       var sex = i % 2 ? '女' : '男';
-      rows += '<tr><td>HN' + state.year + String(1000 + hash(id + i) % 9000) + '</td><td>病例' + (i + 1) +
+      rows += '<tr><td>JX' + state.year + String(1000 + hash(id + i) % 9000) + '</td><td>病例' + (i + 1) +
         '</td><td>' + sex + '</td><td>' + (40 + (hash(id + i) % 40)) + '</td><td>' + htmlEsc(siteName(siteId)) +
         '</td><td>' + state.year + '-' + String(1 + i % 12).padStart(2, '0') + '-15</td></tr>';
     }
@@ -864,7 +864,7 @@ function renderStats() {
     },
     resetStats: function () {
       state.year = 2023;
-      state.regionId = '410000';
+      state.regionId = '360000';
       state.siteId = 'ALL';
       state.sex = '合计';
       state.mode = 'burden';

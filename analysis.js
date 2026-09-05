@@ -19,7 +19,7 @@
     cellMetric: '发病数', // 发病数 | 发病率 | 死亡数 | 死亡率
     resultAsChart: false,
     group: 'region',
-    region: '河南省',
+    region: '江西省',
     scope: '按患者户籍地',
     cardRange: '有效报卡',
     dateType: '确诊日期',
@@ -127,16 +127,16 @@
     { id: 'C34', label: 'C34 肺' },
     { id: 'C50', label: 'C50 乳腺' }
   ];
-  var REGION_FACTOR = { '河南省': 1, '郑州市': 0.42, '洛阳市': 0.28, '开封市': 0.18 };
+  var REGION_FACTOR = { '江西省': 1, '南昌市': 0.42, '赣州市': 0.28, '九江市': 0.18 };
   var YEAR_FACTOR = { '2026': 1.02, '2025': 1, '2024': 0.94, '2023': 0.88 };
   var SEX_FACTOR = { '合计': 1, '男': 0.54, '女': 0.46 };
   var RANGE_FACTOR = { '有效报卡': 1, '全部报卡': 1.12 };
   var DATETYPE_FACTOR = { '确诊日期': 1, '上报日期': 1.04, '死亡日期': 0.97 };
 
   var reportFiles = [
-    { id: 1, fileName: '2025年度河南省肿瘤发病死亡报表.pdf', org: '河南省肿瘤登记中心', pages: 42, uploadTime: '2026-03-12 10:22', remark: '省级汇总' },
-    { id: 2, fileName: '郑州市2025年报卡完整性专题.pdf', org: '郑州市肿瘤登记中心', pages: 18, uploadTime: '2026-04-08 15:40', remark: '' },
-    { id: 3, fileName: '洛阳市月报卡趋势分析.pdf', org: '洛阳市肿瘤登记中心', pages: 11, uploadTime: '2026-05-21 09:05', remark: '内部参阅' }
+    { id: 1, fileName: '2025年度江西省肿瘤发病死亡报表.pdf', org: '江西省肿瘤登记中心', pages: 42, uploadTime: '2026-03-12 10:22', remark: '省级汇总' },
+    { id: 2, fileName: '南昌市2025年报卡完整性专题.pdf', org: '南昌市肿瘤登记中心', pages: 18, uploadTime: '2026-04-08 15:40', remark: '' },
+    { id: 3, fileName: '赣州市月报卡趋势分析.pdf', org: '赣州市肿瘤登记中心', pages: 11, uploadTime: '2026-05-21 09:05', remark: '内部参阅' }
   ];
   var nextFileId = 4;
 
@@ -421,12 +421,12 @@
       periodField() +
       selectField('性别', 'sex', ['合计', '男', '女']);
     if (opts.omitRegion) return rest;
-    return selectField('行政区划', 'region', ['河南省', '郑州市', '洛阳市', '开封市']) + rest;
+    return selectField('行政区划', 'region', ['江西省', '南昌市', '赣州市', '九江市']) + rest;
   }
 
   function burdenFilter() {
     return '<div class="da-filter">' + diseasePicker() +
-      selectField('行政区划', 'region', ['河南省', '郑州市', '洛阳市', '开封市']) +
+      selectField('行政区划', 'region', ['江西省', '南昌市', '赣州市', '九江市']) +
       agePicker() +
       selectField('统计指标', 'cellMetric', ['发病数', '发病率', '死亡数', '死亡率']) +
       selectField('日期类型', 'dateType', ['确诊日期', '上报日期', '死亡日期']) +
@@ -593,52 +593,52 @@
   function groups() {
     if (state.group === 'unit') {
       return [
-        { key: 'u1', unitName: '014医院', unitLevel: '县区级', unitCode: '410105001' },
-        { key: 'u2', unitName: '5111厂医院', unitLevel: '县区级', unitCode: '410102002' },
-        { key: 'u3', unitName: '郑州市肿瘤登记中心', unitLevel: '市州级', unitCode: '410100001' },
-        { key: 'u4', unitName: '光山县晏河乡卫生院', unitLevel: '乡镇级', unitCode: '411522101' },
-        { key: 'u5', unitName: '光山县第二人民医院', unitLevel: '县区级', unitCode: '411522002' },
-        { key: 'u6', unitName: '河南省肿瘤医院', unitLevel: '省级', unitCode: '410000001' }
+        { key: 'u1', unitName: '014医院', unitLevel: '县区级', unitCode: '360102001' },
+        { key: 'u2', unitName: '5111厂医院', unitLevel: '县区级', unitCode: '360103002' },
+        { key: 'u3', unitName: '南昌市肿瘤登记中心', unitLevel: '市州级', unitCode: '360100001' },
+        { key: 'u4', unitName: '永新县三湾乡卫生院', unitLevel: '乡镇级', unitCode: '360830101' },
+        { key: 'u5', unitName: '永新县第二人民医院', unitLevel: '县区级', unitCode: '360830002' },
+        { key: 'u6', unitName: '江西省肿瘤医院', unitLevel: '省级', unitCode: '360000001' }
       ];
     }
     if (state.group === 'user') {
       return [
-        { key: '410183021', account: '410183021', userName: '青屏社区卫生服务中心', unitName: '郑州市新密市青屏社区服务中心' },
-        { key: '002', account: '002', userName: '史晓云', unitName: '光山县晏河乡卫生院' },
-        { key: '003', account: '003', userName: '罗强', unitName: '光山县第二人民医院' },
-        { key: '004', account: '004', userName: '江宇', unitName: '光山县人民医院' },
-        { key: '005', account: '005', userName: '张医生', unitName: '河南省肿瘤登记中心' },
-        { key: '006', account: '006', userName: '李统计员', unitName: '郑州市肿瘤登记中心' }
+        { key: '360124021', account: '360124021', userName: '青屏社区卫生服务中心', unitName: '南昌市进贤县青屏社区服务中心' },
+        { key: '002', account: '002', userName: '史晓云', unitName: '永新县三湾乡卫生院' },
+        { key: '003', account: '003', userName: '罗强', unitName: '永新县第二人民医院' },
+        { key: '004', account: '004', userName: '江宇', unitName: '永新县人民医院' },
+        { key: '005', account: '005', userName: '张医生', unitName: '江西省肿瘤登记中心' },
+        { key: '006', account: '006', userName: '李统计员', unitName: '南昌市肿瘤登记中心' }
       ];
     }
-    if (state.region === '郑州市') {
+    if (state.region === '南昌市') {
       return [
-        { key: '410105', regionName: '金水区', regionCode: '410105000000' },
-        { key: '410102', regionName: '中原区', regionCode: '410102000000' },
-        { key: '410103', regionName: '二七区', regionCode: '410103000000' }
+        { key: '360102', regionName: '东湖区', regionCode: '360102000000' },
+        { key: '360103', regionName: '西湖区', regionCode: '360103000000' },
+        { key: '360104', regionName: '青云谱区', regionCode: '360104000000' }
       ];
     }
-    if (state.region === '洛阳市') {
+    if (state.region === '赣州市') {
       return [
-        { key: '410303', regionName: '西工区', regionCode: '410303000000' },
-        { key: '410302', regionName: '老城区', regionCode: '410302000000' },
-        { key: '410305', regionName: '涧西区', regionCode: '410305000000' }
+        { key: '360703', regionName: '南康区', regionCode: '360703000000' },
+        { key: '360704', regionName: '赣县区', regionCode: '360704000000' },
+        { key: '360722', regionName: '信丰县', regionCode: '360722000000' }
       ];
     }
-    if (state.region === '开封市') {
+    if (state.region === '九江市') {
       return [
-        { key: '410202', regionName: '龙亭区', regionCode: '410202000000' },
-        { key: '410203', regionName: '顺河区', regionCode: '410203000000' },
-        { key: '410204', regionName: '鼓楼区', regionCode: '410204000000' }
+        { key: '360402', regionName: '濂溪区', regionCode: '360402000000' },
+        { key: '360421', regionName: '柴桑区', regionCode: '360421000000' },
+        { key: '360403', regionName: '浔阳区', regionCode: '360403000000' }
       ];
     }
     return [
-      { key: '410100', regionName: '郑州市', regionCode: '410100000000' },
-      { key: '410200', regionName: '开封市', regionCode: '410200000000' },
-      { key: '410300', regionName: '洛阳市', regionCode: '410300000000' },
-      { key: '410400', regionName: '平顶山市', regionCode: '410400000000' },
-      { key: '410500', regionName: '安阳市', regionCode: '410500000000' },
-      { key: '410700', regionName: '新乡市', regionCode: '410700000000' }
+      { key: '360100', regionName: '南昌市', regionCode: '360100000000' },
+      { key: '360400', regionName: '九江市', regionCode: '360400000000' },
+      { key: '360700', regionName: '赣州市', regionCode: '360700000000' },
+      { key: '360500', regionName: '新余市', regionCode: '360500000000' },
+      { key: '360200', regionName: '景德镇市', regionCode: '360200000000' },
+      { key: '361100', regionName: '上饶市', regionCode: '361100000000' }
     ];
   }
 
@@ -973,7 +973,7 @@
       selectField('统计年度', 'year', ['2026', '2025', '2024', '2023']) +
       selectField('病例归属', 'scope', ['按患者户籍地', '按报告单位所在地'], 'wide') +
       selectField('报卡范围', 'cardRange', ['有效报卡', '全部报卡']) +
-      selectField('行政区划', 'region', ['河南省', '郑州市', '洛阳市', '开封市']) +
+      selectField('行政区划', 'region', ['江西省', '南昌市', '赣州市', '九江市']) +
       actions() + '</div>';
 
     return pageShell(PAGES['analysis-progress'], filter +
@@ -1027,7 +1027,7 @@
       selectField('统计年度', 'year', ['2026', '2025', '2024', '2023']) +
       selectField('报卡范围', 'cardRange', ['有效报卡', '全部报卡']) +
       selectField('病例归属', 'scope', ['按患者户籍地', '按报告单位所在地'], 'wide') +
-      selectField('行政区划', 'region', ['河南省', '郑州市', '洛阳市', '开封市']) +
+      selectField('行政区划', 'region', ['江西省', '南昌市', '赣州市', '九江市']) +
       actions() + '</div>';
 
     if (!document.getElementById('qc-group-css')) {
@@ -1118,9 +1118,9 @@
       },
       region_month: {
         title: '区划 × 月份',
-        rows: state.region === '河南省' ? ['郑州', '洛阳', '开封'] : [state.region.replace('市', '')],
+        rows: state.region === '江西省' ? ['南昌', '赣州', '九江'] : [state.region.replace('市', '')],
         cols: ['1月', '2月', '3月', '4月', '5月', '6月'],
-        matrix: state.region === '河南省'
+        matrix: state.region === '江西省'
           ? [[120, 98, 140, 132, 150, 160], [88, 76, 102, 96, 110, 118], [64, 58, 72, 70, 80, 86]]
           : [[90, 78, 110, 104, 120, 128]]
       }
@@ -1137,8 +1137,8 @@
     var data = presets[key] || presets.site_sex;
     // custom pairing fallback
     if (!presets[key]) {
-      var rows = row === '性别' ? ['男', '女'] : row === '行政区划' ? ['郑州', '洛阳', '开封'] : row.indexOf('年龄') === 0 ? AGE_LABELS : ['C50 乳腺', 'C34 肺', 'C16 胃', 'C18 结肠'];
-      var cols = col === '性别' ? ['男', '女'] : col === '行政区划' ? ['郑州', '洛阳', '开封'] : col.indexOf('年龄') === 0 ? AGE_LABELS : ['1月', '2月', '3月', '4月', '5月', '6月'];
+      var rows = row === '性别' ? ['男', '女'] : row === '行政区划' ? ['南昌', '赣州', '九江'] : row.indexOf('年龄') === 0 ? AGE_LABELS : ['C50 乳腺', 'C34 肺', 'C16 胃', 'C18 结肠'];
+      var cols = col === '性别' ? ['男', '女'] : col === '行政区划' ? ['南昌', '赣州', '九江'] : col.indexOf('年龄') === 0 ? AGE_LABELS : ['1月', '2月', '3月', '4月', '5月', '6月'];
       var matrix = rows.map(function (_, ri) {
         return cols.map(function (_, ci) { return 40 + ri * 17 + ci * 11; });
       });
@@ -1171,7 +1171,7 @@
       selectField('ICD 分组', 'crossIcd', ['ICD-10（明细类）', 'ICD-10（综合类）'], 'wide') +
       selectField('纵向项目', 'crossRow', ['ICD', '年龄组', '行政区划', '性别', '月份']) +
       selectField('横向项目', 'crossCol', ['性别', '年龄组', '行政区划', '月份', 'ICD']) +
-      selectField('行政区划', 'region', ['河南省', '郑州市', '洛阳市', '开封市']) +
+      selectField('行政区划', 'region', ['江西省', '南昌市', '赣州市', '九江市']) +
       selectField('年份', 'year', ['2025', '2024', '2023']) +
       '<div class="da-actions"><button class="btn btn-ghost btn-sm" onclick="DA.resetCross()">重置</button>' +
       '<button class="btn btn-primary btn-sm" onclick="DA.runCross()">查询</button>' +
@@ -1251,7 +1251,7 @@
         '<div class="da-upload-drop" onclick="document.getElementById(\'daFileInput\').click()">点击选择 PDF 文件（仅 .pdf）' +
         '<input id="daFileInput" type="file" accept=".pdf,application/pdf" style="display:none" onchange="DA.pickFile(this)"></div>' +
         '<div class="da-grid" style="margin-top:14px">' +
-        '<div class="form-group"><label>隶属机构</label><select id="daUploadOrg"><option>河南省肿瘤登记中心</option><option>郑州市肿瘤登记中心</option><option>洛阳市肿瘤登记中心</option><option>开封市肿瘤登记中心</option></select></div>' +
+        '<div class="form-group"><label>隶属机构</label><select id="daUploadOrg"><option>江西省肿瘤登记中心</option><option>南昌市肿瘤登记中心</option><option>赣州市肿瘤登记中心</option><option>九江市肿瘤登记中心</option></select></div>' +
         '<div class="form-group"><label>备注</label><input id="daUploadRemark" placeholder="可选"></div></div>' +
         '<div id="daUploadName" style="margin-top:10px;font-size:13px;color:#64748b">尚未选择文件</div></div>' +
         '<div class="da-modal-actions"><button class="btn btn-ghost btn-sm" onclick="DA.closeUpload()">取消</button>' +
@@ -1555,7 +1555,7 @@
       reportFiles.unshift({
         id: nextFileId++,
         fileName: uploadDraft.name,
-        org: orgEl ? orgEl.value : '河南省肿瘤登记中心',
+        org: orgEl ? orgEl.value : '江西省肿瘤登记中心',
         pages: Math.max(1, Math.round(uploadDraft.size / 45000) || 8),
         uploadTime: stamp,
         remark: remarkEl ? remarkEl.value : ''

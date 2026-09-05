@@ -12,7 +12,7 @@
   const text=(label,id,value='')=>'<div class="form-group full"><label>'+label+'</label><textarea id="'+id+'">'+esc(value)+'</textarea></div>';
   const value=id=>document.getElementById(id).value.trim();
 
-  const missing=[['behavior','行为','3','恶性'],['grade','分级','2','II级'],['diagnosis_basis','诊断依据','7','病理（原发）'],['clinical_stage','临床分期','1','I期'],['treatment','治疗信息','SUR','手术'],['province_code','省份代码','41','河南'],['record_type','记录类型','0','原始卡'],['duplicate_status','重卡处理状态','SUSPECTED','疑似重卡'],['source_type','来源类型','OUT','门诊报告'],['death_cause','根本死因','1','肿瘤']];
+  const missing=[['behavior','行为','3','恶性'],['grade','分级','2','II级'],['diagnosis_basis','诊断依据','7','病理（原发）'],['clinical_stage','临床分期','1','I期'],['treatment','治疗信息','SUR','手术'],['province_code','省份代码','36','江西'],['record_type','记录类型','0','原始卡'],['duplicate_status','重卡处理状态','SUSPECTED','疑似重卡'],['source_type','来源类型','OUT','门诊报告'],['death_cause','根本死因','1','肿瘤']];
   missing.forEach(([type,name,code,item])=>{if(!dictCommonTypes.some(x=>x.type===type))dictCommonTypes.push({type,name});if(!dictCommonData[type])dictCommonData[type]=[{code,name:item,sort:1,status:'启用',mergeStatus:'未撤并',mergeCode:'',remark:''}]});
   if(dictCommonData.record_type&&dictCommonData.record_type.length===1)dictCommonData.record_type.push({code:'4',name:'补报卡',sort:2,status:'启用',mergeStatus:'未撤并',mergeCode:'',remark:''},{code:'110',name:'克隆卡',sort:3,status:'启用',mergeStatus:'未撤并',mergeCode:'',remark:''},{code:'2',name:'人工合并卡',sort:4,status:'启用',mergeStatus:'未撤并',mergeCode:'',remark:''},{code:'22',name:'自动合并卡',sort:5,status:'启用',mergeStatus:'未撤并',mergeCode:'',remark:''},{code:'222',name:'合并卡（克隆）',sort:6,status:'启用',mergeStatus:'未撤并',mergeCode:'',remark:''},{code:'3',name:'多原发卡',sort:7,status:'启用',mergeStatus:'未撤并',mergeCode:'',remark:''});
   if(dictCommonData.duplicate_status&&dictCommonData.duplicate_status.length===1)dictCommonData.duplicate_status.push({code:'AUTO_MERGED',name:'自动合并',sort:2,status:'启用',mergeStatus:'未撤并',mergeCode:'',remark:''},{code:'MANUAL_MERGED',name:'人工合并',sort:3,status:'启用',mergeStatus:'未撤并',mergeCode:'',remark:''},{code:'INDEPENDENT',name:'标记为独立',sort:4,status:'启用',mergeStatus:'未撤并',mergeCode:'',remark:''},{code:'MULTI_PRIMARY',name:'标记为多原发',sort:5,status:'启用',mergeStatus:'未撤并',mergeCode:'',remark:''});
@@ -88,7 +88,7 @@
     '41:塔吉克族','42:怒族','43:乌孜别克族','44:俄罗斯族','45:鄂温克族','46:德昂族','47:保安族','48:裕固族','49:京族','50:塔塔尔族',
     '51:独龙族','52:鄂伦春族','53:赫哲族','54:门巴族','55:珞巴族','56:基诺族','97:其他','98:外国','99:未确定'
   ].join('|');
-  var HENAN_CITIES = '410100:郑州市|410200:开封市|410300:洛阳市|410400:平顶山市|410500:安阳市|410600:鹤壁市|410700:新乡市|410800:焦作市|410900:濮阳市|411000:许昌市|411100:漯河市|411200:三门峡市|411300:南阳市|411400:商丘市|411500:信阳市|411600:周口市|411700:驻马店市';
+  var JIANGXI_CITIES = '360100:南昌市|360200:景德镇市|360300:萍乡市|360400:九江市|360500:新余市|360600:鹰潭市|360700:赣州市|360800:吉安市|360900:宜春市|361000:抚州市|361100:上饶市';
 
   var DICTIONARIES = [
     catalog('A1','性别字典','GB/T 2261.1','GB/T 2261.1-2003',true,'0/1/2/9','身份证第17位奇男偶女须与之一致。','0:未知的性别|1:男|2:女|9:未说明的性别'),
@@ -98,14 +98,14 @@
     catalog('A5','职业字典（职业类别）','GB/T 6565大类','GB/T 6565-2015',false,'1–8','职业与职业类别合并；可扩展工种。','1:机关企事业单位负责人|2:专业技术人员|3:办事人员和有关人员|4:社会生产服务和生活服务人员|5:农林牧渔生产及辅助人员|6:生产制造及有关人员|7:军人|8:不便分类的其他从业人员'),
     catalog('A6','证件类型字典','两位数字','WS 364 / GB/T 14946',true,'01–09','居民身份证触发V80/V81。','01:居民身份证|02:户口簿|03:护照|04:军官证|05:机动车驾驶证|06:港澳居民来往内地通行证|07:台湾居民来往大陆通行证|09:其他法定身份证件'),
     catalog('A7','国籍字典','三位数字码','GB/T 2659 / ISO 3166',false,'三位数字码','默认156；港澳台标注中国归属。','156:中国|344:中国香港|446:中国澳门|158:中国台湾|840:美国|392:日本|410:韩国|826:英国|250:法国|276:德国|036:澳大利亚|124:加拿大'),
-    catalog('A8','行政区划信息（地址空间）','GB/T 2260六位','GB/T 2260',true,'省+市+县；河南省段41','户籍可外省；常住/登记地须为河南；县码保留生效停用日期。',HENAN_CITIES,{status:'待补全标准源',openQuestion:'Q2'}),
+    catalog('A8','行政区划信息（地址空间）','GB/T 2260六位','GB/T 2260',true,'省+市+县；江西省段36','户籍可外省；常住/登记地须为江西；县码保留生效停用日期。',JIANGXI_CITIES,{status:'待补全标准源',openQuestion:'Q2'}),
     catalog('A9','亲属关系字典','平台自定义','平台自定义',false,'1–6','用于家族史定位患癌亲属。','1:父母|2:子女|3:兄弟姐妹|4:祖父母/外祖父母|5:配偶|6:其他亲属'),
     catalog('B1','肿瘤部位编码（解剖部位）','ICD-O-3 topography','ICD-O-3（WHO）',true,'C00–C80及淋巴造血部位','在“解剖部位”专页维护；正式环境须导入全量码表。','',{status:'专页维护'}),
     catalog('B2','肿瘤形态学编码字典','ICD-O-3 morphology','ICD-O-3（WHO）',true,'8000–9999 + 行为/分级后缀','在“形态学编码”专页维护；病理诊断时必填。','',{status:'专页维护'}),
     catalog('B3','肿瘤行为字典','ICD-O-3 behavior','ICD-O-3（WHO）',true,'/0 /1 /2 /3 /6 /9','行为与ICD-10互验。','/0:良性|/1:交界性/动态未定|/2:原位癌|/3:恶性（原发性）|/6:恶性（继发性/转移性）|/9:恶性（性质未特指）'),
     catalog('B4','肿瘤分级字典','ICD-O-3 grade','ICD-O-3（WHO）',false,'1–4、9','须与形态学匹配。','1:高分化(G1)|2:中分化(G2)|3:低分化(G3)|4:未分化(G4)|9:未定级/不适用'),
     catalog('B5','ICD-10疾病编码','ICD-10','ICD-10（WHO）',true,'C00–C97、D00–D09','正式环境须导入全量码表；D45–D46不再单列。','C00:唇恶性肿瘤|C16:胃恶性肿瘤|C18:结肠恶性肿瘤|C22:肝和肝内胆管恶性肿瘤|C34:支气管和肺恶性肿瘤|C50:乳房恶性肿瘤|C53:宫颈恶性肿瘤|C61:前列腺恶性肿瘤|C80:原发部位不明恶性肿瘤|D00:口腔消化器官原位癌',{status:'待补全标准源'}),
-    catalog('B6','诊断依据字典','待确认','WS 372.6 / IACR',true,'IACR版本与河南省版待确认','取值未确认前不得写死。','',{status:'待确认',openQuestion:'Q1'}),
+    catalog('B6','诊断依据字典','待确认','WS 372.6 / IACR',true,'IACR版本与江西省版待确认','取值未确认前不得写死。','',{status:'待确认',openQuestion:'Q1'}),
     catalog('B7','肿瘤分期方法字典','1/2/3/4/9','WS 372.6-2012',false,'分期方法','选择1/3/4时联动T/N/M。','1:TNM分期|2:临床分期(FIGO等)|3:TNM临床(cTNM)|4:TNM病理(pTNM)|9:未分期/不适用'),
     catalog('B8','TNM-T分期字典','AJCC/UICC T','AJCC/UICC',false,'T0/Tis/T1–T4及亚分','按部位子集导入。','T0:T0|Tis:Tis|T1:T1|T1a:T1a|T1b:T1b|T2:T2|T2a:T2a|T2b:T2b|T3:T3|T4:T4|TX:TX'),
     catalog('B9','TNM-N分期字典','AJCC/UICC N','AJCC/UICC',false,'N0/N1–N3及亚分','按部位子集导入。','N0:N0|N1:N1|N1a:N1a|N1b:N1b|N2:N2|N2a:N2a|N2b:N2b|N3:N3|NX:NX'),
@@ -125,13 +125,13 @@
     catalog('F4','报告卡状态字典','0/1/2/3/9','平台自定义',true,'状态流转','状态流转受权限控制。','0:暂存（草稿）|1:已上报（待审核）|2:已审核|3:已驳回|9:已注销'),
     catalog('F5','数据来源字典','1–6/9','平台自定义',true,'来源分类','来源=2时诊断依据通常为死亡补发病。','1:医院报告（新发）|2:死因监测（死亡补发）|3:医保/新农合|4:疾控交换|5:随访登记|6:外省/跨区交换|9:其他'),
     catalog('F6','肿瘤编码转ICD-10对照','ICD-O-3→ICD-10','IARC对照表',false,'B1+B2→B5','在“ICD编码对照”专页维护；正式环境须导入官方全量表。','C34.9+8070/3:C34.9|C34.9+8041/3:C34.9|C50.9+8500/3:C50.9|C16.9+8140/3:C16.9',{status:'专页维护'}),
-    catalog('F7','登记编码年度配置','年份+地区+流水号','平台自定义',true,'年度规则','年度重置并保证登记号唯一。','2024:HN-{YYYY}-{REGION}-{SEQ:06}|2025:HN-{YYYY}-{REGION}-{SEQ:06}|2026:HN-{YYYY}-{REGION}-{SEQ:06}'),
+    catalog('F7','登记编码年度配置','年份+地区+流水号','平台自定义',true,'年度规则','年度重置并保证登记号唯一。','2024:JX-{YYYY}-{REGION}-{SEQ:06}|2025:JX-{YYYY}-{REGION}-{SEQ:06}|2026:JX-{YYYY}-{REGION}-{SEQ:06}'),
     catalog('G1','字典分类字典 / 系统字典','A–G','平台自定义',true,'七大域','用于字典库自身分级。','A:人口学与标识|B:肿瘤诊断|C:治疗|D:随访与结局|E:家族史与危险因素|F:机构与报告|G:平台配置')
   ];
 
   var OPEN_QUESTIONS = [
-    {id:'Q1',item:'诊断依据 B6',issue:'IACR标签与部分省报告卡变体码同义不同。',action:'由河南省肿瘤登记处书面确认采用版本',status:'待确认'},
-    {id:'Q2',item:'济源行政区划 A8',issue:'GB/T 2260为419001，4191仅为部分系统占位约定。',action:'确认按419001还是4191建模',status:'待确认'},
+    {id:'Q1',item:'诊断依据 B6',issue:'IACR标签与部分省报告卡变体码同义不同。',action:'由江西省肿瘤登记处书面确认采用版本',status:'待确认'},
+    {id:'Q2',item:'赣江新区行政区划 A8',issue:'赣江新区为国家级新区，GB/T 2260暂无独立区划代码。',action:'确认按南昌市、九江市相关区县码建模还是预留码段建模',status:'待确认'},
     {id:'Q3',item:'文化程度 A4 / 婚姻 A3',issue:'WS/T 364.3、GB/T 2261.2与旧版取值不同。',action:'核对现行标准后固化值域',status:'待确认'},
     {id:'Q4',item:'标准版本',issue:'WS 372.6更新版及ICD-O-3.2采用情况待核。',action:'核查现行国标与WHO版本',status:'待确认'}
   ];
@@ -160,7 +160,7 @@
     rule('V54','警告','年龄一致性','系统算龄与填报年龄误差>1岁时告警。','A1','平台推导','平台加强质控'),
     rule('V60','强制','必填项','必填字典缺失或码值越界时阻断。','A1,A2,A6,A8,B1,B2,B3,B5,B6,D1,F1,F4,F5,G1','官方','WS 372.6'),
     rule('V70','强制','行政区划','常住/登记地省段须为41；户籍可外省。','A8','官方','GB/T 2260'),
-    rule('V71','强制','机构×区划','报告机构所属区划须为河南有效码。','F1,A8','官方','河南省属地要求'),
+    rule('V71','强制','机构×区划','报告机构所属区划须为江西有效码。','F1,A8','官方','江西省属地要求'),
     rule('V80','强制','身份证×出生','身份证出生段须与出生日期一致，兼容15位。','A6,A1','官方','GB 11643'),
     rule('V81','强制','身份证×性别','身份证第17位奇男偶女须与性别一致。','A6,A1','官方','GB 11643'),
     rule('V82','强制','查重','同身份证+同部位+同病理且非多原发时判疑似重复。','A6,B1,B2','官方','登记指导手册'),
@@ -288,7 +288,7 @@
       '<div class="dict-card">交叉校验<b>26</b><span>强制14 / 警告12</span></div>' +
       '<div class="dict-card">待确认事项<b>4</b><span>未擅自固化</span></div></div>' +
       '<div class="dict-domain-grid">' + domainRows + '</div>' +
-      '<div class="dict-note">说明：ICD-10、ICD-O-3、河南县区及ICD-O→ICD-10全量数据必须从授权标准源导入；当前原型提供结构、代表性数据、维护流程与完整性校验，不伪造标准全量码表。</div>',
+      '<div class="dict-note">说明：ICD-10、ICD-O-3、江西县区及ICD-O→ICD-10全量数据必须从授权标准源导入；当前原型提供结构、代表性数据、维护流程与完整性校验，不伪造标准全量码表。</div>',
       '<button class="btn btn-primary btn-sm" onclick="dictRunAudit()">重新自动校验</button>');
   };
   window.dictSelectDomain = function (code) { state.domain = DOMAIN_NAMES[code]; state.dictionary = DICTIONARIES.find(function (d) { return d.id.charAt(0) === code && !d.externalModule; }).id; renderPage('dict-common'); };

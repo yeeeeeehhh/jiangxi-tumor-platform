@@ -38,24 +38,24 @@
 
   if (!window.followupData || !window.followupData.length) {
     window.followupData = [
-      { id: 'HN20240001', name: '张伟', sex: '男', diagDate: '2024-03-15', site: '肺', region: '郑州市金水区', lastContact: '2026-01-10', status: '存活', deathDate: '-', doctor: '王医生', unit: '郑州市金水区疾控', event: '无', source: '电话随访', reporter: '张上报员' },
-      { id: 'HN20240004', name: '李娜', sex: '女', diagDate: '2024-05-20', site: '乳腺', region: '郑州市中原区', lastContact: '2025-11-02', status: '死亡', deathDate: '2025-11-02', doctor: '李医生', unit: '郑州市中原区疾控', event: '转移', source: '死因比对', reporter: '系统' },
-      { id: 'HN20240006', name: '王强', sex: '男', diagDate: '2024-01-15', site: '胃', region: '洛阳市洛龙区', lastContact: '2025-06-18', status: '失访', deathDate: '-', doctor: '刘医生', unit: '洛阳市洛龙区卫健委', event: '无', source: '失访认定', reporter: '刘上报员' },
-      { id: 'HN20240008', name: '赵敏', sex: '女', diagDate: '2025-08-12', site: '结直肠', region: '郑州市二七区', lastContact: '2025-11-20', status: '存活', deathDate: '-', doctor: '周医生', unit: '郑州市二七区疾控', event: '无', source: '门诊随访', reporter: '周上报员' },
-      { id: 'HN20240010', name: '孙丽', sex: '女', diagDate: '2025-02-08', site: '肝', region: '开封市鼓楼区', lastContact: '2025-09-01', status: '迁出', deathDate: '-', doctor: '陈医生', unit: '开封市鼓楼区疾控', event: '无', source: '民政比对', reporter: '系统' },
-      { id: 'HN20240012', name: '周杰', sex: '男', diagDate: '2025-10-01', site: '肺', region: '郑州市金水区', lastContact: '2025-10-01', status: '存活', deathDate: '-', doctor: '王医生', unit: '郑州市金水区疾控', event: '无', source: '新发入库', reporter: '系统' }
+      { id: 'JX20240001', name: '张伟', sex: '男', diagDate: '2024-03-15', site: '肺', region: '南昌市东湖区', lastContact: '2026-01-10', status: '存活', deathDate: '-', doctor: '王医生', unit: '南昌市东湖区疾控', event: '无', source: '电话随访', reporter: '张上报员' },
+      { id: 'JX20240004', name: '李娜', sex: '女', diagDate: '2024-05-20', site: '乳腺', region: '南昌市西湖区', lastContact: '2025-11-02', status: '死亡', deathDate: '2025-11-02', doctor: '李医生', unit: '南昌市西湖区疾控', event: '转移', source: '死因比对', reporter: '系统' },
+      { id: 'JX20240006', name: '王强', sex: '男', diagDate: '2024-01-15', site: '胃', region: '赣州市章贡区', lastContact: '2025-06-18', status: '失访', deathDate: '-', doctor: '刘医生', unit: '赣州市章贡区卫健委', event: '无', source: '失访认定', reporter: '刘上报员' },
+      { id: 'JX20240008', name: '赵敏', sex: '女', diagDate: '2025-08-12', site: '结直肠', region: '南昌市青云谱区', lastContact: '2025-11-20', status: '存活', deathDate: '-', doctor: '周医生', unit: '南昌市青云谱区疾控', event: '无', source: '门诊随访', reporter: '周上报员' },
+      { id: 'JX20240010', name: '孙丽', sex: '女', diagDate: '2025-02-08', site: '肝', region: '九江市浔阳区', lastContact: '2025-09-01', status: '迁出', deathDate: '-', doctor: '陈医生', unit: '九江市浔阳区疾控', event: '无', source: '民政比对', reporter: '系统' },
+      { id: 'JX20240012', name: '周杰', sex: '男', diagDate: '2025-10-01', site: '肺', region: '南昌市东湖区', lastContact: '2025-10-01', status: '存活', deathDate: '-', doctor: '王医生', unit: '南昌市东湖区疾控', event: '无', source: '新发入库', reporter: '系统' }
     ];
   }
   var followupData = window.followupData;
 
   function seedTasks() {
     return [
-      { tid: 'FU-001', id: 'HN20240004', patient: '李娜', diag: '乳腺', diagDate: '2024-05-20', region: '郑州市中原区', nextDate: '2026-06-28', type: '死亡核实', channel: '被动', method: '被动比对', assignee: '李上报员', unit: '郑州市中原区疾控', status: '待执行', priority: 1 },
-      { tid: 'FU-002', id: 'HN20240006', patient: '王强', diag: '胃', diagDate: '2024-01-15', region: '洛阳市洛龙区', nextDate: '2026-06-01', type: '失访追踪', channel: '主动', method: '入户调查', assignee: '刘上报员', unit: '洛阳市洛龙区卫健委', status: '逾期', priority: 2 },
-      { tid: 'FU-003', id: 'HN20240012', patient: '周杰', diag: '肺', diagDate: '2025-10-01', region: '郑州市金水区', nextDate: '2026-01-01', type: '首次随访', channel: '被动', method: '被动比对', assignee: '张上报员', unit: '郑州市金水区疾控', status: '待执行', priority: 3 },
-      { tid: 'FU-004', id: 'HN20240008', patient: '赵敏', diag: '结直肠', diagDate: '2025-08-12', region: '郑州市二七区', nextDate: '2026-05-20', type: '重点癌种随访', channel: '主动', method: '电话随访', assignee: '周上报员', unit: '郑州市二七区疾控', status: '待执行', priority: 3 },
-      { tid: 'FU-005', id: 'HN20240001', patient: '张伟', diag: '肺', diagDate: '2024-03-15', region: '郑州市金水区', nextDate: '2026-07-10', type: '年度随访', channel: '被动', method: '被动比对', assignee: '张上报员', unit: '郑州市金水区疾控', status: '待执行', priority: 4 },
-      { tid: 'FU-006', id: 'HN20240008', patient: '赵敏', diag: '结直肠', diagDate: '2025-08-12', region: '郑州市二七区', nextDate: '2026-08-12', type: '年度随访', channel: '被动', method: '被动比对', assignee: '周上报员', unit: '郑州市二七区疾控', status: '待执行', priority: 4 }
+      { tid: 'FU-001', id: 'JX20240004', patient: '李娜', diag: '乳腺', diagDate: '2024-05-20', region: '南昌市西湖区', nextDate: '2026-06-28', type: '死亡核实', channel: '被动', method: '被动比对', assignee: '李上报员', unit: '南昌市西湖区疾控', status: '待执行', priority: 1 },
+      { tid: 'FU-002', id: 'JX20240006', patient: '王强', diag: '胃', diagDate: '2024-01-15', region: '赣州市章贡区', nextDate: '2026-06-01', type: '失访追踪', channel: '主动', method: '入户调查', assignee: '刘上报员', unit: '赣州市章贡区卫健委', status: '逾期', priority: 2 },
+      { tid: 'FU-003', id: 'JX20240012', patient: '周杰', diag: '肺', diagDate: '2025-10-01', region: '南昌市东湖区', nextDate: '2026-01-01', type: '首次随访', channel: '被动', method: '被动比对', assignee: '张上报员', unit: '南昌市东湖区疾控', status: '待执行', priority: 3 },
+      { tid: 'FU-004', id: 'JX20240008', patient: '赵敏', diag: '结直肠', diagDate: '2025-08-12', region: '南昌市青云谱区', nextDate: '2026-05-20', type: '重点癌种随访', channel: '主动', method: '电话随访', assignee: '周上报员', unit: '南昌市青云谱区疾控', status: '待执行', priority: 3 },
+      { tid: 'FU-005', id: 'JX20240001', patient: '张伟', diag: '肺', diagDate: '2024-03-15', region: '南昌市东湖区', nextDate: '2026-07-10', type: '年度随访', channel: '被动', method: '被动比对', assignee: '张上报员', unit: '南昌市东湖区疾控', status: '待执行', priority: 4 },
+      { tid: 'FU-006', id: 'JX20240008', patient: '赵敏', diag: '结直肠', diagDate: '2025-08-12', region: '南昌市青云谱区', nextDate: '2026-08-12', type: '年度随访', channel: '被动', method: '被动比对', assignee: '周上报员', unit: '南昌市青云谱区疾控', status: '待执行', priority: 4 }
     ];
   }
 
@@ -90,7 +90,14 @@
       '.fu-modal{background:#fff;border-radius:8px;width:520px;max-width:94vw;box-shadow:0 8px 32px rgba(0,0,0,.2)}' +
       '.fu-modal-h{padding:14px 18px;border-bottom:1px solid var(--border);font-weight:600;display:flex;justify-content:space-between;align-items:center}' +
       '.fu-modal-b{padding:16px 18px}' +
-      '.fu-modal-f{padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}';
+      '.fu-modal-f{padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}' +
+      '.fc-table{min-width:0}' +
+      '.fc-table th,.fc-table td{padding:0 10px}' +
+      '.fc-int{display:inline-flex;align-items:center;gap:6px}' +
+      '.fc-int input{width:66px;height:30px;border:1px solid var(--border);border-radius:4px;padding:0 6px;font-size:13px;text-align:center;background:#fff;color:#1f2937}' +
+      '.fc-int input:focus{outline:0;border-color:var(--primary)}' +
+      '.fc-int input:disabled{background:#f5f7fa;color:#94a3b8;border-style:dashed}' +
+      '.fc-int span{font-size:13px;color:#475569}';
     document.head.appendChild(s);
   }
 
@@ -559,15 +566,15 @@
     year: '2026', type: '', status: 'open', region: '', deadline: '', keyword: '', page: 1
   };
   window.followupTaskData = window.followupTaskData || [
-    { tid: 'FT-2026-0001', reportCardNo: 'RC-2024-0021', year: '2026', type: '年度随访', status: '待完成', dueDate: '2026-08-15', region: '郑州市金水区', unit: '郑州市金水区疾控', id: 'HN20240001', name: '张伟', sex: '男', birth: '1980-06-12', idNo: '410105198006121234', address: '郑州市金水区花园路88号', phone: '138****2266', diagnosis: '肺癌', icd10: 'C34.9', diagDate: '2024-03-15', lastFollowup: '2026-01-10', lastContactStatus: '存活', history: [{ date: '2026-01-10', status: '存活', note: '电话随访，患者一般情况稳定' }] },
-    { tid: 'FT-2026-0002', reportCardNo: 'RC-2026-0084', year: '2026', type: '初访', status: '待完成', dueDate: '2026-08-20', region: '郑州市中原区', unit: '郑州市中原区疾控', id: 'HN20240004', name: '李娜', sex: '女', birth: '1975-09-24', idNo: '410102197509241235', address: '郑州市中原区桐柏路16号', phone: '139****7712', diagnosis: '乳腺癌', icd10: 'C50.9', diagDate: '2026-07-22', lastFollowup: '-', lastContactStatus: '', history: [] },
-    { tid: 'FT-2026-0003', reportCardNo: 'RC-2024-0106', year: '2026', type: '年度随访', status: '逾期', dueDate: '2026-07-31', region: '洛阳市洛龙区', unit: '洛阳市洛龙区卫健委', id: 'HN20240006', name: '王强', sex: '男', birth: '1968-02-11', idNo: '410311196802111236', address: '洛阳市洛龙区开元大道20号', phone: '136****9035', diagnosis: '胃癌', icd10: 'C16.9', diagDate: '2024-01-15', lastFollowup: '2025-06-18', lastContactStatus: '失访', history: [{ date: '2025-06-18', status: '失访', note: '电话无法接通' }] },
-    { tid: 'FT-2026-0004', reportCardNo: 'RC-2025-0128', year: '2026', type: '年度随访', status: '已完成', dueDate: '2026-06-30', region: '郑州市二七区', unit: '郑州市二七区疾控', id: 'HN20240008', name: '赵敏', sex: '女', birth: '1986-11-03', idNo: '410103198611031237', address: '郑州市二七区大学路9号', phone: '137****1188', diagnosis: '结直肠癌', icd10: 'C18.9', diagDate: '2025-08-12', lastFollowup: '2026-06-20', lastContactStatus: '存活', history: [{ date: '2026-06-20', status: '存活', note: '门诊随访' }], completedAt: '2026-06-20' },
-    { tid: 'FT-2026-0005', reportCardNo: 'RC-2025-0150', year: '2026', type: '年度随访', status: '待完成', dueDate: '2026-09-30', region: '开封市鼓楼区', unit: '开封市鼓楼区疾控', id: 'HN20240010', name: '孙丽', sex: '女', birth: '1972-04-18', idNo: '410204197204181238', address: '开封市鼓楼区自由路7号', phone: '135****4821', diagnosis: '肝癌', icd10: 'C22.9', diagDate: '2025-02-08', lastFollowup: '2025-09-01', lastContactStatus: '移居', history: [{ date: '2025-09-01', status: '迁居', note: '已迁出本辖区' }] },
-    { tid: 'FT-2026-0006', reportCardNo: 'RC-2026-0212', year: '2026', type: '初访', status: '待完成', dueDate: '2026-08-28', region: '郑州市金水区', unit: '郑州市金水区疾控', id: 'HN20240012', name: '周杰', sex: '男', birth: '1990-07-09', idNo: '410105199007091239', address: '郑州市金水区经三路12号', phone: '158****6604', diagnosis: '肺癌', icd10: 'C34.9', diagDate: '2026-07-30', lastFollowup: '-', lastContactStatus: '', history: [] },
-    { tid: 'FT-2025-0007', reportCardNo: 'RC-2023-0301', year: '2025', type: '年度随访', status: '已完成', dueDate: '2025-12-31', region: '郑州市金水区', unit: '郑州市金水区疾控', id: 'HN20230021', name: '陈国强', sex: '男', birth: '1966-03-20', idNo: '410105196603201240', address: '郑州市金水区东风路31号', phone: '139****5202', diagnosis: '肺癌', icd10: 'C34.9', diagDate: '2023-04-02', lastFollowup: '2025-11-18', lastContactStatus: '存活', history: [{ date: '2025-11-18', status: '存活', note: '电话随访' }], completedAt: '2025-11-18' },
-    { tid: 'FT-2025-0008', reportCardNo: 'RC-2023-0344', year: '2025', type: '年度随访', status: '已完成', dueDate: '2025-12-31', region: '洛阳市洛龙区', unit: '洛阳市洛龙区卫健委', id: 'HN20230024', name: '刘芳', sex: '女', birth: '1981-12-08', idNo: '410311198112081241', address: '洛阳市洛龙区政和路5号', phone: '186****3019', diagnosis: '乳腺癌', icd10: 'C50.9', diagDate: '2023-06-18', lastFollowup: '2025-10-09', lastContactStatus: '存活', history: [{ date: '2025-10-09', status: '存活', note: '门诊随访' }], completedAt: '2025-10-09' },
-    { tid: 'FT-2026-0009', reportCardNo: 'RC-2024-0455', year: '2026', type: '年度随访', status: '已终止', dueDate: '2026-12-31', region: '洛阳市洛龙区', unit: '洛阳市洛龙区卫健委', id: 'HN20240066', name: '周明', sex: '男', birth: '1958-05-14', idNo: '410311195805141230', address: '洛阳市洛龙区龙门大道30号', phone: '137****8801', diagnosis: '食管癌', icd10: 'C15.9', diagDate: '2024-02-20', lastFollowup: '2025-07-10', lastContactStatus: '失访', history: [{ date: '2024-12-05', status: '失访', note: '电话无法接通' }, { date: '2025-07-10', status: '失访', note: '地址变更无法联系' }], terminateReason: '连续3年失访' }
+    { tid: 'FT-2026-0001', reportCardNo: 'RC-2024-0021', year: '2026', type: '年度随访', status: '待完成', dueDate: '2026-08-15', region: '南昌市东湖区', unit: '南昌市东湖区疾控', id: 'JX20240001', name: '张伟', sex: '男', birth: '1980-06-12', idNo: '360102198006121234', address: '南昌市东湖区阳明路88号', phone: '138****2266', diagnosis: '肺癌', icd10: 'C34.9', diagDate: '2024-03-15', lastFollowup: '2026-01-10', lastContactStatus: '存活', history: [{ date: '2026-01-10', status: '存活', note: '电话随访，患者一般情况稳定' }] },
+    { tid: 'FT-2026-0002', reportCardNo: 'RC-2026-0084', year: '2026', type: '初访', status: '待完成', dueDate: '2026-08-20', region: '南昌市西湖区', unit: '南昌市西湖区疾控', id: 'JX20240004', name: '李娜', sex: '女', birth: '1975-09-24', idNo: '360103197509241235', address: '南昌市西湖区抚生路16号', phone: '139****7712', diagnosis: '乳腺癌', icd10: 'C50.9', diagDate: '2026-07-22', lastFollowup: '-', lastContactStatus: '', history: [] },
+    { tid: 'FT-2026-0003', reportCardNo: 'RC-2024-0106', year: '2026', type: '年度随访', status: '逾期', dueDate: '2026-07-31', region: '赣州市章贡区', unit: '赣州市章贡区卫健委', id: 'JX20240006', name: '王强', sex: '男', birth: '1968-02-11', idNo: '360702196802111236', address: '赣州市章贡区长征大道20号', phone: '136****9035', diagnosis: '胃癌', icd10: 'C16.9', diagDate: '2024-01-15', lastFollowup: '2025-06-18', lastContactStatus: '失访', history: [{ date: '2025-06-18', status: '失访', note: '电话无法接通' }] },
+    { tid: 'FT-2026-0004', reportCardNo: 'RC-2025-0128', year: '2026', type: '年度随访', status: '已完成', dueDate: '2026-06-30', region: '南昌市青云谱区', unit: '南昌市青云谱区疾控', id: 'JX20240008', name: '赵敏', sex: '女', birth: '1986-11-03', idNo: '360104198611031237', address: '南昌市青云谱区三店西路9号', phone: '137****1188', diagnosis: '结直肠癌', icd10: 'C18.9', diagDate: '2025-08-12', lastFollowup: '2026-06-20', lastContactStatus: '存活', history: [{ date: '2026-06-20', status: '存活', note: '门诊随访' }], completedAt: '2026-06-20' },
+    { tid: 'FT-2026-0005', reportCardNo: 'RC-2025-0150', year: '2026', type: '年度随访', status: '待完成', dueDate: '2026-09-30', region: '九江市浔阳区', unit: '九江市浔阳区疾控', id: 'JX20240010', name: '孙丽', sex: '女', birth: '1972-04-18', idNo: '360403197204181238', address: '九江市浔阳区自由路7号', phone: '135****4821', diagnosis: '肝癌', icd10: 'C22.9', diagDate: '2025-02-08', lastFollowup: '2025-09-01', lastContactStatus: '移居', history: [{ date: '2025-09-01', status: '迁居', note: '已迁出本辖区' }] },
+    { tid: 'FT-2026-0006', reportCardNo: 'RC-2026-0212', year: '2026', type: '初访', status: '待完成', dueDate: '2026-08-28', region: '南昌市东湖区', unit: '南昌市东湖区疾控', id: 'JX20240012', name: '周杰', sex: '男', birth: '1990-07-09', idNo: '360102199007091239', address: '南昌市东湖区永外正街12号', phone: '158****6604', diagnosis: '肺癌', icd10: 'C34.9', diagDate: '2026-07-30', lastFollowup: '-', lastContactStatus: '', history: [] },
+    { tid: 'FT-2025-0007', reportCardNo: 'RC-2023-0301', year: '2025', type: '年度随访', status: '已完成', dueDate: '2025-12-31', region: '南昌市东湖区', unit: '南昌市东湖区疾控', id: 'JX20230021', name: '陈国强', sex: '男', birth: '1966-03-20', idNo: '360102196603201240', address: '南昌市东湖区榕门路31号', phone: '139****5202', diagnosis: '肺癌', icd10: 'C34.9', diagDate: '2023-04-02', lastFollowup: '2025-11-18', lastContactStatus: '存活', history: [{ date: '2025-11-18', status: '存活', note: '电话随访' }], completedAt: '2025-11-18' },
+    { tid: 'FT-2025-0008', reportCardNo: 'RC-2023-0344', year: '2025', type: '年度随访', status: '已完成', dueDate: '2025-12-31', region: '赣州市章贡区', unit: '赣州市章贡区卫健委', id: 'JX20230024', name: '刘芳', sex: '女', birth: '1981-12-08', idNo: '360702198112081241', address: '赣州市章贡区政和路5号', phone: '186****3019', diagnosis: '乳腺癌', icd10: 'C50.9', diagDate: '2023-06-18', lastFollowup: '2025-10-09', lastContactStatus: '存活', history: [{ date: '2025-10-09', status: '存活', note: '门诊随访' }], completedAt: '2025-10-09' },
+    { tid: 'FT-2026-0009', reportCardNo: 'RC-2024-0455', year: '2026', type: '年度随访', status: '已终止', dueDate: '2026-12-31', region: '赣州市章贡区', unit: '赣州市章贡区卫健委', id: 'JX20240066', name: '周明', sex: '男', birth: '1958-05-14', idNo: '360702195805141230', address: '赣州市章贡区赣江源大道30号', phone: '137****8801', diagnosis: '食管癌', icd10: 'C15.9', diagDate: '2024-02-20', lastFollowup: '2025-07-10', lastContactStatus: '失访', history: [{ date: '2024-12-05', status: '失访', note: '电话无法接通' }, { date: '2025-07-10', status: '失访', note: '地址变更无法联系' }], terminateReason: '连续3年失访' }
   ];
 
   function followupTaskEsc(value) {
@@ -763,9 +770,124 @@
     };
   }
 
+  // ---------- 随访周期管理（癌种 → 随访间隔期） ----------
+  window.followupCycleState = window.followupCycleState || { cancer: '', status: '' };
+
+  var CYCLE_DEFAULTS = [
+    { id: 'FC-001', cancer: '鼻咽恶性肿瘤', icd: 'C11.9', interval: 3, status: '启用' },
+    { id: 'FC-002', cancer: '唇、口腔恶性肿瘤', icd: 'C06.9', interval: 3, status: '启用' },
+    { id: 'FC-003', cancer: '食管恶性肿瘤', icd: 'C15.9', interval: 3, status: '启用' },
+    { id: 'FC-004', cancer: '胃恶性肿瘤', icd: 'C16.9', interval: 3, status: '启用' },
+    { id: 'FC-005', cancer: '结直肠恶性肿瘤', icd: 'C18.9', interval: 3, status: '启用' },
+    { id: 'FC-006', cancer: '肝和肝内胆管恶性肿瘤', icd: 'C22.9', interval: 2, status: '启用' },
+    { id: 'FC-007', cancer: '胰腺恶性肿瘤', icd: 'C25.9', interval: 2, status: '启用' },
+    { id: 'FC-008', cancer: '喉恶性肿瘤', icd: 'C32.9', interval: 3, status: '启用' },
+    { id: 'FC-009', cancer: '气管、支气管和肺恶性肿瘤', icd: 'C34.9', interval: 3, status: '启用' },
+    { id: 'FC-010', cancer: '骨及关节软骨恶性肿瘤', icd: 'C41.9', interval: 3, status: '停用' },
+    { id: 'FC-011', cancer: '皮肤黑色素瘤', icd: 'C43.9', interval: 6, status: '停用' },
+    { id: 'FC-012', cancer: '乳腺恶性肿瘤', icd: 'C50.9', interval: 3, status: '启用' },
+    { id: 'FC-013', cancer: '子宫颈恶性肿瘤', icd: 'C53.9', interval: 3, status: '启用' },
+    { id: 'FC-014', cancer: '子宫体恶性肿瘤', icd: 'C54.9', interval: 6, status: '启用' },
+    { id: 'FC-015', cancer: '卵巢恶性肿瘤', icd: 'C56.9', interval: 3, status: '启用' },
+    { id: 'FC-016', cancer: '前列腺恶性肿瘤', icd: 'C61.9', interval: 6, status: '启用' },
+    { id: 'FC-017', cancer: '肾恶性肿瘤', icd: 'C64.9', interval: 6, status: '启用' },
+    { id: 'FC-018', cancer: '膀胱恶性肿瘤', icd: 'C67.9', interval: 3, status: '启用' },
+    { id: 'FC-019', cancer: '中枢神经系统恶性肿瘤', icd: 'C72.9', interval: 3, status: '启用' },
+    { id: 'FC-020', cancer: '甲状腺恶性肿瘤', icd: 'C73.9', interval: 12, status: '启用' },
+    { id: 'FC-021', cancer: '淋巴瘤', icd: 'C85.9', interval: 3, status: '启用' },
+    { id: 'FC-022', cancer: '白血病', icd: 'C95.9', interval: 1, status: '启用' },
+    { id: 'FC-023', cancer: '其他及不明部位恶性肿瘤', icd: 'C97.9', interval: 6, status: '停用' }
+  ];
+  if (!Array.isArray(window.followupCycleData)) {
+    window.followupCycleData = JSON.parse(JSON.stringify(CYCLE_DEFAULTS));
+  }
+
+  function fcEsc(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+  window.renderFollowupCycle = function () {
+    ensureStyles();
+    var st = window.followupCycleState;
+    var all = window.followupCycleData || [];
+    var list = all.filter(function (r) {
+      if (st.cancer && r.cancer !== st.cancer) return false;
+      if (st.status && r.status !== st.status) return false;
+      return true;
+    });
+    var cancerOpts = '<option value="">全部癌种</option>' + all.map(function (r) {
+      return '<option value="' + fcEsc(r.cancer) + '"' + (st.cancer === r.cancer ? ' selected' : '') + '>' + fcEsc(r.cancer) + '</option>';
+    }).join('');
+    var statusOpts = '<option value="">全部状态</option>' + ['启用', '停用'].map(function (s) {
+      return '<option value="' + s + '"' + (st.status === s ? ' selected' : '') + '>' + s + '</option>';
+    }).join('');
+    var rows = list.map(function (r) {
+      var off = r.status !== '启用';
+      return '<tr>' +
+        '<td>' + fcEsc(r.cancer) + '</td>' +
+        '<td>' + fcEsc(r.icd) + '</td>' +
+        '<td><span class="fc-int"><input type="number" min="1" max="60" value="' + (r.interval == null ? '' : r.interval) + '"' +
+          (off ? ' disabled' : '') + ' onchange="fcSetInterval(\'' + r.id + '\',this.value)"><span>月</span></span></td>' +
+        '<td>' + (off ? badge('停用', 'muted') : badge('启用', 'success')) + '</td>' +
+        '<td style="white-space:nowrap"><button class="btn btn-ghost btn-xs" onclick="fcToggleStatus(\'' + r.id + '\')">' + (off ? '启用' : '停用') + '</button></td>' +
+        '</tr>';
+    }).join('') || '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:36px">暂无匹配的随访周期配置</td></tr>';
+
+    return '<div class="panel"><div class="panel-body">' +
+      '<div class="filter-toolbar">' +
+      '<div class="form-group"><label>癌种</label><select onchange="followupCycleState.cancer=this.value;renderPage(\'followup-cycle\')">' + cancerOpts + '</select></div>' +
+      '<div class="form-group"><label>状态</label><select onchange="followupCycleState.status=this.value;renderPage(\'followup-cycle\')">' + statusOpts + '</select></div>' +
+      '<div class="filter-actions">' +
+      '<button class="btn btn-ghost btn-sm" onclick="fcResetFilter()">重置</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="toast(\'随访周期配置导出中…\')">导出Excel</button>' +
+      '</div></div>' +
+      '<div style="margin-bottom:8px;color:#667085;font-size:13px">共 ' + list.length + ' 个癌种 · 启用 ' +
+      list.filter(function (r) { return r.status === '启用'; }).length + ' 个</div>' +
+      '<div class="table-wrap"><table class="data-table fc-table"><thead><tr>' +
+      '<th>癌种</th><th style="width:96px">ICD-10</th><th style="width:150px">随访间隔期</th>' +
+      '<th style="width:88px">状态</th><th style="width:88px">操作</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<div class="void-pagination"><div class="void-pagination-info">共' + list.length + '条记录，第1/1页</div>' +
+      '<div class="void-pagination-controls"><button onclick="toast(\'已是第一页\')">‹</button><input type="text" value="1" readonly><button onclick="toast(\'已是最后一页\')">›</button></div></div>' +
+      '</div></div>';
+  };
+
+  window.fcResetFilter = function () {
+    window.followupCycleState = { cancer: '', status: '' };
+    renderPage('followup-cycle');
+  };
+  window.fcSetInterval = function (id, value) {
+    var rec = (window.followupCycleData || []).filter(function (r) { return r.id === id; })[0];
+    if (!rec) return;
+    var n = parseInt(value, 10);
+    if (!(n > 0) || n > 60) {
+      rec.interval = null;
+      renderPage('followup-cycle');
+      toast(rec.cancer + ' 随访间隔期待配置', 'warning');
+      return;
+    }
+    rec.interval = n;
+    renderPage('followup-cycle');
+    toast(rec.cancer + ' 随访间隔期已设为 ' + n + ' 个月');
+  };
+  window.fcToggleStatus = function (id) {
+    var rec = (window.followupCycleData || []).filter(function (r) { return r.id === id; })[0];
+    if (!rec) return;
+    if (rec.status === '启用' && !(rec.interval > 0)) { toast(rec.cancer + ' 尚未填写随访间隔期', 'error'); return; }
+    rec.status = rec.status === '启用' ? '停用' : '启用';
+    renderPage('followup-cycle');
+    toast(rec.cancer + ' 已' + rec.status);
+  };
+
   var _orig = window.renderPage;
   if (typeof _orig === 'function') {
     window.renderPage = function (id) {
+      if (id === 'followup-cycle') {
+        var pc = document.getElementById('pageContainer');
+        if (pc) pc.innerHTML = window.renderFollowupCycle();
+        if (typeof autoSizeSelects === 'function') autoSizeSelects();
+        var mc = document.getElementById('mainContent');
+        if (mc) mc.scrollTop = 0;
+        return;
+      }
       if (id === 'followup-batch') {
         window.followupPlanState = window.followupPlanState || {};
         window.followupPlanState.view = 'batch';

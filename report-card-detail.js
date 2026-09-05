@@ -5,13 +5,13 @@ detailStyle.textContent='.report-tumor-record{margin-top:18px;border:1px solid #
 document.head.appendChild(detailStyle);
 
 /* 合并关系（原型数据）：人工合并卡作为最终报告卡，统一管理同患者的原始卡/补报卡 */
-var MERGE_FINAL_ID='HN-2026-000094';
-var MERGE_MANAGED_IDS=['HN-2026-000091','HN-2026-000092','HN-2026-000093'];
+var MERGE_FINAL_ID='JX-2026-000094';
+var MERGE_MANAGED_IDS=['JX-2026-000091','JX-2026-000092','JX-2026-000093'];
 window.ensureReportCardMergeGroup=function(rows){
   rows=rows||[];
   var final=rows.find(function(card){return card.id===MERGE_FINAL_ID});
   if(!final){
-    final={id:MERGE_FINAL_ID,name:'张伟',sex:'男',birth:'1965-03-12',idNo:'410105196503121234',phone:'13800000001',job:'工人',nation:'汉族',marriage:'已婚',workUnit:'郑州第一机械厂',household:'河南省/郑州市/金水区/花园路街道',residence:'河南省/郑州市/金水区/花园路/农业院社区',site:'肺',pathology:'鳞状细胞癌',icd10:'C34.9',diagnosisDate:'2026-03-15',outpatientNo:'MZ240501',inpatientNo:'ZY240088',reportDate:'2026-06-20',doctor:'王医生',reportUnit:'河南省肿瘤医院',region:'郑州市金水区',cardType:'<span class="badge badge-success">人工合并卡</span>',checkStatus:'<span class="badge badge-success">通过</span>',auditStatus:'<span class="badge badge-success">已核对</span>',errors:[],managedCards:MERGE_MANAGED_IDS.slice()};
+    final={id:MERGE_FINAL_ID,name:'张伟',sex:'男',birth:'1965-03-12',idNo:'360102196503121234',phone:'13800000001',job:'工人',nation:'汉族',marriage:'已婚',workUnit:'南昌第一机械厂',household:'江西省/南昌市/东湖区/董家窑街道',residence:'江西省/南昌市/东湖区/阳明路/民巷社区',site:'肺',pathology:'鳞状细胞癌',icd10:'C34.9',diagnosisDate:'2026-03-15',outpatientNo:'MZ240501',inpatientNo:'ZY240088',reportDate:'2026-06-20',doctor:'王医生',reportUnit:'江西省肿瘤医院',region:'南昌市东湖区',cardType:'<span class="badge badge-success">人工合并卡</span>',checkStatus:'<span class="badge badge-success">通过</span>',auditStatus:'<span class="badge badge-success">已核对</span>',errors:[],managedCards:MERGE_MANAGED_IDS.slice()};
     rows.push(final);
   }
   MERGE_MANAGED_IDS.forEach(function(id){var managed=rows.find(function(card){return card.id===id});if(managed&&!managed.managedBy)managed.managedBy=MERGE_FINAL_ID});

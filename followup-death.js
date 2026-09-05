@@ -65,12 +65,12 @@
 
   function fallbackCards() {
     return [
-      { id: 'HN-2026-000091', name: '张伟', sex: '男', birth: '1965-03-12', idNo: '410105196503121234', phone: '13800000001', diagnosisDate: '2026-03-15', site: '肺', icd10: 'C34.9', region: '郑州市金水区', reportDate: '2026-06-15', doctor: '王医生', reportUnit: '河南省肿瘤医院', cardType: '原始卡', checkStatus: '警告' },
-      { id: 'HN-2026-000092', name: '张伟', sex: '男', birth: '1965-03-12', idNo: '410105196503121234', phone: '13800000001', diagnosisDate: '2026-04-20', site: '肺', icd10: 'C34.9', region: '郑州市金水区', reportDate: '2026-06-13', doctor: '李医生', reportUnit: '郑州大学第一附属医院', cardType: '补报卡', checkStatus: '通过' },
-      { id: 'HN-2026-000102', name: '李娜', sex: '女', birth: '1978-08-15', idNo: '410102197808152345', phone: '13700000001', diagnosisDate: '2026-02-20', site: '乳房', icd10: 'C50.9', region: '郑州市中原区', reportDate: '2026-06-14', doctor: '张医生', reportUnit: '郑州大学第一附属医院', cardType: '原始卡', checkStatus: '通过' },
-      { id: 'HN-2026-000118', name: '王强', sex: '男', birth: '1990-02-28', idNo: '410103199002283456', phone: '13600000001', diagnosisDate: '2026-01-15', site: '胃', icd10: 'C16.9', region: '洛阳市洛龙区', reportDate: '2026-06-12', doctor: '刘医生', reportUnit: '洛阳市中心医院', cardType: '补报卡', checkStatus: '错误' },
-      { id: 'HN-2026-000125', name: '刘洋', sex: '男', birth: '1988-06-07', idNo: '410104198806074567', phone: '13500000001', diagnosisDate: '2026-04-01', site: '肝', icd10: 'C22.0', region: '郑州市二七区', reportDate: '2026-06-10', doctor: '吴医生', reportUnit: '郑州市中心医院', cardType: '补报卡', checkStatus: '通过' },
-      { id: 'HN-2026-000133', name: '陈静', sex: '女', birth: '1985-03-25', idNo: '410105198503255678', phone: '13900000005', diagnosisDate: '2026-03-20', site: '结直肠', icd10: 'C18.9', region: '郑州市金水区', reportDate: '2026-06-08', doctor: '孙医生', reportUnit: '河南省肿瘤医院', cardType: '合并卡', checkStatus: '警告' }
+      { id: 'JX-2026-000091', name: '张伟', sex: '男', birth: '1965-03-12', idNo: '360102196503121234', phone: '13800000001', diagnosisDate: '2026-03-15', site: '肺', icd10: 'C34.9', region: '南昌市东湖区', reportDate: '2026-06-15', doctor: '王医生', reportUnit: '江西省肿瘤医院', cardType: '原始卡', checkStatus: '警告' },
+      { id: 'JX-2026-000092', name: '张伟', sex: '男', birth: '1965-03-12', idNo: '360102196503121234', phone: '13800000001', diagnosisDate: '2026-04-20', site: '肺', icd10: 'C34.9', region: '南昌市东湖区', reportDate: '2026-06-13', doctor: '李医生', reportUnit: '南昌大学第一附属医院', cardType: '补报卡', checkStatus: '通过' },
+      { id: 'JX-2026-000102', name: '李娜', sex: '女', birth: '1978-08-15', idNo: '360103197808152345', phone: '13700000001', diagnosisDate: '2026-02-20', site: '乳房', icd10: 'C50.9', region: '南昌市西湖区', reportDate: '2026-06-14', doctor: '张医生', reportUnit: '南昌大学第一附属医院', cardType: '原始卡', checkStatus: '通过' },
+      { id: 'JX-2026-000118', name: '王强', sex: '男', birth: '1990-02-28', idNo: '360702199002283456', phone: '13600000001', diagnosisDate: '2026-01-15', site: '胃', icd10: 'C16.9', region: '赣州市章贡区', reportDate: '2026-06-12', doctor: '刘医生', reportUnit: '赣州市中心医院', cardType: '补报卡', checkStatus: '错误' },
+      { id: 'JX-2026-000125', name: '刘洋', sex: '男', birth: '1988-06-07', idNo: '360104198806074567', phone: '13500000001', diagnosisDate: '2026-04-01', site: '肝', icd10: 'C22.0', region: '南昌市青云谱区', reportDate: '2026-06-10', doctor: '吴医生', reportUnit: '南昌市中心医院', cardType: '补报卡', checkStatus: '通过' },
+      { id: 'JX-2026-000133', name: '陈静', sex: '女', birth: '1985-03-25', idNo: '360102198503255678', phone: '13900000005', diagnosisDate: '2026-03-20', site: '结直肠', icd10: 'C18.9', region: '南昌市东湖区', reportDate: '2026-06-08', doctor: '孙医生', reportUnit: '江西省肿瘤医院', cardType: '合并卡', checkStatus: '警告' }
     ];
   }
 
@@ -80,8 +80,8 @@
       : fallbackCards();
     var followMap = window.reportCardFollowup || {};
     // 保证死亡演示卡有完整死因
-    if (!followMap['HN-2026-000125'] || followMap['HN-2026-000125'].state !== '死亡') {
-      followMap['HN-2026-000125'] = {
+    if (!followMap['JX-2026-000125'] || followMap['JX-2026-000125'].state !== '死亡') {
+      followMap['JX-2026-000125'] = {
         dlc: '2026-06-10', state: '死亡', deadplace: '医院', caus: '肝恶性肿瘤',
         causicd: 'C22.0', deathda: '2026-06-28', deadDoct: '吴医生'
       };
@@ -127,27 +127,27 @@
     // 补充演示：失访 / 移居 / 死因回写待核对
     var extras = [
       {
-        id: 'HN-2026-000148', reportCardId: 'HN-2026-000148', name: '陈国强', sex: '男', birth: '1968-11-02',
-        idNo: '410203196811021122', phone: '13611112222', contactName: '陈国强家属', contactPhone: '13611113333',
-        diagDate: '2025-01-25', site: '胃', icd10: 'C16.9', region: '开封市鼓楼区',
+        id: 'JX-2026-000148', reportCardId: 'JX-2026-000148', name: '陈国强', sex: '男', birth: '1968-11-02',
+        idNo: '360403196811021122', phone: '13611112222', contactName: '陈国强家属', contactPhone: '13611113333',
+        diagDate: '2025-01-25', site: '胃', icd10: 'C16.9', region: '九江市浔阳区',
         lastContact: '2026-05-14', status: '失访', deathDate: '-', cause: '-', causeIcd: '-', place: '-',
-        doctor: '王医生', unit: '开封市肿瘤登记中心', reportDate: '2025-02-01', cardType: '原始卡',
+        doctor: '王医生', unit: '九江市肿瘤登记中心', reportDate: '2025-02-01', cardType: '原始卡',
         checkStatus: '未校验', source: '电话随访', event: '无', reporter: '王上报员'
       },
       {
-        id: 'HN-2026-000156', reportCardId: 'HN-2026-000156', name: '赵敏', sex: '女', birth: '1972-04-18',
-        idNo: '410105197204183321', phone: '13722223333', contactName: '赵敏家属', contactPhone: '13722224444',
-        diagDate: '2024-09-10', site: '乳腺', icd10: 'C50.9', region: '郑州市金水区',
+        id: 'JX-2026-000156', reportCardId: 'JX-2026-000156', name: '赵敏', sex: '女', birth: '1972-04-18',
+        idNo: '360102197204183321', phone: '13722223333', contactName: '赵敏家属', contactPhone: '13722224444',
+        diagDate: '2024-09-10', site: '乳腺', icd10: 'C50.9', region: '南昌市东湖区',
         lastContact: '2026-03-01', status: '移居', deathDate: '-', cause: '-', causeIcd: '-', place: '-',
-        doctor: '周医生', unit: '郑州市金水区疾控', reportDate: '2024-09-20', cardType: '原始卡',
+        doctor: '周医生', unit: '南昌市东湖区疾控', reportDate: '2024-09-20', cardType: '原始卡',
         checkStatus: '校验通过', source: '门诊随访', event: '无', reporter: '周上报员'
       },
       {
-        id: 'HN-2026-000179', reportCardId: 'HN-2026-000179', name: '王建国', sex: '男', birth: '1959-07-21',
-        idNo: '410102195907211234', phone: '13833334444', contactName: '王建国家属', contactPhone: '13833335555',
-        diagDate: '2024-11-06', site: '肺', icd10: 'C34.9', region: '郑州市金水区',
+        id: 'JX-2026-000179', reportCardId: 'JX-2026-000179', name: '王建国', sex: '男', birth: '1959-07-21',
+        idNo: '360103195907211234', phone: '13833334444', contactName: '王建国家属', contactPhone: '13833335555',
+        diagDate: '2024-11-06', site: '肺', icd10: 'C34.9', region: '南昌市东湖区',
         lastContact: '2026-06-10', status: '死亡', deathDate: '2026-06-28', cause: '肺恶性肿瘤',
-        causeIcd: 'C34.9', place: '医院', doctor: '李医生', unit: '郑州市金水区疾控',
+        causeIcd: 'C34.9', place: '医院', doctor: '李医生', unit: '南昌市东湖区疾控',
         reportDate: '2024-11-20', cardType: '原始卡', checkStatus: '未校验', source: '死因回写',
         event: '转移', reporter: '系统'
       }
@@ -195,7 +195,7 @@
     var list = window.followupPlanData;
     if (!Array.isArray(list)) return;
     // 若计划仍是旧编号样例，重建为与报告卡/随访主表一致
-    if (!list.length || String(list[0].id || '').indexOf('HN-2026') < 0) {
+    if (!list.length || String(list[0].id || '').indexOf('JX-2026') < 0) {
       var data = window.followupData || [];
       var alive = data.filter(function (r) { return r.status === '存活' || r.status === '失访'; });
       var deadPending = data.filter(function (r) { return r.status === '死亡' && r.checkStatus !== '校验通过'; });
@@ -237,34 +237,34 @@
     cards.forEach(function (c) { byId[c.idNo] = c; });
     window.deathCausePool = [
       {
-        mid: 'DC-001', name: '刘洋', idNo: '410104198806074567', sex: '男', birth: '1988-06-07',
-        region: '郑州市二七区', deathDate: '2026-06-28', cause: '肿瘤', causeIcd: 'C22.0', place: '医院',
+        mid: 'DC-001', name: '刘洋', idNo: '360104198806074567', sex: '男', birth: '1988-06-07',
+        region: '南昌市青云谱区', deathDate: '2026-06-28', cause: '肿瘤', causeIcd: 'C22.0', place: '医院',
         diseaseType: '肿瘤', existStatus: '存在', matchStatus: '已匹配',
-        linkedCardId: 'HN-2026-000125', importTime: '2026-07-02 09:20', unit: '二七区疾控', doctor: '吴医生'
+        linkedCardId: 'JX-2026-000125', importTime: '2026-07-02 09:20', unit: '青云谱区疾控', doctor: '吴医生'
       },
       {
-        mid: 'DC-002', name: '王建国', idNo: '410102195907211234', sex: '男', birth: '1959-07-21',
-        region: '郑州市金水区', deathDate: '2026-06-28', cause: '肿瘤', causeIcd: 'C34.9', place: '医院',
+        mid: 'DC-002', name: '王建国', idNo: '360103195907211234', sex: '男', birth: '1959-07-21',
+        region: '南昌市东湖区', deathDate: '2026-06-28', cause: '肿瘤', causeIcd: 'C34.9', place: '医院',
         diseaseType: '肿瘤', existStatus: '存在', matchStatus: '未匹配',
-        linkedCardId: '', importTime: '2026-07-10 14:05', unit: '金水区疾控', doctor: '外部'
+        linkedCardId: '', importTime: '2026-07-10 14:05', unit: '东湖区疾控', doctor: '外部'
       },
       {
-        mid: 'DC-003', name: '张伟', idNo: '410105196503121234', sex: '男', birth: '1965-03-12',
-        region: '郑州市金水区', deathDate: '2026-07-08', cause: '肿瘤', causeIcd: 'C34.9', place: '家中',
+        mid: 'DC-003', name: '张伟', idNo: '360102196503121234', sex: '男', birth: '1965-03-12',
+        region: '南昌市东湖区', deathDate: '2026-07-08', cause: '肿瘤', causeIcd: 'C34.9', place: '家中',
         diseaseType: '肿瘤', existStatus: '存在', matchStatus: '未匹配',
-        linkedCardId: '', importTime: '2026-07-12 11:30', unit: '金水区疾控', doctor: '外部'
+        linkedCardId: '', importTime: '2026-07-12 11:30', unit: '东湖区疾控', doctor: '外部'
       },
       {
         mid: 'DC-004', name: '无名氏甲', idNo: '410888199001011234', sex: '男', birth: '1990-01-01',
-        region: '洛阳市洛龙区', deathDate: '2026-05-20', cause: '其他疾病', causeIcd: 'I21.9', place: '医院',
+        region: '赣州市章贡区', deathDate: '2026-05-20', cause: '其他疾病', causeIcd: 'I21.9', place: '医院',
         diseaseType: '其它疾病', existStatus: '不存在', matchStatus: '未匹配',
-        linkedCardId: '', importTime: '2026-07-15 16:40', unit: '洛龙区疾控', doctor: '外部'
+        linkedCardId: '', importTime: '2026-07-15 16:40', unit: '章贡区疾控', doctor: '外部'
       },
       {
-        mid: 'DC-005', name: '李娜', idNo: '410102197808152345', sex: '女', birth: '1978-08-15',
-        region: '郑州市中原区', deathDate: '2026-07-18', cause: '肿瘤', causeIcd: 'C50.9', place: '疗养院',
+        mid: 'DC-005', name: '李娜', idNo: '360103197808152345', sex: '女', birth: '1978-08-15',
+        region: '南昌市西湖区', deathDate: '2026-07-18', cause: '肿瘤', causeIcd: 'C50.9', place: '疗养院',
         diseaseType: '肿瘤', existStatus: '存在', matchStatus: '未匹配',
-        linkedCardId: '', importTime: '2026-07-20 08:55', unit: '中原区疾控', doctor: '外部'
+        linkedCardId: '', importTime: '2026-07-20 08:55', unit: '西湖区疾控', doctor: '外部'
       }
     ];
     return window.deathCausePool;
@@ -1057,23 +1057,23 @@
     var uploadTime = new Date().toISOString().slice(0, 16).replace('T', ' ');
     var demos = [
       {
-        rowNo: 2, name: '张伟', idNo: '410105196503121234', lastContact: today,
+        rowNo: 2, name: '张伟', idNo: '360102196503121234', lastContact: today,
         status: '存活', deathDate: '', cause: '', causeIcd: '', place: '', doctor: '王医生'
       },
       {
-        rowNo: 3, name: '李娜', idNo: '410102197808152345', lastContact: '2025-01-01',
+        rowNo: 3, name: '李娜', idNo: '360103197808152345', lastContact: '2025-01-01',
         status: '存活', deathDate: '', cause: '', causeIcd: '', place: '', doctor: '李医生'
       },
       {
-        rowNo: 4, name: '王强', idNo: '410103199002283456', lastContact: '2026-06-01',
+        rowNo: 4, name: '王强', idNo: '360702199002283456', lastContact: '2026-06-01',
         status: '失访', deathDate: '', cause: '', causeIcd: '', place: '', doctor: '张医生'
       },
       {
-        rowNo: 5, name: '刘洋', idNo: '410104198806074567', lastContact: '2026-06-28',
+        rowNo: 5, name: '刘洋', idNo: '360104198806074567', lastContact: '2026-06-28',
         status: '死亡', deathDate: '2026-06-28', cause: '肝恶性肿瘤', causeIcd: 'C22.0', place: '医院', doctor: '赵医生'
       },
       {
-        rowNo: 6, name: '测试缺项', idNo: '410105196503129999', lastContact: '2026-07-01',
+        rowNo: 6, name: '测试缺项', idNo: '360102196503129999', lastContact: '2026-07-01',
         status: '死亡', deathDate: '2026-07-01', cause: '肿瘤', causeIcd: '', place: '医院', doctor: ''
       },
       {

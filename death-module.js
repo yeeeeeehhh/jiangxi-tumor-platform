@@ -99,31 +99,31 @@
     window.deathRegRecords = [
       {
         id: 9001, checked: false, validation: '错误', exist: '存在', uploadType: '死因上传',
-        name: '赵伟', idNo: '410105196509051234', sex: '男', birth: '1965-09-05',
+        name: '赵伟', idNo: '360102196509051234', sex: '男', birth: '1965-09-05',
         lastContact: '2026-06-12', deathDate: '2026-06-12', cause: '肿瘤', causeIcd: '', place: '医院',
-        region: '郑州市金水区', unit: '金水区疾控', doctor: '外部',
+        region: '南昌市东湖区', unit: '东湖区疾控', doctor: '外部',
         uploadTime: '2026-07-20 09:18', fileName: 'Death_20260720.xlsx', rowNo: 8,
         error: '死因ICD10 为空'
       },
       {
         id: 9002, checked: false, validation: '通过', exist: '存在', uploadType: '死因上传',
-        name: '王建国', idNo: '410102195907211234', sex: '男', birth: '1959-07-21',
+        name: '王建国', idNo: '360103195907211234', sex: '男', birth: '1959-07-21',
         lastContact: '2026-06-28', deathDate: '2026-06-28', cause: '肿瘤', causeIcd: 'C34.9', place: '医院',
-        region: '郑州市金水区', unit: '金水区疾控', doctor: '外部',
+        region: '南昌市东湖区', unit: '东湖区疾控', doctor: '外部',
         uploadTime: '2026-07-20 09:18', fileName: 'Death_20260720.xlsx', rowNo: 9, error: ''
       },
       {
         id: 9003, checked: false, validation: '通过', exist: '不存在', uploadType: '死因上传',
         name: '无名氏甲', idNo: '410888199001011234', sex: '男', birth: '1990-01-01',
         lastContact: '2026-05-20', deathDate: '2026-05-20', cause: '其他疾病', causeIcd: 'I21.9', place: '医院',
-        region: '洛阳市洛龙区', unit: '洛龙区疾控', doctor: '外部',
+        region: '赣州市章贡区', unit: '章贡区疾控', doctor: '外部',
         uploadTime: '2026-07-20 09:18', fileName: 'Death_20260720.xlsx', rowNo: 10, error: ''
       },
       {
         id: 9004, checked: false, validation: '警告', exist: '存在', uploadType: '死因上传',
-        name: '李娜', idNo: '410102197808152345', sex: '女', birth: '1978-08-15',
+        name: '李娜', idNo: '360103197808152345', sex: '女', birth: '1978-08-15',
         lastContact: '2026-07-18', deathDate: '2026-07-18', cause: '肿瘤', causeIcd: 'C50.9', place: '疗养院',
-        region: '郑州市中原区', unit: '中原区疾控', doctor: '外部',
+        region: '南昌市西湖区', unit: '西湖区疾控', doctor: '外部',
         uploadTime: '2026-07-21 11:02', fileName: 'Death_20260721.xlsx', rowNo: 3,
         error: '死亡日期晚于上传日超过 7 天'
       }
@@ -135,38 +135,38 @@
     if (window.deathCausePool && window.deathCausePool.length) return window.deathCausePool;
     window.deathCausePool = [
       {
-        mid: 'DC-001', name: '刘洋', idNo: '410104198806074567', sex: '男', birth: '1988-06-07',
-        region: '郑州市二七区', deathDate: '2026-06-28', cause: '肿瘤', causeIcd: 'C22.0', place: '医院',
+        mid: 'DC-001', name: '刘洋', idNo: '360111198806074567', sex: '男', birth: '1988-06-07',
+        region: '南昌市青云谱区', deathDate: '2026-06-28', cause: '肿瘤', causeIcd: 'C22.0', place: '医院',
         diseaseType: '肿瘤', existStatus: '存在', matchStatus: '已匹配', validation: '通过',
-        linkedCardId: 'HN-2026-000125', importTime: '2026-07-02 09:20', unit: '二七区疾控',
+        linkedCardId: 'JX-2026-000125', importTime: '2026-07-02 09:20', unit: '青云谱区疾控',
         doctor: '吴医生', sourceType: '死因上传', fileName: 'Death_0702.xlsx', rowNo: 12, voided: false
       },
       {
-        mid: 'DC-002', name: '王建国', idNo: '410102195907211234', sex: '男', birth: '1959-07-21',
-        region: '郑州市金水区', deathDate: '2026-06-28', cause: '肿瘤', causeIcd: 'C34.9', place: '医院',
+        mid: 'DC-002', name: '王建国', idNo: '360103195907211234', sex: '男', birth: '1959-07-21',
+        region: '南昌市东湖区', deathDate: '2026-06-28', cause: '肿瘤', causeIcd: 'C34.9', place: '医院',
         diseaseType: '肿瘤', existStatus: '存在', matchStatus: '未匹配', validation: '通过',
-        linkedCardId: '', importTime: '2026-07-10 14:05', unit: '金水区疾控',
+        linkedCardId: '', importTime: '2026-07-10 14:05', unit: '东湖区疾控',
         doctor: '外部', sourceType: '死因上传', fileName: 'Death_0710.xlsx', rowNo: 5, voided: false
       },
       {
-        mid: 'DC-003', name: '张伟', idNo: '410105196503121234', sex: '男', birth: '1965-03-12',
-        region: '郑州市金水区', deathDate: '2026-07-08', cause: '肿瘤', causeIcd: 'C34.9', place: '家中',
+        mid: 'DC-003', name: '张伟', idNo: '360102196503121234', sex: '男', birth: '1965-03-12',
+        region: '南昌市东湖区', deathDate: '2026-07-08', cause: '肿瘤', causeIcd: 'C34.9', place: '家中',
         diseaseType: '肿瘤', existStatus: '存在', matchStatus: '未匹配', validation: '通过',
-        linkedCardId: '', importTime: '2026-07-12 11:30', unit: '金水区疾控',
+        linkedCardId: '', importTime: '2026-07-12 11:30', unit: '东湖区疾控',
         doctor: '外部', sourceType: '死因上传', fileName: 'Death_0712.xlsx', rowNo: 2, voided: false
       },
       {
         mid: 'DC-004', name: '无名氏甲', idNo: '410888199001011234', sex: '男', birth: '1990-01-01',
-        region: '洛阳市洛龙区', deathDate: '2026-05-20', cause: '其他疾病', causeIcd: 'I21.9', place: '医院',
+        region: '赣州市章贡区', deathDate: '2026-05-20', cause: '其他疾病', causeIcd: 'I21.9', place: '医院',
         diseaseType: '其它疾病', existStatus: '不存在', matchStatus: '未匹配', validation: '通过',
-        linkedCardId: '', importTime: '2026-07-15 16:40', unit: '洛龙区疾控',
+        linkedCardId: '', importTime: '2026-07-15 16:40', unit: '章贡区疾控',
         doctor: '外部', sourceType: '接口', fileName: 'CDC_Death.csv', rowNo: 88, voided: false
       },
       {
-        mid: 'DC-005', name: '李娜', idNo: '410102197808152345', sex: '女', birth: '1978-08-15',
-        region: '郑州市中原区', deathDate: '2026-07-18', cause: '肿瘤', causeIcd: 'C50.9', place: '疗养院',
+        mid: 'DC-005', name: '李娜', idNo: '360103197808152345', sex: '女', birth: '1978-08-15',
+        region: '南昌市西湖区', deathDate: '2026-07-18', cause: '肿瘤', causeIcd: 'C50.9', place: '疗养院',
         diseaseType: '肿瘤', existStatus: '存在', matchStatus: '未匹配', validation: '警告',
-        linkedCardId: '', importTime: '2026-07-20 08:55', unit: '中原区疾控',
+        linkedCardId: '', importTime: '2026-07-20 08:55', unit: '西湖区疾控',
         doctor: '外部', sourceType: '批量导入', fileName: 'Death_0720.xlsx', rowNo: 1, voided: false
       }
     ];
@@ -578,7 +578,7 @@
       cause: data.cause,
       causeIcd: data.causeIcd,
       place: data.place,
-      region: (matched && matched.region) || '郑州市金水区',
+      region: (matched && matched.region) || '南昌市东湖区',
       unit: (matched && matched.unit) || '手工录入',
       doctor: data.doctor || '手工录入',
       uploadTime: new Date().toISOString().slice(0, 16).replace('T', ' '),
@@ -610,16 +610,16 @@
             window.deathRegRecords.push(
               {
                 id: Date.now() + 1, checked: false, validation: '通过', exist: '存在', uploadType: '批量登记',
-                name: '张伟', idNo: '410105196503121234', sex: '男', birth: '1965-03-12',
+                name: '张伟', idNo: '360102196503121234', sex: '男', birth: '1965-03-12',
                 lastContact: '2026-07-08', deathDate: '2026-07-08', cause: '肿瘤', causeIcd: 'C34.9', place: '家中',
-                region: '郑州市金水区', unit: '金水区疾控', doctor: '外部',
+                region: '南昌市东湖区', unit: '东湖区疾控', doctor: '外部',
                 uploadTime: now, fileName: name, rowNo: 1, error: ''
               },
               {
                 id: Date.now() + 2, checked: false, validation: '错误', exist: '存在', uploadType: '批量登记',
-                name: '测试缺项', idNo: '410105196503129999', sex: '男', birth: '1965-03-12',
+                name: '测试缺项', idNo: '360102196503129999', sex: '男', birth: '1965-03-12',
                 lastContact: '2026-07-01', deathDate: '2026-07-01', cause: '肿瘤', causeIcd: '', place: '医院',
-                region: '郑州市金水区', unit: '金水区疾控', doctor: '外部',
+                region: '南昌市东湖区', unit: '东湖区疾控', doctor: '外部',
                 uploadTime: now, fileName: name, rowNo: 2, error: '死因ICD10 为空'
               }
             );

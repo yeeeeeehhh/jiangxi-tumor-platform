@@ -7,7 +7,7 @@
 (function () {
   'use strict';
 
-  const OWNED_IDS = ['warning-overview', 'warning-records', 'warning-tickets', 'warning-rules', 'warning-logs'];
+  const OWNED_IDS = ['warning-overview', 'warning-records', 'warning-tickets', 'warning-rules'];
   const CURRENT_USER = '省级登记中心 · 陈敏';
   const PERIOD_MONTH = '202608';
   const PERIOD_YEAR = '2025';
@@ -187,8 +187,7 @@
     page: 'warning-overview',
     record: { type: 'ALL', severity: 'ALL', status: 'ALL', keyword: '', dateFrom: '' },
     ticket: { type: 'ALL', severity: 'ALL', status: 'ALL', keyword: '', sort: 'overdue' },
-    rule: { type: 'ALL', keyword: '' },
-    log: { keyword: '', action: 'ALL', dateFrom: '' }
+    rule: { type: 'ALL', keyword: '' }
   };
 
   let seq = 1000;
@@ -1249,8 +1248,7 @@
       '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="waResetTicketFilter()">重置</button></div></div>';
     return '<div class="wa-page">' + waHeader('处置工单',
       '待接收 → 处理中 → 已反馈 → 已关闭；SLA 按层级设定（A 最快 24 小时，B 最长 10 个工作日，C 最长 20 个工作日），超时自动升级。C 层结案必须附专家组论证记录。', [
-      '<button class="btn btn-outline btn-sm" onclick="scanOverdue()">扫描超时</button>',
-      '<button class="btn btn-outline btn-sm" onclick="waNavigate(\'warning-logs\')">审计日志</button>'
+      '<button class="btn btn-outline btn-sm" onclick="scanOverdue()">扫描超时</button>'
     ]) + '<div class="wa-kpis">' + kpis + '</div><div class="wa-tabs">' + layerTabs(state.ticket.type, 'waSetTicketType') + '</div>' + filter +
       '<div class="wa-table-wrap"><table class="wa-table"><thead><tr><th>工单 / 预警</th><th>层级 / 对象</th><th>当前责任方</th><th>级别 / 时限</th><th>响应截止</th><th>状态</th><th>结论口径</th><th>操作</th></tr></thead><tbody>' + (rows || '<tr><td colspan="8"><div class="wa-empty">暂无符合条件的工单</div></td></tr>') + '</tbody></table></div></div>';
   }
@@ -1296,35 +1294,6 @@
       '<button class="btn btn-primary btn-sm" onclick="runAllEngines()">重跑三层规则</button>'
     ]) + '<div class="wa-kpis">' + kpis + '</div><div class="wa-tabs">' + layerTabs(state.rule.type, 'waSetRuleType') + '</div>' + filter +
       '<div class="wa-table-wrap"><table class="wa-table"><thead><tr><th>规则ID</th><th>规则名称 / 判定依据</th><th>层级 / 窗口</th><th>默认级别 / 范围</th><th>阈值 / 方法</th><th>在办</th><th>复核 / 误报</th><th>状态</th><th>操作</th></tr></thead><tbody>' + (rows || '<tr><td colspan="9"><div class="wa-empty">暂无规则</div></td></tr>') + '</tbody></table></div></div>';
-  }
-
-  /* ==================== 页面：审计日志 ==================== */
-  function renderLogs() {
-    const keyword = state.log.keyword.trim().toLowerCase();
-    const rows = operationLogs.filter(function (item) {
-      return (state.log.action === 'ALL' || item.action === state.log.action)
-        && (!state.log.dateFrom || new Date(item.time) >= new Date(state.log.dateFrom + 'T00:00:00'))
-        && (!keyword || [item.ticketId, item.warningId, item.action, item.from, item.to, item.reason].join(' ').toLowerCase().includes(keyword));
-    }).map(function (item) {
-      return '<tr>' +
-        '<td>' + esc(item.id) + '</td>' +
-        '<td>' + esc(item.layer) + '</td>' +
-        '<td>' + esc(item.operator) + '</td>' +
-        '<td>' + esc(item.action) + '</td>' +
-        '<td>' + esc(item.ticketId) + '</td>' +
-        '<td>' + esc(item.warningId) + '</td>' +
-        '<td>' + esc(item.from) + ' → ' + esc(item.to) + '</td>' +
-        '<td>' + esc(item.reason || '-') + '</td>' +
-        '<td class="wa-nowrap">' + fmtTime(item.time) + '</td>' +
-        '</tr>';
-    }).join('');
-    const actionOptions = ['ALL', '自动派单', '接收', '提交反馈', '专家组论证', '复核关闭', '退回', '多次退回仲裁', '超时自动升级', '跨层转办', '启用规则', '停用规则', '规则版本变更'].map(function (action) {
-      return '<option value="' + action + '"' + (state.log.action === action ? ' selected' : '') + '>' + (action === 'ALL' ? '全部操作' : action) + '</option>';
-    }).join('');
-    const filter = '<div class="wa-filter"><div class="form-group"><label>操作类型</label><select onchange="waSetFilter(\'log\',\'action\',this.value)">' + actionOptions + '</select></div><div class="form-group"><label>起始日期</label><input type="date" value="' + esc(state.log.dateFrom) + '" onchange="waSetFilter(\'log\',\'dateFrom\',this.value)"></div><div class="form-group" style="grid-column:span 2"><label>检索</label><input id="waKw-log" value="' + esc(state.log.keyword) + '" placeholder="工单 / 预警 / 操作原因" oninput="waOnKeyword(this,\'log\')"></div><div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="toast(\'已导出审计日志\')">导出</button></div></div>';
-    return '<div class="wa-page">' + waHeader('审计日志', '记录三层预警、工单流转与规则变更的全部关键操作，支持按层级、工单、操作人与时间范围审计。', [
-      '<button class="btn btn-outline btn-sm" onclick="toast(\'已归档\')">归档</button>'
-    ]) + filter + '<div class="wa-table-wrap"><table class="wa-table"><thead><tr><th>日志ID</th><th>层</th><th>操作人</th><th>操作</th><th>工单</th><th>预警</th><th>状态变化</th><th>原因</th><th>时间</th></tr></thead><tbody>' + (rows || '<tr><td colspan="9"><div class="wa-empty">暂无操作日志</div></td></tr>') + '</tbody></table></div></div>';
   }
 
   /* ==================== 工单流转 ==================== */
@@ -1734,7 +1703,6 @@
     if (pageId === 'warning-records') return renderRecords();
     if (pageId === 'warning-tickets') return renderTickets();
     if (pageId === 'warning-rules') return renderRules();
-    if (pageId === 'warning-logs') return renderLogs();
     return '<div class="wa-page"><div class="wa-empty">页面开发中</div></div>';
   }
 

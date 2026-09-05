@@ -17,6 +17,8 @@
 /_*.png
 /_patch*.js
 /_patch*.mjs
+/_patch*/
+/_probe*.js
 /image.png
 
 # ==== 备份文件 ====

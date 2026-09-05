@@ -2,14 +2,14 @@
  * 风险预警模型构建模块
  * 对应功能点：
  *   多源特征数据仓库 · 预警模型元信息注册 · 模型训练与超参记录
- *   风险预测结果快照 · 模型验证与评估报告 · 风险预警干预工单
+ *   风险预测结果快照 · 模型验证与评估报告
  * 与「预警监测与处置」的分工：预警模块是确定性阈值规则引擎（可解释、可追责）；
- *   本模块是模型驱动的风险预测（概率输出、需验证与校准），产出干预工单而非核查工单。
+ *   本模块是模型驱动的风险预测（概率输出、需验证与校准）。
  */
 (function () {
   'use strict';
 
-  const OWNED_IDS = ['mdl-features', 'mdl-registry', 'mdl-training', 'mdl-predictions', 'mdl-evaluation', 'mdl-interventions'];
+  const OWNED_IDS = ['mdl-features', 'mdl-registry', 'mdl-training', 'mdl-predictions', 'mdl-evaluation'];
   const CURRENT_USER = '省级登记中心 · 陈敏';
 
   const style = document.createElement('style');
@@ -117,12 +117,6 @@
     MID: { label: '中风险', cls: 'badge-orange', color: '#d97706' },
     LOW: { label: '低风险', cls: 'badge-success', color: '#16a34a' }
   };
-  const IV_STATUS = {
-    PENDING: { label: '待接收', cls: 'badge-warning' },
-    DOING: { label: '干预中', cls: 'badge-info' },
-    DONE: { label: '已完成', cls: 'badge-success' },
-    INVALID: { label: '判为无效', cls: 'badge-muted' }
-  };
   const FEATURE_TIER = {
     HOT: { label: '实时/日更', cls: 'hot' },
     WARM: { label: '月更', cls: 'mid' },
@@ -135,8 +129,7 @@
     registry: { status: 'ALL', task: 'ALL', keyword: '' },
     training: { model: 'ALL', status: 'ALL', keyword: '' },
     predictions: { model: 'MDL-002', level: 'ALL', keyword: '' },
-    evaluation: { model: 'MDL-002' },
-    interventions: { status: 'ALL', level: 'ALL', keyword: '' }
+    evaluation: { model: 'MDL-002' }
   };
 
   function esc(v) { const d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; }
@@ -290,7 +283,7 @@
       featureCount: 14, trainWindow: '2018-2024', testWindow: '2025',
       metric: { auc: 0.786, pr: 0.401, brier: 0.094, ks: 0.441, recall: 0.658, precision: 0.352 },
       threshold: 0.55, refreshCycle: '每半年重训',
-      approval: '影子运行中，暂不产生对外干预工单',
+      approval: '影子运行中，暂不对外输出预测结论',
       limitation: '影子期内预测结果仅与 B 层规则预警结果对比，不单独派单。',
       registered: true
     },
@@ -567,8 +560,7 @@
           contrib: terms.slice().sort(function (a, b) { return Math.abs(b.v) - Math.abs(a.v); })
             .slice(0, 3).map(function (t) { return { f: t.f, v: Number(t.v.toFixed(3)) }; }),
           smallCount: cases < 40,
-          ruleHit: hits.length ? hits.join(' · ') : '无规则命中',
-          interventionId: null
+          ruleHit: hits.length ? hits.join(' · ') : '无规则命中'
         });
       });
     });
@@ -633,98 +625,6 @@
       nextReview: '2027-02-22'
     }
   };
-
-  /* ============ 6. 风险预警干预工单 ============ */
-  const interventions = [
-    {
-      id: 'IVT-2026-0031', predictionId: null, modelId: 'MDL-002', modelVersion: 'v2.1.0',
-      county: '赣州市信丰县', city: '赣州市', cancer: 'C15 食管', prob: 0.91, level: 'HIGH',
-      createdAt: '2026-08-13 08:30', owner: '赣州市疾控中心', supervisor: '省疾控 · 慢病所',
-      deadline: '2026-09-24', status: 'DOING',
-      plan: '① 核对近3年上报机构与人口分母；② 抽取 30 例复核诊断依据与编码；③ 开展食管癌高危人群问卷与内镜筛查可行性评估；④ 与 C 层预警 WRN-00277 合并处置，避免重复入户。',
-      progress: '已完成上报机构核对（无变化）与 30 例抽查（编码准确率 96.7%）；内镜筛查可行性评估进行中。',
-      linkedWarning: 'WRN-00277（C-CLUSTER，SIR 1.58）',
-      humanVerdict: null,
-      effectMetric: '目标：2027 年该县食管癌早诊率由 21.4% 提升至 30% 以上'
-    },
-    {
-      id: 'IVT-2026-0030', predictionId: null, modelId: 'MDL-002', modelVersion: 'v2.1.0',
-      county: '九江市都昌县', city: '九江市', cancer: 'C22 肝', prob: 0.87, level: 'HIGH',
-      createdAt: '2026-08-13 08:30', owner: '九江市疾控中心', supervisor: '省疾控 · 慢病所',
-      deadline: '2026-09-24', status: 'DOING',
-      plan: '① 核查人口分母（该县2025年人口基数变动 5.8%，已有 C-DENOMINATOR 预警）；② 分母修正后重算 SIR；③ 若修正后仍聚集，开展乙肝感染率与饮水情况调查。',
-      progress: '统计局已确认 2025 年人口数据口径变更，正在重新核定分母。',
-      linkedWarning: 'WRN-00278（C-CLUSTER，SIR 1.62）+ 分母待核标记',
-      humanVerdict: null,
-      effectMetric: '目标：分母修正后 2 周内出具重算结论'
-    },
-    {
-      id: 'IVT-2026-0028', predictionId: null, modelId: 'MDL-002', modelVersion: 'v2.1.0',
-      county: '南昌市青山湖区', city: '南昌市', cancer: 'C50 乳腺', prob: 0.74, level: 'HIGH',
-      createdAt: '2026-08-13 08:30', owner: '南昌市疾控中心', supervisor: '省疾控 · 慢病所',
-      deadline: '2026-09-24', status: 'DONE',
-      plan: '① 核查是否受两癌筛查项目影响；② 核对筛查台账覆盖人数；③ 出具是否需要实质干预的结论。',
-      progress: '已完成。该区 2024-2025 年为省级两癌筛查试点，筛查覆盖 4.2 万人，检出率上升属项目效应。',
-      linkedWarning: 'WRN-00275（C-ASR-TREND，已结案为"筛查项目影响"）',
-      humanVerdict: 'INVALID_SCREEN',
-      effectMetric: '已判为筛查项目效应，无需实质干预；该样本已回流特征库作为负例强化训练'
-    },
-    {
-      id: 'IVT-2026-0025', predictionId: null, modelId: 'MDL-002', modelVersion: 'v2.1.0',
-      county: '上饶市鄱阳县', city: '上饶市', cancer: 'C16 胃', prob: 0.69, level: 'HIGH',
-      createdAt: '2026-08-13 08:30', owner: '上饶市疾控中心', supervisor: '省疾控 · 慢病所',
-      deadline: '2026-09-24', status: 'PENDING',
-      plan: '① 核对该县 DCO%（当前 18.3%，超考核线）；② 判断是质量问题导致的率值失真还是真实升高；③ 质量问题优先转 B 层整改。',
-      progress: '待接收。',
-      linkedWarning: 'WRN-00269（B-DCO-HIGH，DCO% 18.3%）',
-      humanVerdict: null,
-      effectMetric: '目标：先将 DCO% 降至 15% 以下再评估疾病信号'
-    },
-    {
-      id: 'IVT-2026-0022', predictionId: null, modelId: 'MDL-002', modelVersion: 'v2.1.0',
-      county: '赣州市于都县', city: '赣州市', cancer: 'C15 食管', prob: 0.64, level: 'HIGH',
-      createdAt: '2026-08-13 08:30', owner: '赣州市疾控中心', supervisor: '省疾控 · 慢病所',
-      deadline: '2026-09-24', status: 'DOING',
-      plan: '① 与信丰县 IVT-2026-0031 合并为赣南食管癌高发区专项；② 统一开展高危人群评估。',
-      progress: '已并入赣南食管癌专项，与信丰县同步推进。',
-      linkedWarning: 'WRN-00271（C-ASR-TREND，连续3年上升 22.4%）',
-      humanVerdict: null,
-      effectMetric: '目标：形成赣南食管癌防控方案初稿'
-    },
-    {
-      id: 'IVT-2026-0019', predictionId: 'PRD-2026H-0044', archived: true, modelId: 'MDL-001', modelVersion: 'v1.4.0',
-      county: '宜春市袁州区', city: '宜春市', cancer: 'C34 肺', prob: 0.61, level: 'HIGH',
-      createdAt: '2026-07-10 09:00', owner: '宜春市疾控中心', supervisor: '省疾控 · 慢病所',
-      deadline: '2026-08-21', status: 'INVALID',
-      plan: '① 核查上报行为；② 核查人口分母；③ 评估是否真实升高。',
-      progress: '已完成核查：该区 2025 年新增 2 家上报机构（袁州区中医院、明月山医院），发病率上升系上报覆盖扩大所致。',
-      linkedWarning: 'WRN-00258（A-VOLUME-DROP 反向，上报机构数变化）',
-      humanVerdict: 'INVALID_REPORTING',
-      effectMetric: '已判为上报行为改变；模型未使用 F-OPS-002 活跃机构数的时序变化，该案例已作为反例纳入 v1.5.0 重训清单'
-    },
-    {
-      id: 'IVT-2026-0014', predictionId: 'PRD-2026H-0051', archived: true, modelId: 'MDL-001', modelVersion: 'v1.4.0',
-      county: '九江市修水县', city: '九江市', cancer: 'C34 肺', prob: 0.59, level: 'HIGH',
-      createdAt: '2026-07-10 09:00', owner: '九江市疾控中心', supervisor: '省疾控 · 慢病所',
-      deadline: '2026-08-21', status: 'DONE',
-      plan: '① 核查上报与分母；② 开展吸烟率与职业暴露初步调查。',
-      progress: '已完成。上报与分母无异常；该县成人吸烟率 34.2%（全省 26.8%），且有历史矿业活动，判为需持续观察的真实偏高。',
-      linkedWarning: 'WRN-00249（C-ASR-TREND，连续3年上升 19.8%）',
-      humanVerdict: 'VALID',
-      effectMetric: '已纳入 2027 年控烟重点县名单，每半年跟踪 ASR 变化'
-    }
-  ];
-  /* 按 区县 × 癌种 解析工单来源快照，并把概率同步为快照真值，避免两处硬编码不一致。
-     archived=true 的历史工单来自 2026-07 的 MDL-001 快照批次，不在当前快照表中。 */
-  interventions.forEach(function (iv) {
-    if (iv.archived) return;
-    const p = predictions.find(function (x) { return x.county === iv.county && x.cancer === iv.cancer; });
-    if (!p) return;
-    iv.predictionId = p.id;
-    iv.prob = p.prob;
-    iv.level = p.level;
-    p.interventionId = iv.id;
-  });
 
   /* ==================== 页面 1：多源特征数据仓库 ==================== */
   function renderFeatures() {
@@ -880,7 +780,7 @@
       .map(function (o) { return '<option value="' + esc(o[0]) + '"' + (f.task === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('');
 
     return '<div class="md-page">' + mdHeader('预警模型元信息注册',
-      '管理风险预测模型的<b>基本信息与生命周期状态</b>：设计中 → 训练中 → 验证中 → 影子运行 → 生产使用 → 下线。每个模型登记预测目标、算法、特征数、训练/测试窗口、判定阈值、责任人与评审人、审批依据以及<b>明确的使用边界</b>；只有经省级专家组评审通过的模型才能转生产并产生干预工单。', [
+      '管理风险预测模型的<b>基本信息与生命周期状态</b>：设计中 → 训练中 → 验证中 → 影子运行 → 生产使用 → 下线。每个模型登记预测目标、算法、特征数、训练/测试窗口、判定阈值、责任人与评审人、审批依据以及<b>明确的使用边界</b>；只有经省级专家组评审通过的模型才能转生产。', [
       '<button class="btn btn-outline btn-sm" onclick="mdToastMsg(\'模型清单已导出\')">导出清单</button>',
       '<button class="btn btn-outline btn-sm" onclick="navigateTo(\'mdl-training\')">训练记录</button>',
       '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'mdl-predictions\')">预测结果快照</button>'
@@ -1062,12 +962,10 @@
     const high = scope.filter(function (p) { return p.level === 'HIGH'; });
     const mid = scope.filter(function (p) { return p.level === 'MID'; });
     const small = scope.filter(function (p) { return p.smallCount; });
-    const withIv = scope.filter(function (p) { return p.interventionId; });
     const kpis = [
       mdKpi('快照记录', nInt(scope.length), COUNTIES.length + ' 区县 × ' + SNAP_CANCERS.length + ' 癌种'),
       mdKpi('高风险', high.length, '概率 ≥ 0.58，须人工研判', high.length ? 'danger' : 'ok'),
       mdKpi('中风险', mid.length, '概率 0.36-0.58，列入观察', 'warn'),
-      mdKpi('已派干预工单', withIv.length, '本批快照；另有 2 张来自 2026-07 历史批次'),
       mdKpi('小基数记录', small.length, '年例数 < 40，已贝叶斯收缩', 'warn'),
       mdKpi('快照时间', '08-13 06:00', 'MDL-002 v2.1.0 · FS-2026.08')
     ].join('');
@@ -1088,7 +986,6 @@
           if (!hits.length) return '<span class="md-note">无规则命中</span>';
           return esc(hits[0].replace(' 已触发', '')) + (hits.length > 1 ? '<div class="md-sec">另 ' + (hits.length - 1) + ' 条命中</div>' : '');
         })() + '</td>' +
-        '<td class="md-nowrap">' + (p.interventionId ? '<button class="md-id" onclick="mdGoIv(\'' + p.interventionId + '\')">' + p.interventionId + '</button>' : '<span class="md-note">未派单</span>') + '</td>' +
         '<td class="md-nowrap"><button class="btn btn-ghost btn-xs" onclick="showPredictionDetail(\'' + p.id + '\')">详情</button></td>' +
         '</tr>';
     }).join('');
@@ -1117,8 +1014,7 @@
     return '<div class="md-page">' + mdHeader('风险预测结果快照',
       '存储模型定期运行产生的<b>区域风险预测结果</b>。每条记录固化模型版本、特征库版本、快照时间、预测概率与置信区间、风险等级以及 SHAP 前三贡献特征，<b>结果不可修改</b>——修正只能通过新快照，保证事后可追溯"当时依据什么做出的判断"。同时标注该区域-癌种是否已被 A/B/C 规则命中，便于区分模型独有信号与规则重叠信号。', [
       '<button class="btn btn-outline btn-sm" onclick="showSnapshotRule()">快照规则</button>',
-      '<button class="btn btn-outline btn-sm" onclick="mdToastMsg(\'快照已导出\')">导出快照</button>',
-      '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'mdl-interventions\')">干预工单</button>'
+      '<button class="btn btn-outline btn-sm" onclick="mdToastMsg(\'快照已导出\')">导出快照</button>'
     ]) +
       '<div class="md-kpis">' + kpis + '</div>' +
       '<div class="md-filter">' +
@@ -1126,8 +1022,8 @@
       '<div class="form-group"><label>风险等级</label><select onchange="mdSet(\'predictions\',\'level\',this.value)">' + lvOpts + '</select></div>' +
       '<div class="form-group" style="grid-column:span 2"><label>检索</label><input value="' + esc(f.keyword) + '" placeholder="快照号 / 区县 / 癌种" onchange="mdSet(\'predictions\',\'keyword\',this.value)"></div>' +
       '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="mdResetPredictions()">重置</button></div></div>' +
-      '<div class="md-table-wrap"><table class="md-table" style="min-width:1180px"><thead><tr><th>快照号</th><th>区县</th><th>癌种</th><th>预测概率</th><th>风险等级</th><th>基线 ASR</th><th>首要贡献特征</th><th>规则命中</th><th>干预工单</th><th>操作</th></tr></thead><tbody>' +
-      (rows || '<tr><td colspan="10"><div class="md-empty">暂无符合条件的预测记录</div></td></tr>') + '</tbody></table></div>' +
+      '<div class="md-table-wrap"><table class="md-table"><thead><tr><th>快照号</th><th>区县</th><th>癌种</th><th>预测概率</th><th>风险等级</th><th>基线 ASR</th><th>首要贡献特征</th><th>规则命中</th><th>操作</th></tr></thead><tbody>' +
+      (rows || '<tr><td colspan="9"><div class="md-empty">暂无符合条件的预测记录</div></td></tr>') + '</tbody></table></div>' +
       (list.length > 50 ? '<div class="md-note" style="margin-top:8px">共 ' + list.length + ' 条，已显示前 50 条（按概率降序）。</div>' : '') +
       '<div class="md-card" style="margin-top:14px"><div class="md-card-head"><div class="md-card-title">区县 × 癌种 风险热力图<span class="md-card-sub">点击单元格查看快照详情</span></div></div>' +
       '<div class="md-card-body" style="overflow:auto">' + heat +
@@ -1135,7 +1031,6 @@
       '</div>';
   }
   function mdResetPredictions() { state.predictions = { model: 'MDL-002', level: 'ALL', keyword: '' }; renderPage(state.page); }
-  function mdGoIv(id) { state.interventions.keyword = id; closeMdModals(); if (typeof navigateTo === 'function') navigateTo('mdl-interventions'); }
 
   function showPredictionDetail(id) {
     const p = predictions.find(function (x) { return x.id === id; });
@@ -1148,7 +1043,7 @@
       ['预测概率', n2(p.prob)], ['95% 置信区间', n2(p.ci[0]) + ' - ' + n2(p.ci[1])],
       ['风险等级', RISK_LEVEL[p.level].label], ['判定阈值', m && m.threshold !== null ? String(m.threshold) : '-'],
       ['基线 ASR', n1(p.baselineAsr) + ' /10万'], ['2025 年例数', nInt(p.cases2025) + ' 例'],
-      ['规则命中情况', p.ruleHit], ['关联干预工单', p.interventionId || '未派单']
+      ['规则命中情况', p.ruleHit]
     ].map(function (x) { return '<div class="md-field"><div class="md-field-label">' + esc(x[0]) + '</div><div class="md-value">' + esc(x[1]) + '</div></div>'; }).join('');
     const contribRows = p.contrib.map(function (c) {
       const w = Math.min(100, Math.abs(c.v) * 320);
@@ -1158,15 +1053,14 @@
     const body = '<div class="md-fields">' + fields + '</div>' +
       '<div class="md-sect"><h4 class="md-h">SHAP 贡献分解（前 3）</h4><table class="md-pivot" style="width:100%"><thead><tr><th>特征</th><th>SHAP 值</th><th>幅度</th><th>方向</th></tr></thead><tbody>' + contribRows + '</tbody></table>' +
       '<div class="md-note" style="margin-top:7px">SHAP 值解释的是"该特征把本条记录的预测值推离基线多少"，不代表因果效应。</div></div>' +
-      (p.smallCount ? '<div class="md-sect"><div class="md-callout warn"><strong>小基数提示：</strong>该区县-癌种 2025 年仅 ' + nInt(p.cases2025) + ' 例，已做分层贝叶斯收缩，但概率的置信区间较宽（' + n2(p.ci[0]) + '-' + n2(p.ci[1]) + '）。<b>必须人工复核后才能派干预工单。</b></div></div>' : '') +
+      (p.smallCount ? '<div class="md-sect"><div class="md-callout warn"><strong>小基数提示：</strong>该区县-癌种 2025 年仅 ' + nInt(p.cases2025) + ' 例，已做分层贝叶斯收缩，但概率的置信区间较宽（' + n2(p.ci[0]) + '-' + n2(p.ci[1]) + '）。<b>必须人工复核后才能采信该结果。</b></div></div>' : '') +
       '<div class="md-sect"><div class="md-callout' + (p.ruleHit === '无规则命中' ? '' : ' warn') + '"><strong>与规则预警的关系：</strong>' +
       (p.ruleHit === '无规则命中'
-        ? '该区域-癌种当前未被 A/B/C 层规则命中，属模型独有信号。按评估报告结论，模型独有信号中约三分之一经研判有价值，须先人工研判再决定是否派单。'
-        : '该区域-癌种已被规则命中（' + esc(p.ruleHit) + '），模型与规则结论一致，干预工单应与规则预警工单<b>合并处置</b>，避免对同一区县重复入户核查。') + '</div></div>' +
+        ? '该区域-癌种当前未被 A/B/C 层规则命中，属模型独有信号。按评估报告结论，模型独有信号中约三分之一经研判有价值，须先人工研判确认后再采信。'
+        : '该区域-癌种已被规则命中（' + esc(p.ruleHit) + '），模型与规则结论一致，应与规则预警工单<b>合并处置</b>，避免对同一区县重复入户核查。') + '</div></div>' +
       '<div class="md-sect"><div class="md-callout warn"><strong>不可修改：</strong>快照为不可变记录。若发现输入数据有误，应修正数据后生成新快照，原快照保留用于追溯，不做覆盖。</div></div>';
     let foot = '<button class="btn btn-ghost" data-close>关闭</button>';
-    if (p.interventionId) foot += '<button class="btn btn-primary" onclick="mdGoIv(\'' + p.interventionId + '\')">查看干预工单</button>';
-    else if (p.level === 'HIGH') foot += '<button class="btn btn-primary" onclick="mdToastMsg(\'已提交人工研判，研判通过后方可派单\')">提交人工研判</button>';
+    if (p.level === 'HIGH') foot += '<button class="btn btn-primary" onclick="mdToastMsg(\'已提交人工研判，研判通过后方可采信\')">提交人工研判</button>';
     const mask = mdModal('预测结果快照 · ' + p.id, body, foot);
     mask.querySelector('[data-close]').addEventListener('click', function () { mask.remove(); });
   }
@@ -1177,7 +1071,6 @@
       [['生成时机', '生产模型按刷新周期自动运行（MDL-002 每月 13 日 06:00），或数据修正后手动触发'],
       ['不可变性', '快照写入后禁止 UPDATE/DELETE，修正通过新快照实现'],
       ['必存字段', '模型版本 + 特征库版本 + 训练任务号 + 概率 + 置信区间 + SHAP 前三贡献'],
-      ['派单门槛', '仅高风险（≥ 阈值）且经人工研判通过后才生成干预工单，模型不直接派单'],
       ['小基数强制复核', '年例数 < 40 的记录即使高风险也必须人工复核'],
       ['对外发布限制', '区县级模型输出仅内部使用，不得作为地区癌症风险对外公布'],
       ['留存期限', '快照永久留存，与预警记录同等保存要求']].map(function (x) {
@@ -1228,8 +1121,7 @@
     return '<div class="md-page">' + mdHeader('模型验证与评估报告',
       '生成模型效果评估报告，含<b>准确率、召回率、误报率</b>等指标。除整体指标外，强制包含四项内容：① 概率校准曲线（判别能力好不代表概率可信）；② 分组表现（小基数区县、筛查覆盖区县、高 DCO% 区县单独评估）；③ 特征漂移 PSI 与重训触发判定；④ 与 A/B/C 规则预警的一致性对比。评估结论必须写明使用边界。', [
       '<button class="btn btn-outline btn-sm" onclick="showMetricGuide()">指标释义</button>',
-      '<button class="btn btn-outline btn-sm" onclick="mdToastMsg(\'评估报告已导出 PDF\')">导出报告</button>',
-      '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'mdl-interventions\')">干预工单</button>'
+      '<button class="btn btn-outline btn-sm" onclick="mdToastMsg(\'评估报告已导出 PDF\')">导出报告</button>'
     ]) +
       '<div class="md-filter" style="grid-template-columns:minmax(320px,1fr) auto">' +
       '<div class="form-group"><label>评估报告</label><select onchange="mdSet(\'evaluation\',\'model\',this.value)">' + evOpts + '</select></div>' +
@@ -1249,7 +1141,7 @@
       '</div></div></div>' +
       '<div class="md-card"><div class="md-card-head"><div class="md-card-title">分组表现<span class="md-card-sub">整体指标会掩盖子群体失效</span></div></div>' +
       '<div class="md-card-body" style="overflow:auto"><table class="md-pivot" style="width:100%"><thead><tr><th>分组</th><th>样本数</th><th>AUC</th><th>召回率</th><th>精确率</th><th>结论</th></tr></thead><tbody>' + groupRows + '</tbody></table>' +
-      '<div class="md-note" style="margin-top:9px">分组评估是本报告最关键的部分：整体 AUC ' + n3(ev.metrics.auc) + ' 看似良好，但在筛查覆盖区县仅 ' + n3(ev.byGroup.filter(function (g) { return g.group.indexOf('筛查') >= 0; }).map(function (g) { return g.auc; })[0] || 0) + '，说明模型把筛查带来的检出率上升误判为风险。这正是干预工单 IVT-2026-0028 被判为"筛查项目效应"的原因。</div></div></div>' +
+      '<div class="md-note" style="margin-top:9px">分组评估是本报告最关键的部分：整体 AUC ' + n3(ev.metrics.auc) + ' 看似良好，但在筛查覆盖区县仅 ' + n3(ev.byGroup.filter(function (g) { return g.group.indexOf('筛查') >= 0; }).map(function (g) { return g.auc; })[0] || 0) + '，说明模型把筛查带来的检出率上升误判为风险。</div></div></div>' +
       '<div class="md-grid2">' +
       '<div class="md-card"><div class="md-card-head"><div class="md-card-title">与规则预警的一致性对比</div></div><div class="md-card-body">' +
       '<table class="md-pivot" style="width:100%"><thead><tr><th>来源</th><th>信号数</th><th>占比</th></tr></thead><tbody>' +
@@ -1287,202 +1179,6 @@
     mask.querySelector('[data-close]').addEventListener('click', function () { mask.remove(); });
   }
 
-  /* ==================== 页面 6：风险预警干预工单 ==================== */
-  function renderInterventions() {
-    const f = state.interventions, kw = f.keyword.trim().toLowerCase();
-    const list = interventions.filter(function (iv) {
-      return (f.status === 'ALL' || iv.status === f.status)
-        && (f.level === 'ALL' || iv.level === f.level)
-        && (!kw || [iv.id, iv.predictionId, iv.county, iv.cancer, iv.owner].join(' ').toLowerCase().includes(kw));
-    });
-    const done = interventions.filter(function (iv) { return iv.status === 'DONE'; });
-    const invalid = interventions.filter(function (iv) { return iv.status === 'INVALID'; });
-    const closed = done.length + invalid.length;
-    const valid = interventions.filter(function (iv) { return iv.humanVerdict === 'VALID'; });
-    const kpis = [
-      mdKpi('干预工单', interventions.length, '模型高风险 + 人工研判通过'),
-      mdKpi('待接收 / 干预中', interventions.filter(function (iv) { return iv.status === 'PENDING' || iv.status === 'DOING'; }).length, '责任单位处置中', 'warn'),
-      mdKpi('已闭环', closed, n1(closed / interventions.length * 100) + '% 闭环率'),
-      mdKpi('判为有效信号', valid.length, '确认需持续干预', 'ok'),
-      mdKpi('判为无效', invalid.length + done.filter(function (iv) { return iv.humanVerdict && iv.humanVerdict.indexOf('INVALID') === 0; }).length, '筛查效应 / 上报行为改变', 'danger'),
-      mdKpi('已回流训练', done.concat(invalid).filter(function (iv) { return iv.humanVerdict; }).length, '人工结论作为下轮标签', 'ok')
-    ].join('');
-
-    const rows = list.map(function (iv) {
-      const verdictLabel = iv.humanVerdict === 'VALID' ? '<span class="badge badge-danger">真实信号</span>'
-        : iv.humanVerdict === 'INVALID_SCREEN' ? '<span class="badge badge-muted">筛查效应</span>'
-          : iv.humanVerdict === 'INVALID_REPORTING' ? '<span class="badge badge-muted">上报行为改变</span>'
-            : '<span class="md-note">研判中</span>';
-      return '<tr>' +
-        '<td class="md-nowrap"><button class="md-id" onclick="showIvDetail(\'' + iv.id + '\')">' + iv.id + '</button><div class="md-sec">' + esc(iv.createdAt.slice(0, 10)) + '</div></td>' +
-        '<td class="md-nowrap">' + (iv.archived
-          ? '<span class="md-note">' + esc(iv.predictionId) + '（历史批次）</span>'
-          : '<button class="md-id" onclick="showPredictionDetail(\'' + iv.predictionId + '\')">' + iv.predictionId + '</button>')
-        + '<div class="md-sec">' + esc(iv.modelId + ' ' + iv.modelVersion) + '</div></td>' +
-        '<td>' + esc(iv.county) + '<div class="md-sec">' + esc(iv.city) + '</div></td>' +
-        '<td class="md-nowrap">' + esc(iv.cancer) + '</td>' +
-        '<td class="md-num md-nowrap">' + n2(iv.prob) + bar(iv.prob * 100, 'bad') + '</td>' +
-        '<td>' + esc(iv.owner) + '<div class="md-sec">督办 ' + esc(iv.supervisor) + '</div></td>' +
-        '<td class="md-nowrap">' + esc(iv.deadline) + '</td>' +
-        '<td class="md-nowrap">' + badge(IV_STATUS[iv.status]) + '</td>' +
-        '<td class="md-nowrap">' + verdictLabel + '</td>' +
-        '<td class="md-nowrap"><button class="btn btn-ghost btn-xs" onclick="showIvDetail(\'' + iv.id + '\')">详情</button>' +
-        (iv.status === 'PENDING' ? ' <button class="btn btn-primary btn-xs" onclick="acceptIv(\'' + iv.id + '\')">接收</button>' : '') +
-        (iv.status === 'DOING' ? ' <button class="btn btn-outline btn-xs" onclick="showIvClose(\'' + iv.id + '\')">结案</button>' : '') + '</td>' +
-        '</tr>';
-    }).join('');
-
-    const stOpts = [['ALL', '全部状态']].concat(Object.keys(IV_STATUS).map(function (k) { return [k, IV_STATUS[k].label]; }))
-      .map(function (o) { return '<option value="' + o[0] + '"' + (f.status === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('');
-    const lvOpts = [['ALL', '全部风险等级']].concat(Object.keys(RISK_LEVEL).map(function (k) { return [k, RISK_LEVEL[k].label]; }))
-      .map(function (o) { return '<option value="' + o[0] + '"' + (f.level === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('');
-
-    /* 闭环结论分布 */
-    const verdictAgg = [
-      { k: 'VALID', label: '真实信号（需持续干预）', n: interventions.filter(function (iv) { return iv.humanVerdict === 'VALID'; }).length, tone: 'bad' },
-      { k: 'INVALID_SCREEN', label: '筛查项目效应', n: interventions.filter(function (iv) { return iv.humanVerdict === 'INVALID_SCREEN'; }).length, tone: 'warn' },
-      { k: 'INVALID_REPORTING', label: '上报行为改变', n: interventions.filter(function (iv) { return iv.humanVerdict === 'INVALID_REPORTING'; }).length, tone: 'warn' },
-      { k: 'PENDING', label: '研判中', n: interventions.filter(function (iv) { return !iv.humanVerdict; }).length, tone: '' }
-    ];
-    const verdictRows = verdictAgg.map(function (v) {
-      return '<tr><td style="text-align:left">' + esc(v.label) + '</td><td>' + v.n + '</td><td style="text-align:left">' + bar(v.n / interventions.length * 100, v.tone) + '</td><td>' + n1(v.n / interventions.length * 100) + '%</td></tr>';
-    }).join('');
-
-    return '<div class="md-page">' + mdHeader('风险预警干预工单',
-      '基于模型预警结果生成<b>干预任务并跟踪处置效果</b>。派单前置条件有三：模型输出高风险、经人工研判通过、若为小基数区县须额外复核。工单要求填写具体干预计划、责任单位与督办单位、时限与效果指标；结案时必须给出人工结论（真实信号 / 筛查效应 / 上报行为改变），该结论<b>回流特征库作为下一轮训练标签</b>，形成闭环。', [
-      '<button class="btn btn-outline btn-sm" onclick="showFeedbackLoop()">闭环机制</button>',
-      '<button class="btn btn-outline btn-sm" onclick="mdToastMsg(\'工单台账已导出\')">导出台账</button>',
-      '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'mdl-evaluation\')">评估报告</button>'
-    ]) +
-      '<div class="md-kpis">' + kpis + '</div>' +
-      '<div class="md-filter">' +
-      '<div class="form-group"><label>工单状态</label><select onchange="mdSet(\'interventions\',\'status\',this.value)">' + stOpts + '</select></div>' +
-      '<div class="form-group"><label>风险等级</label><select onchange="mdSet(\'interventions\',\'level\',this.value)">' + lvOpts + '</select></div>' +
-      '<div class="form-group" style="grid-column:span 2"><label>检索</label><input value="' + esc(f.keyword) + '" placeholder="工单号 / 快照号 / 区县 / 责任单位" onchange="mdSet(\'interventions\',\'keyword\',this.value)"></div>' +
-      '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="mdResetIv()">重置</button></div></div>' +
-      '<div class="md-table-wrap"><table class="md-table" style="min-width:1320px"><thead><tr><th>工单号</th><th>来源快照</th><th>区县</th><th>癌种</th><th>预测概率</th><th>责任单位</th><th>时限</th><th>状态</th><th>人工结论</th><th>操作</th></tr></thead><tbody>' +
-      (rows || '<tr><td colspan="10"><div class="md-empty">暂无符合条件的干预工单</div></td></tr>') + '</tbody></table></div>' +
-      '<div class="md-grid2" style="margin-top:14px">' +
-      '<div class="md-card"><div class="md-card-head"><div class="md-card-title">闭环结论分布<span class="md-card-sub">模型精确率的现实检验</span></div></div><div class="md-card-body">' +
-      '<table class="md-pivot" style="width:100%"><thead><tr><th>人工结论</th><th>工单数</th><th>分布</th><th>占比</th></tr></thead><tbody>' + verdictRows + '</tbody></table>' +
-      '<div class="md-note" style="margin-top:9px">已结案工单中判为无效的占比与评估报告的误报率基本吻合（精确率 44.6% ⇒ 约一半工单最终判为无效），说明模型指标与现实处置结果一致，评估未出现过度乐观。</div></div></div>' +
-      '<div class="md-card"><div class="md-card-head"><div class="md-card-title">与规则预警工单的分工</div></div><div class="md-card-body">' +
-      '<table class="md-pivot" style="width:100%"><thead><tr><th>对比项</th><th>规则预警工单</th><th>模型干预工单</th></tr></thead><tbody>' +
-      [['触发依据', '确定性阈值命中（可复述判定式）', '概率超阈值 + 人工研判通过'],
-      ['是否可直接派单', '是，规则命中即派单', '否，必须人工研判'],
-      ['工单性质', '核查/整改（数据或质量问题）', '干预/调查（疾病信号或干扰因素排查）'],
-      ['结案要求', '核查结论 + 整改证据', '人工结论 + 效果指标，且回流训练'],
-      ['责任链', '登记质量考核链', '慢病防控业务链'],
-      ['重叠处理', '两者命中同一区域时合并入户，避免重复动员', '同左']].map(function (x) {
-        return '<tr><td style="text-align:left">' + esc(x[0]) + '</td><td style="text-align:left;white-space:normal">' + esc(x[1]) + '</td><td style="text-align:left;white-space:normal">' + esc(x[2]) + '</td></tr>';
-      }).join('') + '</tbody></table>' +
-      '<div class="md-callout warn" style="margin-top:10px">当前 ' + interventions.filter(function (iv) { return iv.linkedWarning && iv.linkedWarning.indexOf('WRN') === 0; }).length + ' 张干预工单均已关联对应的规则预警记录，处置时合并执行。</div>' +
-      '</div></div></div></div>';
-  }
-  function mdResetIv() { state.interventions = { status: 'ALL', level: 'ALL', keyword: '' }; renderPage(state.page); }
-
-  function showIvDetail(id) {
-    const iv = interventions.find(function (x) { return x.id === id; });
-    if (!iv) return;
-    const p = iv.archived ? null : predictions.find(function (x) { return x.id === iv.predictionId; });
-    const fields = [
-      ['工单号', iv.id], ['来源快照', iv.predictionId + (iv.archived ? '（2026-07 历史快照批次，已归档）' : '')], ['模型', iv.modelId + ' ' + iv.modelVersion],
-      ['区县', iv.county], ['所属地市', iv.city], ['癌种', iv.cancer],
-      ['预测概率', n2(iv.prob)], ['风险等级', RISK_LEVEL[iv.level].label],
-      ['创建时间', iv.createdAt], ['责任单位', iv.owner], ['督办单位', iv.supervisor],
-      ['处置时限', iv.deadline], ['工单状态', IV_STATUS[iv.status].label],
-      ['人工结论', iv.humanVerdict === 'VALID' ? '真实信号' : iv.humanVerdict === 'INVALID_SCREEN' ? '筛查项目效应' : iv.humanVerdict === 'INVALID_REPORTING' ? '上报行为改变' : '研判中']
-    ].map(function (x) { return '<div class="md-field"><div class="md-field-label">' + esc(x[0]) + '</div><div class="md-value">' + esc(x[1]) + '</div></div>'; }).join('');
-    const body = '<div class="md-fields">' + fields + '</div>' +
-      '<div class="md-sect"><h4 class="md-h">干预计划</h4><div class="md-callout">' + esc(iv.plan) + '</div></div>' +
-      '<div class="md-sect"><h4 class="md-h">处置进展</h4><div class="md-callout">' + esc(iv.progress) + '</div></div>' +
-      '<div class="md-sect"><h4 class="md-h">效果指标</h4><div class="md-callout">' + esc(iv.effectMetric) + '</div></div>' +
-      '<div class="md-sect"><h4 class="md-h">关联规则预警</h4><div class="md-callout warn">' + esc(iv.linkedWarning) + '<div class="md-note" style="margin-top:6px">该区域同时被规则与模型识别，入户核查合并执行，工单各自留痕但现场动员只做一次。</div></div></div>' +
-      (p ? '<div class="md-sect"><h4 class="md-h">快照贡献特征</h4><table class="md-pivot" style="width:100%"><thead><tr><th>特征</th><th>SHAP</th><th>方向</th></tr></thead><tbody>' +
-        p.contrib.map(function (c) { return '<tr><td style="text-align:left">' + esc(c.f) + '</td><td>' + (c.v >= 0 ? '+' : '') + n3(c.v) + '</td><td>' + (c.v >= 0 ? '推高' : '拉低') + '</td></tr>'; }).join('') +
-        '</tbody></table></div>' : '') +
-      (iv.humanVerdict ? '<div class="md-sect"><div class="md-callout"><strong>标签回流：</strong>本工单的人工结论已写入特征库标签表，作为下一轮重训的监督信号。' +
-        (iv.humanVerdict.indexOf('INVALID') === 0 ? '判为无效的案例是最有价值的负例——它教会模型区分"真实升高"与"检出/上报变化"。' : '判为真实信号的案例用于强化正例。') + '</div></div>' : '');
-    let foot = '<button class="btn btn-ghost" data-close>关闭</button>';
-    if (iv.status === 'PENDING') foot += '<button class="btn btn-primary" onclick="acceptIv(\'' + iv.id + '\')">接收工单</button>';
-    else if (iv.status === 'DOING') foot += '<button class="btn btn-primary" onclick="showIvClose(\'' + iv.id + '\')">填写结案</button>';
-    const mask = mdModal('干预工单 · ' + iv.id, body, foot);
-    mask.querySelector('[data-close]').addEventListener('click', function () { mask.remove(); });
-  }
-
-  function acceptIv(id) {
-    const iv = interventions.find(function (x) { return x.id === id; });
-    if (!iv || iv.status !== 'PENDING') return;
-    iv.status = 'DOING';
-    iv.progress = '已接收（' + CURRENT_USER + '），正在按计划开展核查。';
-    closeMdModals();
-    mdToast('工单 ' + id + ' 已接收', 'success');
-    renderPage('mdl-interventions');
-  }
-
-  function showIvClose(id) {
-    const iv = interventions.find(function (x) { return x.id === id; });
-    if (!iv) return;
-    const body = '<div class="md-callout">工单 <strong>' + esc(iv.id) + '</strong> · ' + esc(iv.county) + ' ' + esc(iv.cancer) + ' · 预测概率 ' + n2(iv.prob) + '</div>' +
-      '<div class="md-sect"><div class="md-form-grid">' +
-      '<div class="form-group full"><label>人工结论（必填，将作为下轮训练标签）</label><select id="ivVerdict">' +
-      '<option value="VALID">真实信号 — 确认为需持续干预的疾病信号</option>' +
-      '<option value="INVALID_SCREEN">无效 — 筛查项目导致的检出率上升</option>' +
-      '<option value="INVALID_REPORTING">无效 — 上报机构/覆盖变化导致</option>' +
-      '<option value="INVALID_DENOM">无效 — 人口分母口径问题</option>' +
-      '<option value="INVALID_QUALITY">无效 — 登记数据质量问题（转 B 层整改）</option>' +
-      '</select></div>' +
-      '<div class="form-group full"><label>核查过程与依据</label><textarea id="ivProgress" rows="3" placeholder="填写核查了哪些数据、抽查多少例、得到什么结论"></textarea></div>' +
-      '<div class="form-group full"><label>后续措施与效果指标</label><textarea id="ivEffect" rows="2" placeholder="若为真实信号，填写后续防控措施与可衡量的效果指标"></textarea></div>' +
-      '</div></div>' +
-      '<div class="md-callout warn" style="margin-top:11px"><strong>为什么必须填结论：</strong>人工结论是模型唯一可靠的监督信号。IVT-2026-0019 判为"上报行为改变"后，才发现 MDL-001 未使用活跃上报机构数的时序变化，该缺陷已列入 v1.5.0 重训清单。不填结论的工单等于浪费一次学习机会。</div>';
-    const mask = mdModal('填写结案结论 · ' + iv.id, body,
-      '<button class="btn btn-ghost" data-close>取消</button><button class="btn btn-primary" data-submit>提交结案</button>');
-    mask.querySelector('[data-close]').addEventListener('click', function () { mask.remove(); });
-    mask.querySelector('[data-submit]').addEventListener('click', function () {
-      const v = mask.querySelector('#ivVerdict').value;
-      const pg = (mask.querySelector('#ivProgress').value || '').trim();
-      const ef = (mask.querySelector('#ivEffect').value || '').trim();
-      if (!pg) { mdToast('请填写核查过程与依据', 'warning'); return; }
-      iv.humanVerdict = v;
-      iv.status = v === 'VALID' ? 'DONE' : 'INVALID';
-      iv.progress = pg + '（结案人：' + CURRENT_USER + '）';
-      if (ef) iv.effectMetric = ef;
-      mask.remove();
-      closeMdModals();
-      mdToast('工单已结案，人工结论已回流特征库标签表', 'success');
-      renderPage('mdl-interventions');
-    });
-  }
-
-  function showFeedbackLoop() {
-    const body = '<div class="md-sect"><div class="md-code">' + esc(
-      '特征库快照 FS-2026.08\n' +
-      '        │\n' +
-      '        ▼\n' +
-      '   模型训练（RUN-2026-0184）──→ 模型注册（MDL-002 v2.1.0，经专家组评审转生产）\n' +
-      '                                        │\n' +
-      '                                        ▼\n' +
-      '                              月度预测快照（PRD-…，不可变）\n' +
-      '                                        │\n' +
-      '                            高风险 + 人工研判通过（小基数额外复核）\n' +
-      '                                        ▼\n' +
-      '                              干预工单（IVT-…）→ 责任单位处置\n' +
-      '                                        │\n' +
-      '                              结案填写人工结论（必填）\n' +
-      '                                        │\n' +
-      '        ┌───────────────────────────────┴───────────────────────────┐\n' +
-      '   真实信号 → 正例强化                            无效 → 负例（筛查/上报/分母/质量）\n' +
-      '        └───────────────────────────────┬───────────────────────────┘\n' +
-      '                                        ▼\n' +
-      '                          回流特征库标签表 → 下一轮重训'
-    ) + '</div></div>' +
-      '<div class="md-sect"><h4 class="md-h">闭环为什么必要</h4><div class="md-callout">肿瘤发病的"真实风险"没有金标准标签。唯一可用的标签来自人工核查结论：某次报警到底是真实聚集，还是筛查、上报变化、分母错误造成的假象。没有这个回流，模型只能学习"历史率值高的地方明年还高"，永远学不会区分干扰因素。</div></div>' +
-      '<div class="md-sect"><h4 class="md-h">已产生的两次模型改进</h4><div class="md-callout warn">① IVT-2026-0028（南昌青山湖区乳腺癌判为筛查效应）促成 v2.1.0 新增 F-SCR-001/002 筛查特征，PR-AUC 由 0.478 提升至 0.512。<br>② IVT-2026-0019（宜春袁州区肺癌判为上报行为改变）暴露 MDL-001 未使用活跃机构数时序变化，已列入 v1.5.0 重训清单。</div></div>';
-    const mask = mdModal('预测-干预-回流闭环机制', body, '<button class="btn btn-ghost" data-close>关闭</button>');
-    mask.querySelector('[data-close]').addEventListener('click', function () { mask.remove(); });
-  }
-
   /* ==================== 路由与导出 ==================== */
   function renderModelPage(pageId) {
     if (OWNED_IDS.indexOf(pageId) < 0) return null;
@@ -1493,17 +1189,16 @@
     if (pageId === 'mdl-training') return renderTraining();
     if (pageId === 'mdl-predictions') return renderPredictions();
     if (pageId === 'mdl-evaluation') return renderEvaluation();
-    if (pageId === 'mdl-interventions') return renderInterventions();
     return '<div class="md-page"><div class="md-empty">页面开发中</div></div>';
   }
 
   const publicApi = {
-    features, featureStore, models, trainRuns, predictions, evaluations, interventions,
-    FEATURE_DOMAIN, LIFECYCLE, RISK_LEVEL, IV_STATUS,
-    mdSet, mdToastMsg, mdResetFeatures, mdResetRegistry, mdResetTraining, mdResetPredictions, mdResetIv,
+    features, featureStore, models, trainRuns, predictions, evaluations,
+    FEATURE_DOMAIN, LIFECYCLE, RISK_LEVEL,
+    mdSet, mdToastMsg, mdResetFeatures, mdResetRegistry, mdResetTraining, mdResetPredictions,
     showFeatureDetail, showLineage, showModelDetail, mdGoEval, showRunDetail, showReproRule,
-    showPredictionDetail, showSnapshotRule, mdGoIv, showMetricGuide,
-    showIvDetail, acceptIv, showIvClose, showFeedbackLoop, closeMdModals,
+    showPredictionDetail, showSnapshotRule, showMetricGuide,
+    closeMdModals,
     renderModelPage
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = publicApi;
