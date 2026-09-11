@@ -2,32 +2,20 @@
  * 肿瘤专科能力分析模块
  * 对应功能点：
  *   肿瘤诊疗技术目录 · 机构技术开展记录 · 医疗质量核心指标明细
- *   疑难病例收治特征库 · 专科能力综合评分报告
+ *   疑难病例收治特征库
  * 与「专科画像」的分工：专科画像面向单个患者的诊疗过程与风险标签；
  *   本模块面向机构，评估其肿瘤专科的技术能力、医疗质量与收治难度。
  */
 (function () {
   'use strict';
 
-  const OWNED_IDS = ['cap-catalog', 'cap-records', 'cap-quality', 'cap-complex', 'cap-score'];
+  const OWNED_IDS = ['cap-catalog', 'cap-records', 'cap-quality', 'cap-complex'];
   const CURRENT_USER = '省级登记中心 · 陈敏';
   const EVAL_YEAR = '2025';
 
   const style = document.createElement('style');
   style.textContent = `
 #pageContainer .cp-page{padding-bottom:20px}
-#pageContainer .cp-head{background:linear-gradient(135deg,#fbfdff,#f4f8fd);border:1px solid var(--border);border-left:4px solid var(--primary);border-radius:6px;padding:14px 18px;margin-bottom:14px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
-#pageContainer .cp-title{font-size:17px;font-weight:700;color:#1e293b}
-#pageContainer .cp-sub{margin-top:5px;font-size:12px;color:#64748b;line-height:1.85;max-width:1080px}
-#pageContainer .cp-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-#pageContainer .cp-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:10px;margin-bottom:14px}
-#pageContainer .cp-kpi{background:#fff;border:1px solid var(--border);border-radius:6px;padding:11px 13px}
-#pageContainer .cp-kpi-label{font-size:12px;color:#667085}
-#pageContainer .cp-kpi-value{margin-top:5px;font-size:23px;font-weight:700;color:var(--primary);font-variant-numeric:tabular-nums}
-#pageContainer .cp-kpi-value.danger{color:#b42335}
-#pageContainer .cp-kpi-value.warn{color:#b54708}
-#pageContainer .cp-kpi-value.ok{color:#15803d}
-#pageContainer .cp-kpi-meta{margin-top:3px;font-size:11px;color:#94a3b8}
 #pageContainer .cp-card{background:#fff;border:1px solid var(--border);border-radius:6px;margin-bottom:14px;overflow:hidden}
 #pageContainer .cp-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;border-bottom:1px solid var(--border);background:#fbfcfe}
 #pageContainer .cp-card-title{font-size:14px;font-weight:600;color:#1e293b;display:flex;align-items:baseline;gap:8px}
@@ -35,8 +23,9 @@
 #pageContainer .cp-card-body{padding:13px 14px}
 #pageContainer .cp-grid2{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px}
 @media(max-width:1280px){#pageContainer .cp-grid2{grid-template-columns:minmax(0,1fr)}}
-#pageContainer .cp-filter{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px 12px;align-items:end;padding:12px 14px;background:#f8fafc;border:1px solid var(--border);border-radius:6px;margin-bottom:12px}
-#pageContainer .cp-filter .filter-actions{display:flex;gap:8px;align-items:flex-end}
+#pageContainer .cp-filter{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 12px;padding:12px 14px;background:#f8fafc;border:1px solid var(--border);border-radius:6px;margin-bottom:12px}
+#pageContainer .cp-filter .form-group{flex:1 1 190px;min-width:150px;max-width:420px}
+#pageContainer .cp-filter .filter-actions{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;flex:0 0 auto;margin-left:auto}
 #pageContainer .cp-table-wrap{overflow:auto;border:1px solid var(--border);border-radius:6px;background:#fff}
 #pageContainer .cp-table{width:100%;min-width:1060px;border-collapse:collapse}
 #pageContainer .cp-table th{height:40px;padding:0 11px;text-align:left;background:#f8fafc;color:#5b6673;font-size:12px;font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap}
@@ -78,18 +67,6 @@
 #pageContainer .cp-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:12px;flex-wrap:wrap}
 #pageContainer .cp-tab{appearance:none;border:0;background:transparent;color:#667085;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent}
 #pageContainer .cp-tab.active{color:var(--primary);border-bottom-color:var(--primary)}
-#pageContainer .cp-radar{display:flex;align-items:center;justify-content:center;padding:6px}
-#pageContainer .cp-radar svg{width:100%;max-width:340px;height:auto}
-#pageContainer .cp-score-big{font-size:38px;font-weight:700;color:var(--primary);font-variant-numeric:tabular-nums;line-height:1}
-#pageContainer .cp-grade{display:inline-flex;align-items:center;height:26px;padding:0 11px;border-radius:13px;font-size:13px;font-weight:700}
-#pageContainer .cp-grade.A{background:#e7f6ec;color:#15803d}
-#pageContainer .cp-grade.B{background:#e8f1fd;color:#1d4ed8}
-#pageContainer .cp-grade.C{background:#fff4e5;color:#b54708}
-#pageContainer .cp-grade.D{background:#fdeaec;color:#b42335}
-#pageContainer .cp-dim-row{display:grid;grid-template-columns:132px 1fr 76px;gap:10px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--border)}
-#pageContainer .cp-dim-row:last-child{border-bottom:0}
-#pageContainer .cp-dim-name{font-size:12px;color:#475569}
-#pageContainer .cp-dim-score{font-size:13px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
 #pageContainer .cp-chip{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:11px;background:#eef2f7;color:#475569;font-size:11px;font-weight:600;margin:2px 4px 2px 0}
 #pageContainer .cp-chip.lv4{background:#fdeaec;color:#b42335}
 #pageContainer .cp-chip.lv3{background:#fff4e5;color:#b54708}
@@ -110,26 +87,25 @@
     DRAFT: { label: '草案', cls: 'badge-warning' },
     RETIRED: { label: '已废止', cls: 'badge-muted' }
   };
-  const AUDIT_RESULT = {
-    QUALIFIED: { label: '合格', cls: 'badge-success' },
-    OBSERVE: { label: '观察', cls: 'badge-warning' },
-    UNQUALIFIED: { label: '不合格', cls: 'badge-danger' },
-    NOT_EVAL: { label: '未评价', cls: 'badge-muted' }
+  /* 运行状态：只按客观事实判定（备案/授权 + 目录最低例数），不含任何质量评价 */
+  const RUN_STATUS = {
+    NORMAL: { label: '正常开展', cls: 'badge-success' },
+    UNFILED: { label: '备案办理中', cls: 'badge-warning' },
+    OVERSCOPE: { label: '未经授权开展', cls: 'badge-danger' },
+    LOWCASE: { label: '例数未达目录下限', cls: 'badge-orange' }
   };
-  const GRADE_RULE = [
-    { min: 85, grade: 'A', label: 'A 省内领先' },
-    { min: 75, grade: 'B', label: 'B 达标良好' },
-    { min: 65, grade: 'C', label: 'C 基本达标' },
-    { min: 0, grade: 'D', label: 'D 需重点提升' }
-  ];
-
+  function runStatusOf(r) {
+    if (r.level === 'RESTRICT' && r.certified !== '已备案') return 'UNFILED';
+    if (r.level === 'L4' && r.certified === '未授权') return 'OVERSCOPE';
+    if (!r.reach) return 'LOWCASE';
+    return 'NORMAL';
+  }
   const state = {
     page: 'cap-catalog',
     catalog: { category: 'ALL', level: 'ALL', status: 'ALL', keyword: '' },
-    records: { org: 'ALL', level: 'ALL', audit: 'ALL', keyword: '' },
+    records: { org: 'ALL', level: 'ALL', status: 'ALL', keyword: '' },
     quality: { org: 'ALL', domain: 'ALL', keyword: '' },
-    complex: { org: 'ALL', factor: 'ALL', keyword: '' },
-    score: { org: '江西省肿瘤医院' }
+    complex: { org: 'ALL', factor: 'ALL', keyword: '' }
   };
 
   function esc(v) { const d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; }
@@ -139,14 +115,7 @@
   function badge(meta) { return meta ? '<span class="badge ' + meta.cls + '">' + esc(meta.label) + '</span>' : '-'; }
   function bar(ratio, tone) { const w = Math.max(0, Math.min(100, ratio)); return '<div class="cp-bar"><i class="' + (tone || '') + '" style="width:' + w + '%"></i></div>'; }
   function cpToast(m, t) { if (typeof toast === 'function') toast(m, t); }
-  function gradeOf(score) { return GRADE_RULE.find(function (g) { return score >= g.min; }); }
 
-  function cpHeader(title, subtitle, actions) {
-    return '<div class="cp-head"><div><div class="cp-title">' + esc(title) + '</div><div class="cp-sub">' + subtitle + '</div></div><div class="cp-actions">' + (actions || []).join('') + '</div></div>';
-  }
-  function cpKpi(label, value, meta, tone) {
-    return '<div class="cp-kpi"><div class="cp-kpi-label">' + esc(label) + '</div><div class="cp-kpi-value ' + (tone || '') + '">' + value + '</div><div class="cp-kpi-meta">' + esc(meta) + '</div></div>';
-  }
   function cpModal(title, body, foot, narrow) {
     const mask = document.createElement('div');
     mask.className = 'cp-modal-mask';
@@ -158,35 +127,6 @@
   }
   function closeCpModals() { document.querySelectorAll('.cp-modal-mask').forEach(function (m) { m.remove(); }); }
   function cpSet(group, key, value) { state[group][key] = value; renderPage(state.page); }
-
-  /* 雷达图 */
-  function radar(dims, values, compare) {
-    const R = 105, cx = 130, cy = 125, n = dims.length;
-    const pt = function (i, r) {
-      const a = -Math.PI / 2 + i * 2 * Math.PI / n;
-      return [(cx + r * Math.cos(a)).toFixed(1), (cy + r * Math.sin(a)).toFixed(1)];
-    };
-    let g = '';
-    [0.25, 0.5, 0.75, 1].forEach(function (k) {
-      const pts = dims.map(function (_, i) { return pt(i, R * k).join(','); }).join(' ');
-      g += '<polygon points="' + pts + '" fill="none" stroke="#e6ebf2"/>';
-    });
-    dims.forEach(function (d, i) {
-      const p = pt(i, R);
-      g += '<line x1="' + cx + '" y1="' + cy + '" x2="' + p[0] + '" y2="' + p[1] + '" stroke="#e6ebf2"/>';
-      const lp = pt(i, R + 17);
-      const anchor = Number(lp[0]) > cx + 6 ? 'start' : Number(lp[0]) < cx - 6 ? 'end' : 'middle';
-      g += '<text x="' + lp[0] + '" y="' + (Number(lp[1]) + 3) + '" font-size="9.5" fill="#64748b" text-anchor="' + anchor + '">' + esc(d) + '</text>';
-    });
-    if (compare) {
-      const pts = compare.map(function (v, i) { return pt(i, R * Math.max(0, Math.min(1, v / 100))).join(','); }).join(' ');
-      g += '<polygon points="' + pts + '" fill="#94a3b8" fill-opacity="0.12" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="5 4"/>';
-    }
-    const pts = values.map(function (v, i) { return pt(i, R * Math.max(0, Math.min(1, v / 100))).join(','); }).join(' ');
-    g += '<polygon points="' + pts + '" fill="#1d4ed8" fill-opacity="0.18" stroke="#1d4ed8" stroke-width="2"/>';
-    values.forEach(function (v, i) { const p = pt(i, R * Math.max(0, Math.min(1, v / 100))); g += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="2.8" fill="#fff" stroke="#1d4ed8" stroke-width="1.6"/>'; });
-    return '<div class="cp-radar"><svg viewBox="0 0 260 250" role="img" aria-label="专科能力多维得分雷达图">' + g + '</svg></div>';
-  }
 
   /* ============ 机构清单（江西口径） ============ */
   const ORGS = [
@@ -248,24 +188,18 @@
         const seed = (oi * 7 + ti * 13) % 11;
         const volume = Math.max(1, Math.round(t.minCase * c * (ORG_VOL[org.name] || 1) * (1.62 + seed * 0.085)));
         const reach = volume >= t.minCase;
-        /* 质量得分：能力系数为主，加入可复现扰动 */
-        const qScore = Math.min(99, Math.round(58 + c * 38 + (seed - 5) * 1.1));
-        const audit = !reach ? 'UNQUALIFIED' : qScore >= 85 ? 'QUALIFIED' : qScore >= 74 ? 'QUALIFIED' : qScore >= 66 ? 'OBSERVE' : 'UNQUALIFIED';
         techRecords.push({
           id: 'TR-' + EVAL_YEAR + '-' + String(techRecords.length + 1).padStart(4, '0'),
           org: org.name, city: org.city, techCode: t.code, techName: t.name, category: t.category, level: t.level,
           year: EVAL_YEAR, volume, minCase: t.minCase, reach,
-          certified: t.level === 'RESTRICT' ? (c >= 0.9 ? '已备案' : '备案中') : reach ? '已授权' : '未授权',
+          certified: t.level === 'RESTRICT' ? (c >= 0.9 ? '已备案' : '备案中') : t.level === 'L4' ? (c >= 0.72 ? '已授权' : '未授权') : '已授权',
           teamSize: Math.max(2, Math.round(c * 12 + (seed % 3))),
-          qualityScore: qScore,
-          audit,
-          complication: Number((6.5 - c * 3.4 + (seed - 5) * 0.18).toFixed(1)),
-          perioperativeDeath: t.category === '外科手术' ? Number((1.55 - c * 1.05 + (seed - 5) * 0.05).toFixed(2)) : null,
           firstDate: '2019-0' + (1 + (seed % 8)) + '-1' + (seed % 9),
           lastAudit: EVAL_YEAR + '-0' + (3 + (seed % 6)) + '-1' + (seed % 8),
-          note: !reach ? '年例数未达技术目录最低要求（' + t.minCase + ' 例），能力评分按未达标计。'
-            : t.level === 'RESTRICT' && c < 0.9 ? '限制类技术省级备案尚在办理，暂不计入能力得分。'
-              : '例数与质量指标均满足目录要求。'
+          note: t.level === 'RESTRICT' && c < 0.9 ? '限制类技术省级备案尚在办理中，待卫健委回执。'
+            : t.level === 'L4' && c < 0.72 ? '四级手术技术授权尚未取得，已推送机构核查。'
+              : !reach ? '年例数未达技术目录最低要求（' + t.minCase + ' 例），需机构补充本年度开展明细。'
+                : '例数与备案授权信息均符合目录要求。'
         });
       });
     });
@@ -348,16 +282,16 @@
     MULTI_ORGAN: { label: '联合多器官切除', weight: 1.9, note: '一次手术涉及两个及以上器官切除' }
   };
   const complexCases = [
-    { id: 'CX-2025-00871', org: '江西省肿瘤医院', city: '南昌市', sex: '男', age: 67, dx: 'C34.1 左肺上叶鳞癌 IIIB 期 + C16.2 胃体腺癌 II 期', factors: ['MULTI_PRIMARY', 'STAGE_LATE', 'COMORBID'], asa: 'III级', tech: 'ONC-SUR-001', mdt: '胸外科/胃肠外科/放疗科/病理科/影像科 5 学科', los: 28, icu: 3, outcome: '同期分站手术，术后 R0，无 III 级以上并发症', cmiLike: 4.31, referredFrom: '宜春市人民医院', note: '双原发癌手术顺序与放疗介入时机由 MDT 三次讨论确定。' },
-    { id: 'CX-2025-00844', org: '南昌大学第一附属医院', city: '南昌市', sex: '女', age: 54, dx: 'C22.0 肝细胞癌 复发（首次切除后 26 个月）伴门静脉癌栓', factors: ['RECUR', 'STAGE_LATE', 'SALVAGE'], asa: 'III级', tech: 'ONC-INT-002', mdt: '肝胆外科/介入科/肿瘤内科/影像科 4 学科', los: 21, icu: 2, outcome: '消融+TACE 联合，靶免转化治疗后部分缓解', cmiLike: 4.02, referredFrom: '九江市第一人民医院', note: '癌栓分型 Vp3，不宜再次切除，转为局部治疗+系统治疗。' },
-    { id: 'CX-2025-00812', org: '江西省肿瘤医院', city: '南昌市', sex: '女', age: 39, dx: 'C53.9 宫颈小细胞神经内分泌癌 IIIC1 期', factors: ['RARE', 'STAGE_LATE'], asa: 'II级', tech: 'ONC-RAD-003', mdt: '妇瘤科/放疗科/病理科/核医学科 4 学科', los: 34, icu: 0, outcome: '同步放化疗+后装，治疗结束评估完全缓解', cmiLike: 3.88, referredFrom: '赣州市人民医院', note: '罕见病理类型，病理科加做 5 项免疫组化并送省级会诊确认。' },
-    { id: 'CX-2025-00790', org: '南昌大学第二附属医院', city: '南昌市', sex: '男', age: 82, dx: 'C18.7 乙状结肠癌 III 期，合并冠心病 PCI 术后、慢性肾功能不全 III 期', factors: ['ELDERLY', 'COMORBID'], asa: 'III级', tech: 'ONC-SUR-003', mdt: '结直肠外科/心内科/肾内科/麻醉科/营养科 5 学科', los: 24, icu: 4, outcome: '腹腔镜手术顺利，术后急性肾损伤经处理恢复', cmiLike: 3.55, referredFrom: '本院门诊', note: '高龄+多器官功能不全，术前完成心肺功能与衰弱评估。' },
-    { id: 'CX-2025-00763', org: '赣州市人民医院', city: '赣州市', sex: '男', age: 61, dx: 'C15.5 食管下段癌 放化疗后局部残留', factors: ['SALVAGE', 'RECUR'], asa: 'III级', tech: 'ONC-SUR-006', mdt: '胸外科/放疗科/肿瘤内科 3 学科', los: 31, icu: 5, outcome: '挽救性食管切除+胃代食管，术后吻合口漏经引流愈合', cmiLike: 4.15, referredFrom: '本院放疗科', note: '放疗后瘢痕区手术难度显著增加，术后并发症在预期范围内。' },
-    { id: 'CX-2025-00741', org: '江西省肿瘤医院', city: '南昌市', sex: '女', age: 48, dx: 'C50.4 右乳浸润性癌 IV 期（肝、骨转移）新辅助后降期', factors: ['STAGE_LATE', 'RECUR'], asa: 'II级', tech: 'ONC-DRG-001', mdt: '乳腺科/肿瘤内科/放疗科/介入科 4 学科', los: 12, icu: 0, outcome: '靶向+化疗后原发灶降期，行姑息性局部治疗', cmiLike: 3.42, referredFrom: '上饶市人民医院', note: 'HER2 阳性，双靶治疗方案经 MDT 与药事共同确认。' },
-    { id: 'CX-2025-00718', org: '九江市第一人民医院', city: '九江市', sex: '男', age: 58, dx: 'C22.9 肝癌侵犯右侧膈肌及右肾上腺', factors: ['MULTI_ORGAN', 'STAGE_LATE'], asa: 'III级', tech: 'ONC-SUR-004', mdt: '肝胆外科/泌尿外科/胸外科/麻醉科 4 学科', los: 26, icu: 4, outcome: '联合右半肝+膈肌部分+肾上腺切除，膈肌补片修补', cmiLike: 4.44, referredFrom: '本院', note: '联合多器官切除，术中出血 1200ml，输血 4U。' },
-    { id: 'CX-2025-00695', org: '吉安市中心人民医院', city: '吉安市', sex: '女', age: 73, dx: 'C16.0 胃食管结合部癌 III 期，合并糖尿病、重度营养不良（PG-SGA 12 分）', factors: ['COMORBID', 'ELDERLY'], asa: 'III级', tech: 'ONC-SUR-002', mdt: '胃肠外科/内分泌科/营养科/麻醉科 4 学科', los: 29, icu: 2, outcome: '术前营养支持 10 天后手术，术后无吻合口相关并发症', cmiLike: 3.61, referredFrom: '本院', note: '术前营养干预使白蛋白由 28g/L 升至 35g/L 后方手术。' },
-    { id: 'CX-2025-00672', org: '南昌大学第一附属医院', city: '南昌市', sex: '男', age: 44, dx: '腹膜后去分化脂肪样脂肪肉瘤（罕见），累及下腔静脉', factors: ['RARE', 'MULTI_ORGAN', 'SALVAGE'], asa: 'IV级', tech: 'ONC-SUR-004', mdt: '普外科/血管外科/骨软组织肿瘤科/病理科/麻醉科 5 学科', los: 42, icu: 9, outcome: '联合下腔静脉人工血管置换，术后恢复出院', cmiLike: 5.12, referredFrom: '抚州市第一人民医院', note: '本年度全省难度最高病例，术中体外循环团队待命。' },
-    { id: 'CX-2025-00650', org: '上饶市人民医院', city: '上饶市', sex: '女', age: 66, dx: 'C34.3 右肺下叶腺癌 术后 3 年脑单转移', factors: ['RECUR'], asa: 'II级', tech: 'ONC-RAD-002', mdt: '肿瘤内科/放疗科/神经外科 3 学科', los: 9, icu: 0, outcome: 'SRS 治疗后 3 个月复查病灶缩小', cmiLike: 3.05, referredFrom: '本院', note: '限制类技术 SBRT/SRS 由省级会诊后在本院实施。' }
+    { id: 'CX-2025-00871', org: '江西省肿瘤医院', city: '南昌市', sex: '男', age: 67, dx: 'C34.1 左肺上叶鳞癌 IIIB 期 + C16.2 胃体腺癌 II 期', factors: ['MULTI_PRIMARY', 'STAGE_LATE', 'COMORBID'], asa: 'III级', tech: 'ONC-SUR-001', mdt: '胸外科/胃肠外科/放疗科/病理科/影像科 5 学科', los: 28, icu: 3, outcome: '同期分站手术，术后 R0，无 III 级以上并发症', referredFrom: '宜春市人民医院', note: '双原发癌手术顺序与放疗介入时机由 MDT 三次讨论确定。' },
+    { id: 'CX-2025-00844', org: '南昌大学第一附属医院', city: '南昌市', sex: '女', age: 54, dx: 'C22.0 肝细胞癌 复发（首次切除后 26 个月）伴门静脉癌栓', factors: ['RECUR', 'STAGE_LATE', 'SALVAGE'], asa: 'III级', tech: 'ONC-INT-002', mdt: '肝胆外科/介入科/肿瘤内科/影像科 4 学科', los: 21, icu: 2, outcome: '消融+TACE 联合，靶免转化治疗后部分缓解', referredFrom: '九江市第一人民医院', note: '癌栓分型 Vp3，不宜再次切除，转为局部治疗+系统治疗。' },
+    { id: 'CX-2025-00812', org: '江西省肿瘤医院', city: '南昌市', sex: '女', age: 39, dx: 'C53.9 宫颈小细胞神经内分泌癌 IIIC1 期', factors: ['RARE', 'STAGE_LATE'], asa: 'II级', tech: 'ONC-RAD-003', mdt: '妇瘤科/放疗科/病理科/核医学科 4 学科', los: 34, icu: 0, outcome: '同步放化疗+后装，治疗结束评估完全缓解', referredFrom: '赣州市人民医院', note: '罕见病理类型，病理科加做 5 项免疫组化并送省级会诊确认。' },
+    { id: 'CX-2025-00790', org: '南昌大学第二附属医院', city: '南昌市', sex: '男', age: 82, dx: 'C18.7 乙状结肠癌 III 期，合并冠心病 PCI 术后、慢性肾功能不全 III 期', factors: ['ELDERLY', 'COMORBID'], asa: 'III级', tech: 'ONC-SUR-003', mdt: '结直肠外科/心内科/肾内科/麻醉科/营养科 5 学科', los: 24, icu: 4, outcome: '腹腔镜手术顺利，术后急性肾损伤经处理恢复', referredFrom: '本院门诊', note: '高龄+多器官功能不全，术前完成心肺功能与衰弱评估。' },
+    { id: 'CX-2025-00763', org: '赣州市人民医院', city: '赣州市', sex: '男', age: 61, dx: 'C15.5 食管下段癌 放化疗后局部残留', factors: ['SALVAGE', 'RECUR'], asa: 'III级', tech: 'ONC-SUR-006', mdt: '胸外科/放疗科/肿瘤内科 3 学科', los: 31, icu: 5, outcome: '挽救性食管切除+胃代食管，术后吻合口漏经引流愈合', referredFrom: '本院放疗科', note: '放疗后瘢痕区手术难度显著增加，术后并发症在预期范围内。' },
+    { id: 'CX-2025-00741', org: '江西省肿瘤医院', city: '南昌市', sex: '女', age: 48, dx: 'C50.4 右乳浸润性癌 IV 期（肝、骨转移）新辅助后降期', factors: ['STAGE_LATE', 'RECUR'], asa: 'II级', tech: 'ONC-DRG-001', mdt: '乳腺科/肿瘤内科/放疗科/介入科 4 学科', los: 12, icu: 0, outcome: '靶向+化疗后原发灶降期，行姑息性局部治疗', referredFrom: '上饶市人民医院', note: 'HER2 阳性，双靶治疗方案经 MDT 与药事共同确认。' },
+    { id: 'CX-2025-00718', org: '九江市第一人民医院', city: '九江市', sex: '男', age: 58, dx: 'C22.9 肝癌侵犯右侧膈肌及右肾上腺', factors: ['MULTI_ORGAN', 'STAGE_LATE'], asa: 'III级', tech: 'ONC-SUR-004', mdt: '肝胆外科/泌尿外科/胸外科/麻醉科 4 学科', los: 26, icu: 4, outcome: '联合右半肝+膈肌部分+肾上腺切除，膈肌补片修补', referredFrom: '本院', note: '联合多器官切除，术中出血 1200ml，输血 4U。' },
+    { id: 'CX-2025-00695', org: '吉安市中心人民医院', city: '吉安市', sex: '女', age: 73, dx: 'C16.0 胃食管结合部癌 III 期，合并糖尿病、重度营养不良（PG-SGA 12 分）', factors: ['COMORBID', 'ELDERLY'], asa: 'III级', tech: 'ONC-SUR-002', mdt: '胃肠外科/内分泌科/营养科/麻醉科 4 学科', los: 29, icu: 2, outcome: '术前营养支持 10 天后手术，术后无吻合口相关并发症', referredFrom: '本院', note: '术前营养干预使白蛋白由 28g/L 升至 35g/L 后方手术。' },
+    { id: 'CX-2025-00672', org: '南昌大学第一附属医院', city: '南昌市', sex: '男', age: 44, dx: '腹膜后去分化脂肪样脂肪肉瘤（罕见），累及下腔静脉', factors: ['RARE', 'MULTI_ORGAN', 'SALVAGE'], asa: 'IV级', tech: 'ONC-SUR-004', mdt: '普外科/血管外科/骨软组织肿瘤科/病理科/麻醉科 5 学科', los: 42, icu: 9, outcome: '联合下腔静脉人工血管置换，术后恢复出院', referredFrom: '抚州市第一人民医院', note: '本年度全省难度最高病例，术中体外循环团队待命。' },
+    { id: 'CX-2025-00650', org: '上饶市人民医院', city: '上饶市', sex: '女', age: 66, dx: 'C34.3 右肺下叶腺癌 术后 3 年脑单转移', factors: ['RECUR'], asa: 'II级', tech: 'ONC-RAD-002', mdt: '肿瘤内科/放疗科/神经外科 3 学科', los: 9, icu: 0, outcome: 'SRS 治疗后 3 个月复查病灶缩小', referredFrom: '本院', note: '限制类技术 SBRT/SRS 由省级会诊后在本院实施。' }
   ];
 
   /* 疑难收治特征汇总（按机构） */
@@ -365,21 +299,11 @@
     const list = complexCases.filter(function (c) { return c.org === orgName; });
     const factorAgg = {};
     list.forEach(function (c) { c.factors.forEach(function (f) { factorAgg[f] = (factorAgg[f] || 0) + 1; }); });
-    const cmi = list.length ? list.reduce(function (a, c) { return a + c.cmiLike; }, 0) / list.length : 0;
     const referredIn = list.filter(function (c) { return c.referredFrom && c.referredFrom.indexOf('本院') < 0; }).length;
-    return { list, factorAgg, cmi, referredIn, avgLos: list.length ? list.reduce(function (a, c) { return a + c.los; }, 0) / list.length : 0 };
+    return { list, factorAgg, referredIn, avgLos: list.length ? list.reduce(function (a, c) { return a + c.los; }, 0) / list.length : 0 };
   }
 
-  /* ============ 5. 专科能力综合评分引擎 ============ */
-  const SCORE_DIMS = [
-    { key: 'tech', name: '技术广度', weight: 0.22, desc: '现行目录中已达标开展的技术占比，四级/限制类技术加权' },
-    { key: 'volume', name: '服务规模', weight: 0.16, desc: '技术开展例数相对全省同级机构中位数的水平' },
-    { key: 'safety', name: '围手术期安全', weight: 0.20, desc: '围手术期死亡率、严重并发症率、非计划再手术与再入院' },
-    { key: 'process', name: '规范诊疗', weight: 0.18, desc: '病理确诊、分期登记、MDT 覆盖、基因检测、疼痛与营养筛查' },
-    { key: 'outcome', name: '治疗结果', weight: 0.14, desc: 'R0 切除率、淋巴结清扫达标率、放疗计划一次通过率' },
-    { key: 'complex', name: '疑难收治', weight: 0.10, desc: '疑难病例难度指数与外院转入占比' }
-  ];
-
+  /* ============ 质量域得分折算（供指标明细页得分矩阵） ============ */
   function domainScore(orgName, domainKey) {
     const list = qualityRecords.filter(function (r) { return r.org === orgName && r.domain === domainKey; });
     if (!list.length) return 0;
@@ -397,58 +321,6 @@
     return scores.reduce(function (a, b) { return a + b; }, 0) / scores.length;
   }
 
-  function scoreOrg(orgName) {
-    const org = ORGS.find(function (o) { return o.name === orgName; });
-    const recs = techRecords.filter(function (r) { return r.org === orgName; });
-    const activeTech = techCatalog.filter(function (t) { return t.status === 'ACTIVE'; });
-
-    /* 技术广度：达标开展的加权技术分 / 目录加权总分 */
-    const weightOf = function (level) { return level === 'RESTRICT' ? 2.0 : level === 'L4' ? 1.7 : level === 'L3' ? 1.2 : 1.0; };
-    const totalW = activeTech.reduce(function (a, t) { return a + weightOf(t.level); }, 0);
-    const gotW = recs.filter(function (r) { return r.reach && r.audit !== 'UNQUALIFIED' && r.certified !== '备案中'; })
-      .reduce(function (a, r) { return a + weightOf(r.level); }, 0);
-    const techScore = Math.min(100, gotW / totalW * 100);
-
-    /* 服务规模：例数相对全省该技术中位数 */
-    const ratios = recs.map(function (r) {
-      const peers = techRecords.filter(function (x) { return x.techCode === r.techCode; }).map(function (x) { return x.volume; }).sort(function (a, b) { return a - b; });
-      const med = peers[Math.floor(peers.length / 2)] || 1;
-      return Math.min(2.2, r.volume / med);
-    });
-    const volumeScore = ratios.length ? Math.min(100, ratios.reduce(function (a, b) { return a + b; }, 0) / ratios.length * 52) : 0;
-
-    const safetyScore = domainScore(orgName, 'SAFETY');
-    const processScore = domainScore(orgName, 'PROCESS');
-    const outcomeScore = domainScore(orgName, 'OUTCOME');
-
-    /* 疑难收治：难度指数与转入占比 */
-    const cp = complexProfile(orgName);
-    const complexScore = Math.min(100, cp.list.length ? Math.min(100, cp.cmi / 5.2 * 82 + cp.referredIn / cp.list.length * 18) : 35);
-
-    const parts = { tech: techScore, volume: volumeScore, safety: safetyScore, process: processScore, outcome: outcomeScore, complex: complexScore };
-    const total = SCORE_DIMS.reduce(function (a, d) { return a + parts[d.key] * d.weight; }, 0);
-    return {
-      org: orgName, city: org ? org.city : '', level: org ? org.level : '', type: org ? org.type : '', beds: org ? org.beds : 0,
-      parts, total,
-      grade: gradeOf(total),
-      techCount: recs.filter(function (r) { return r.reach; }).length,
-      techTotal: activeTech.length,
-      restrictCount: recs.filter(function (r) { return r.level === 'RESTRICT' && r.certified === '已备案'; }).length,
-      l4Count: recs.filter(function (r) { return r.level === 'L4' && r.reach; }).length,
-      volume: recs.reduce(function (a, r) { return a + r.volume; }, 0),
-      alertedIndicators: qualityRecords.filter(function (r) { return r.org === orgName && r.alerted; }),
-      unmetIndicators: qualityRecords.filter(function (r) { return r.org === orgName && !r.meet; }).length,
-      complex: cp
-    };
-  }
-
-  const scoreBoard = ORGS.map(function (o) { return scoreOrg(o.name); }).sort(function (a, b) { return b.total - a.total; });
-  scoreBoard.forEach(function (s, i) { s.rank = i + 1; });
-  const provinceAvgParts = {};
-  SCORE_DIMS.forEach(function (d) {
-    provinceAvgParts[d.key] = scoreBoard.reduce(function (a, s) { return a + s.parts[d.key]; }, 0) / scoreBoard.length;
-  });
-
   /* ==================== 页面 1：诊疗技术目录 ==================== */
   function renderCatalog() {
     const f = state.catalog, kw = f.keyword.trim().toLowerCase();
@@ -459,15 +331,6 @@
         && (!kw || [t.code, t.name, t.category, t.cancers.join(' '), t.issuedBy].join(' ').toLowerCase().includes(kw));
     });
     const active = techCatalog.filter(function (t) { return t.status === 'ACTIVE'; });
-    const kpis = [
-      cpKpi('目录技术总数', techCatalog.length, '含草案与已废止'),
-      cpKpi('现行技术', active.length, '作为能力评估基础', 'ok'),
-      cpKpi('四级手术', active.filter(function (t) { return t.level === 'L4'; }).length, '国家四级手术目录口径'),
-      cpKpi('限制类技术', active.filter(function (t) { return t.level === 'RESTRICT'; }).length, '须省级备案并定期复评', 'warn'),
-      cpKpi('技术类别', TECH_CATEGORY.length, '外科/放疗/药物/介入/病理/核医学/支持'),
-      cpKpi('当前版本', 'V2026.1', '发布日 2026-01-01')
-    ].join('');
-
     const rows = list.map(function (t) {
       return '<tr>' +
         '<td class="cp-nowrap"><button class="cp-id" onclick="showTechDetail(\'' + t.code + '\')">' + t.code + '</button><div class="cp-sec">' + esc(t.version) + '</div></td>' +
@@ -496,19 +359,16 @@
         '<td class="cp-num">' + (sub.length ? n1(hard / sub.length * 100) : '0.0') + '%' + bar(sub.length ? hard / sub.length * 100 : 0, hard / Math.max(sub.length, 1) > 0.5 ? 'warn' : '') + '</td></tr>';
     }).join('');
 
-    return '<div class="cp-page">' + cpHeader('肿瘤诊疗技术目录',
-      '建立标准化的肿瘤诊疗技术清单，<b>作为能力评估基础</b>。技术分级采用国家四级手术目录与限制类医疗技术目录口径；每项技术定义最低年例数、资质要求与关键质量指标，机构开展记录与能力评分均以此目录为准绳。', [
-      '<button class="btn btn-outline btn-sm" onclick="cpToastMsg(\'目录已导出\')">导出目录</button>',
-      '<button class="btn btn-outline btn-sm" onclick="showCatalogVersion()">版本历史</button>',
-      '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'cap-records\')">查看开展记录</button>'
-    ]) +
-      '<div class="cp-kpis">' + kpis + '</div>' +
+    return '<div class="cp-page">' +
       '<div class="cp-filter">' +
       '<div class="form-group"><label>技术类别</label><select onchange="cpSet(\'catalog\',\'category\',this.value)">' + catOpts + '</select></div>' +
       '<div class="form-group"><label>技术分级</label><select onchange="cpSet(\'catalog\',\'level\',this.value)">' + lvOpts + '</select></div>' +
       '<div class="form-group"><label>目录状态</label><select onchange="cpSet(\'catalog\',\'status\',this.value)">' + stOpts + '</select></div>' +
-      '<div class="form-group" style="grid-column:span 2"><label>检索</label><input value="' + esc(f.keyword) + '" placeholder="技术编码 / 名称 / 适用癌种" onchange="cpSet(\'catalog\',\'keyword\',this.value)"></div>' +
-      '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="cpResetCatalog()">重置</button></div></div>' +
+      '<div class="form-group" style="flex-grow:1.6;max-width:560px"><label>检索</label><input value="' + esc(f.keyword) + '" placeholder="技术编码 / 名称 / 适用癌种" onchange="cpSet(\'catalog\',\'keyword\',this.value)"></div>' +
+      '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="cpResetCatalog()">重置</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="cpToastMsg(\'目录已导出\')">导出目录</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="showCatalogVersion()">版本历史</button>' +
+      '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'cap-records\')">查看开展记录</button></div></div>' +
       '<div class="cp-table-wrap"><table class="cp-table"><thead><tr><th>编码 / 版本</th><th>技术名称</th><th>类别</th><th>分级</th><th>适用癌种</th><th>最低例数</th><th>资质要求</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="9"><div class="cp-empty">暂无符合条件的技术</div></td></tr>') + '</tbody></table></div>' +
       '<div class="cp-card" style="margin-top:14px"><div class="cp-card-head"><div class="cp-card-title">类别构成与难度分布<span class="cp-card-sub">现行 ' + active.length + ' 项</span></div></div>' +
@@ -527,13 +387,13 @@
       ['技术编码', t.code], ['技术名称', t.name], ['技术类别', t.category], ['技术分级', TECH_LEVEL[t.level].label],
       ['分级依据', TECH_LEVEL[t.level].note], ['发布依据', t.issuedBy], ['目录版本', t.version], ['目录状态', CATALOG_STATUS[t.status].label],
       ['最低年例数', t.minCase ? t.minCase + ' 例' : '-'], ['资质要求', t.requireCert], ['生效期间', t.effective],
-      ['全省开展机构', recs.length + ' 家'], ['其中达标', recs.filter(function (r) { return r.reach; }).length + ' 家']
+      ['全省开展机构', recs.length + ' 家'], ['其中例数达目录下限', recs.filter(function (r) { return r.reach; }).length + ' 家']
     ].map(function (x) { return '<div class="cp-field"><div class="cp-field-label">' + esc(x[0]) + '</div><div class="cp-value">' + esc(x[1]) + '</div></div>'; }).join('');
     const body = '<div class="cp-fields">' + fields + '</div>' +
       '<div class="cp-sect"><h4 class="cp-h">适用癌种</h4><div>' + t.cancers.map(function (c) { return '<span class="cp-chip">' + esc(c) + '</span>'; }).join('') + '</div></div>' +
       '<div class="cp-sect"><h4 class="cp-h">关键质量指标</h4><div class="cp-callout">' + esc(t.keyIndicator) + '</div></div>' +
-      (t.status === 'RETIRED' ? '<div class="cp-sect"><div class="cp-callout warn"><strong>已废止：</strong>本技术自 2026 年起不再纳入能力评分，历史开展记录保留用于纵向对比。</div></div>'
-        : t.level === 'RESTRICT' ? '<div class="cp-sect"><div class="cp-callout warn"><strong>限制类技术：</strong>开展前须完成省级备案，每年接受技术能力复评；未备案机构的开展量不计入能力得分。</div></div>' : '');
+      (t.status === 'RETIRED' ? '<div class="cp-sect"><div class="cp-callout warn"><strong>已废止：</strong>本技术自 2026 年起不再纳入目录管理，历史开展记录保留用于纵向对比。</div></div>'
+        : t.level === 'RESTRICT' ? '<div class="cp-sect"><div class="cp-callout warn"><strong>限制类技术：</strong>开展前须完成省级备案，每年接受技术能力复评；未完成备案的机构不得开展。</div></div>' : '');
     const mask = cpModal('技术目录详情 · ' + t.code, body, '<button class="btn btn-ghost" data-close>关闭</button><button class="btn btn-primary" onclick="showTechOrgs(\'' + t.code + '\')">查看开展机构</button>');
     mask.querySelector('[data-close]').addEventListener('click', function () { mask.remove(); });
   }
@@ -544,13 +404,11 @@
     const rows = recs.length ? recs.map(function (r) {
       return '<tr><td>' + esc(r.org) + '<div class="cp-sec">' + esc(r.city) + '</div></td>' +
         '<td class="cp-num cp-nowrap">' + nInt(r.volume) + '<div class="cp-sec">下限 ' + r.minCase + '</div></td>' +
-        '<td class="cp-nowrap">' + (r.reach ? '<span class="badge badge-success">达标</span>' : '<span class="badge badge-danger">未达标</span>') + '</td>' +
         '<td class="cp-nowrap">' + esc(r.certified) + '</td>' +
-        '<td class="cp-num cp-nowrap">' + r.qualityScore + '</td>' +
-        '<td class="cp-nowrap">' + badge(AUDIT_RESULT[r.audit]) + '</td></tr>';
-    }).join('') : '<tr><td colspan="6"><div class="cp-empty">全省尚无机构开展该技术</div></td></tr>';
+        '<td class="cp-nowrap">' + badge(RUN_STATUS[runStatusOf(r)]) + '</td></tr>';
+    }).join('') : '<tr><td colspan="4"><div class="cp-empty">全省尚无机构开展该技术</div></td></tr>';
     const body = '<div class="cp-callout">技术：<strong>' + esc(t ? t.name : code) + '</strong>（' + esc(t ? TECH_LEVEL[t.level].label : '') + '，最低 ' + (t ? t.minCase : 0) + ' 例/年）</div>' +
-      '<div class="cp-sect"><div class="cp-table-wrap"><table class="cp-table" style="min-width:0"><thead><tr><th>机构</th><th>' + EVAL_YEAR + ' 年例数</th><th>例数达标</th><th>授权/备案</th><th>质量分</th><th>评价</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+      '<div class="cp-sect"><div class="cp-table-wrap"><table class="cp-table" style="min-width:0"><thead><tr><th>机构</th><th>' + EVAL_YEAR + ' 年例数</th><th>授权/备案</th><th>运行状态</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
     const mask = cpModal('开展机构 · ' + code, body, '<button class="btn btn-ghost" data-close>关闭</button>');
     mask.querySelector('[data-close]').addEventListener('click', function () { mask.remove(); });
   }
@@ -563,7 +421,7 @@
       ['V2024.1', '2024-01-01', '已归档', '目录首版发布，共 16 项技术']
     ].map(function (r) { return '<tr><td>' + esc(r[0]) + '</td><td class="cp-nowrap">' + esc(r[1]) + '</td><td class="cp-nowrap">' + esc(r[2]) + '</td><td style="text-align:left;white-space:normal">' + esc(r[3]) + '</td></tr>'; }).join('');
     const mask = cpModal('技术目录版本历史', '<table class="cp-pivot" style="width:100%"><thead><tr><th>版本</th><th>生效日</th><th>状态</th><th>主要变更</th></tr></thead><tbody>' + rows + '</tbody></table>' +
-      '<div class="cp-callout" style="margin-top:11px">能力评分始终按评估年度当时生效的目录版本计算，跨年度对比时以报告中标注的目录版本为准。</div>',
+      '<div class="cp-callout" style="margin-top:11px">开展记录与备案核查均按当年度生效的目录版本口径统计，跨年度对比以记录的目录版本为准。</div>',
       '<button class="btn btn-ghost" data-close>关闭</button>', true);
     mask.querySelector('[data-close]').addEventListener('click', function () { mask.remove(); });
   }
@@ -574,21 +432,9 @@
     const list = techRecords.filter(function (r) {
       return (f.org === 'ALL' || r.org === f.org)
         && (f.level === 'ALL' || r.level === f.level)
-        && (f.audit === 'ALL' || r.audit === f.audit)
+        && (f.status === 'ALL' || runStatusOf(r) === f.status)
         && (!kw || [r.id, r.org, r.techName, r.techCode, r.category].join(' ').toLowerCase().includes(kw));
     });
-    const reachCount = techRecords.filter(function (r) { return r.reach; }).length;
-    const unqualified = techRecords.filter(function (r) { return r.audit === 'UNQUALIFIED'; }).length;
-    const pendingCert = techRecords.filter(function (r) { return r.certified === '备案中'; }).length;
-    const kpis = [
-      cpKpi('开展记录', techRecords.length, EVAL_YEAR + ' 年度 · ' + ORGS.length + ' 家机构'),
-      cpKpi('例数达标', reachCount, n1(reachCount / techRecords.length * 100) + '% 记录达目录下限', 'ok'),
-      cpKpi('评价不合格', unqualified, '例数或质量未达要求', unqualified ? 'danger' : 'ok'),
-      cpKpi('限制类备案中', pendingCert, '未完成备案不计入能力得分', pendingCert ? 'warn' : 'ok'),
-      cpKpi('总开展例数', nInt(techRecords.reduce(function (a, r) { return a + r.volume; }, 0)), '全省合计'),
-      cpKpi('四级手术记录', techRecords.filter(function (r) { return r.level === 'L4'; }).length, '含未达标')
-    ].join('');
-
     const rows = list.slice(0, 60).map(function (r) {
       const reachRatio = Math.min(150, r.volume / Math.max(r.minCase, 1) * 100);
       return '<tr>' +
@@ -598,9 +444,8 @@
         '<td class="cp-nowrap">' + badge(TECH_LEVEL[r.level]) + '</td>' +
         '<td class="cp-num cp-nowrap">' + nInt(r.volume) + '<div class="cp-sec">下限 ' + r.minCase + '</div>' + bar(reachRatio, r.reach ? 'ok' : 'bad') + '</td>' +
         '<td class="cp-num cp-nowrap">' + r.teamSize + ' 人</td>' +
-        '<td class="cp-num cp-nowrap">' + r.qualityScore + '<div class="cp-sec">并发症 ' + n1(r.complication) + '%</div></td>' +
         '<td class="cp-nowrap">' + esc(r.certified) + '</td>' +
-        '<td class="cp-nowrap">' + badge(AUDIT_RESULT[r.audit]) + '<div class="cp-sec">' + esc(r.lastAudit) + '</div></td>' +
+        '<td class="cp-nowrap">' + badge(RUN_STATUS[runStatusOf(r)]) + '<div class="cp-sec">核验 ' + esc(r.lastAudit) + '</div></td>' +
         '<td class="cp-nowrap"><button class="btn btn-ghost btn-xs" onclick="showRecordDetail(\'' + r.id + '\')">详情</button></td>' +
         '</tr>';
     }).join('');
@@ -609,11 +454,11 @@
       .map(function (o) { return '<option value="' + esc(o[0]) + '"' + (f.org === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('');
     const lvOpts = [['ALL', '全部分级']].concat(Object.keys(TECH_LEVEL).map(function (k) { return [k, TECH_LEVEL[k].label]; }))
       .map(function (o) { return '<option value="' + o[0] + '"' + (f.level === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('');
-    const auOpts = [['ALL', '全部评价']].concat(Object.keys(AUDIT_RESULT).map(function (k) { return [k, AUDIT_RESULT[k].label]; }))
-      .map(function (o) { return '<option value="' + o[0] + '"' + (f.audit === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('');
+    const stOpts = [['ALL', '全部状态']].concat(Object.keys(RUN_STATUS).map(function (k) { return [k, RUN_STATUS[k].label]; }))
+      .map(function (o) { return '<option value="' + o[0] + '"' + (f.status === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('');
 
-    /* 机构能力矩阵：机构 × 技术类别 达标数 */
-    const head = '<tr><th>机构</th>' + TECH_CATEGORY.map(function (c) { return '<th>' + esc(c.slice(0, 4)) + '</th>'; }).join('') + '<th>达标合计</th></tr>';
+    /* 机构 × 技术类别 开展分布：例数达目录例数下限 / 开展技术数 */
+    const head = '<tr><th>机构</th>' + TECH_CATEGORY.map(function (c) { return '<th>' + esc(c.slice(0, 4)) + '</th>'; }).join('') + '<th>达下限合计</th></tr>';
     const matrix = ORGS.map(function (o) {
       const cells = TECH_CATEGORY.map(function (c) {
         const sub = techRecords.filter(function (r) { return r.org === o.name && r.category === c; });
@@ -624,28 +469,44 @@
       return '<tr><td>' + esc(o.name) + '</td>' + cells + '<td><strong>' + total + '</strong></td></tr>';
     }).join('');
 
-    return '<div class="cp-page">' + cpHeader('机构技术开展记录',
-      '记录各机构开展特定技术的<b>数量与质量</b>，用于能力画像。例数对照技术目录最低要求判定达标；质量分综合并发症率、围手术期死亡率与关键指标；限制类技术未完成省级备案的开展量不计入能力得分。', [
-      '<button class="btn btn-outline btn-sm" onclick="cpToastMsg(\'开展记录已导出\')">导出记录</button>',
-      '<button class="btn btn-outline btn-sm" onclick="navigateTo(\'cap-quality\')">医疗质量指标</button>',
-      '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'cap-score\')">生成能力评分</button>'
-    ]) +
-      '<div class="cp-kpis">' + kpis + '</div>' +
+    return '<div class="cp-page">' +
       '<div class="cp-filter">' +
-      '<div class="form-group" style="grid-column:span 2"><label>机构</label><select onchange="cpSet(\'records\',\'org\',this.value)">' + orgOpts + '</select></div>' +
+      '<div class="form-group" style="flex-grow:1.6;max-width:560px"><label>机构</label><select onchange="cpSet(\'records\',\'org\',this.value)">' + orgOpts + '</select></div>' +
       '<div class="form-group"><label>技术分级</label><select onchange="cpSet(\'records\',\'level\',this.value)">' + lvOpts + '</select></div>' +
-      '<div class="form-group"><label>评价结果</label><select onchange="cpSet(\'records\',\'audit\',this.value)">' + auOpts + '</select></div>' +
-      '<div class="form-group" style="grid-column:span 2"><label>检索</label><input value="' + esc(f.keyword) + '" placeholder="记录号 / 技术名称 / 编码" onchange="cpSet(\'records\',\'keyword\',this.value)"></div>' +
-      '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="cpResetRecords()">重置</button></div></div>' +
-      '<div class="cp-table-wrap"><table class="cp-table"><thead><tr><th>记录号</th><th>机构</th><th>技术</th><th>分级</th><th>年例数</th><th>团队</th><th>质量分</th><th>授权/备案</th><th>评价</th><th>操作</th></tr></thead><tbody>' +
-      (rows || '<tr><td colspan="10"><div class="cp-empty">暂无符合条件的开展记录</div></td></tr>') + '</tbody></table></div>' +
+      '<div class="form-group"><label>运行状态</label><select onchange="cpSet(\'records\',\'status\',this.value)">' + stOpts + '</select></div>' +
+      '<div class="form-group" style="flex-grow:1.6;max-width:560px"><label>检索</label><input value="' + esc(f.keyword) + '" placeholder="记录号 / 技术名称 / 编码" onchange="cpSet(\'records\',\'keyword\',this.value)"></div>' +
+      '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="cpResetRecords()">重置</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="cpToastMsg(\'开展台账已导出\')">导出台账</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="navigateTo(\'cap-quality\')">医疗质量指标</button>' +
+      '<button class="btn btn-primary btn-sm" onclick="showCertList()">备案核查清单</button></div></div>' +
+      '<div class="cp-table-wrap"><table class="cp-table"><thead><tr><th>记录号</th><th>机构</th><th>技术</th><th>分级</th><th>年例数</th><th>团队</th><th>授权/备案</th><th>运行状态</th><th>操作</th></tr></thead><tbody>' +
+      (rows || '<tr><td colspan="9"><div class="cp-empty">暂无符合条件的开展记录</div></td></tr>') + '</tbody></table></div>' +
       (list.length > 60 ? '<div class="cp-note" style="margin-top:8px">共 ' + list.length + ' 条，已显示前 60 条，请使用筛选缩小范围。</div>' : '') +
-      '<div class="cp-card" style="margin-top:14px"><div class="cp-card-head"><div class="cp-card-title">机构技术能力矩阵<span class="cp-card-sub">达标数 / 开展数</span></div></div>' +
+      '<div class="cp-card" style="margin-top:14px"><div class="cp-card-head"><div class="cp-card-title">机构技术开展分布<span class="cp-card-sub">达目录例数 / 开展技术数</span></div></div>' +
       '<div class="cp-card-body" style="overflow:auto"><table class="cp-pivot"><thead>' + head + '</thead><tbody>' + matrix + '</tbody></table>' +
-      '<div class="cp-note" style="margin-top:9px">"-"表示该机构未开展该类别任何技术；能力弱的机构在四级与限制类技术上普遍缺项，是专科能力建设的重点方向。</div></div></div>' +
+      '<div class="cp-note" style="margin-top:9px">"-"表示该机构本年度未开展该类别任何技术。</div></div></div>' +
       '</div>';
   }
-  function cpResetRecords() { state.records = { org: 'ALL', level: 'ALL', audit: 'ALL', keyword: '' }; renderPage(state.page); }
+  function cpResetRecords() { state.records = { org: 'ALL', level: 'ALL', status: 'ALL', keyword: '' }; renderPage(state.page); }
+
+  function showCertList() {
+    const pending = techRecords.filter(function (r) {
+      const s = runStatusOf(r);
+      return s === 'UNFILED' || s === 'OVERSCOPE';
+    }).sort(function (a, b) { return b.volume - a.volume; });
+    const rows = pending.length ? pending.map(function (r) {
+      return '<tr><td>' + esc(r.org) + '<div class="cp-sec">' + esc(r.city) + '</div></td>' +
+        '<td>' + esc(r.techName) + '<div class="cp-sec">' + esc(r.techCode) + '</div></td>' +
+        '<td class="cp-nowrap">' + badge(TECH_LEVEL[r.level]) + '</td>' +
+        '<td class="cp-num cp-nowrap">' + nInt(r.volume) + '<div class="cp-sec">下限 ' + r.minCase + '</div></td>' +
+        '<td class="cp-nowrap">' + esc(r.certified) + '</td>' +
+        '<td class="cp-nowrap">' + badge(RUN_STATUS[runStatusOf(r)]) + '</td></tr>';
+    }).join('') : '<tr><td colspan="6"><div class="cp-empty">全部限制类与四级技术均已完成备案/授权</div></td></tr>';
+    const mask = cpModal('备案与授权核查清单 · ' + pending.length + ' 条',
+      '<div class="cp-table-wrap"><table class="cp-table" style="min-width:0"><thead><tr><th>机构</th><th>技术</th><th>分级</th><th>年例数</th><th>授权/备案</th><th>运行状态</th></tr></thead><tbody>' + rows + '</tbody></table></div>',
+      '<button class="btn btn-ghost" data-close>关闭</button><button class="btn btn-primary" onclick="cpToastMsg(\'核查清单已推送至相关机构\')">推送机构</button>');
+    mask.querySelector('[data-close]').addEventListener('click', function () { mask.remove(); });
+  }
 
   function showRecordDetail(id) {
     const r = techRecords.find(function (x) { return x.id === id; });
@@ -653,26 +514,24 @@
     const t = techCatalog.find(function (x) { return x.code === r.techCode; });
     const peers = techRecords.filter(function (x) { return x.techCode === r.techCode; }).sort(function (a, b) { return b.volume - a.volume; });
     const rank = peers.findIndex(function (x) { return x.id === r.id; }) + 1;
+    const st = runStatusOf(r);
     const fields = [
-      ['记录号', r.id], ['机构', r.org], ['所属地市', r.city], ['评估年度', r.year],
+      ['记录号', r.id], ['机构', r.org], ['所属地市', r.city], ['登记年度', r.year],
       ['技术编码', r.techCode], ['技术名称', r.techName], ['技术分级', TECH_LEVEL[r.level].label],
       ['年开展例数', nInt(r.volume) + ' 例'], ['目录最低例数', r.minCase + ' 例'],
-      ['例数达标', r.reach ? '达标' : '未达标'], ['省内例数排名', rank + ' / ' + peers.length],
+      ['例数达下限', r.reach ? '是' : '否'], ['省内例数排名', rank + ' / ' + peers.length],
       ['授权/备案', r.certified], ['技术团队', r.teamSize + ' 人'],
-      ['质量得分', String(r.qualityScore)], ['严重并发症率', n1(r.complication) + '%'],
-      ['围手术期死亡率', r.perioperativeDeath === null ? '不适用（非手术技术）' : n2(r.perioperativeDeath) + '%'],
-      ['首次开展', r.firstDate], ['最近评价', r.lastAudit], ['评价结果', AUDIT_RESULT[r.audit].label]
+      ['运行状态', RUN_STATUS[st].label], ['首次开展', r.firstDate], ['最近核验', r.lastAudit]
     ].map(function (x) { return '<div class="cp-field"><div class="cp-field-label">' + esc(x[0]) + '</div><div class="cp-value">' + esc(x[1]) + '</div></div>'; }).join('');
     const body = '<div class="cp-fields">' + fields + '</div>' +
-      '<div class="cp-sect"><div class="cp-callout' + (r.audit === 'UNQUALIFIED' ? ' warn' : '') + '"><strong>评价说明：</strong>' + esc(r.note) + '</div></div>' +
-      (t ? '<div class="cp-sect"><h4 class="cp-h">目录要求的关键质量指标</h4><div class="cp-callout">' + esc(t.keyIndicator) + '<div class="cp-note" style="margin-top:6px">资质要求：' + esc(t.requireCert) + '</div></div></div>' : '') +
-      '<div class="cp-sect"><h4 class="cp-h">该技术省内例数分布（前 5）</h4><table class="cp-pivot" style="width:100%"><thead><tr><th>机构</th><th>例数</th><th>质量分</th><th>评价</th></tr></thead><tbody>' +
-      peers.slice(0, 5).map(function (p) { return '<tr' + (p.id === r.id ? ' style="background:#f4f9ff"' : '') + '><td>' + esc(p.org) + '</td><td>' + nInt(p.volume) + '</td><td>' + p.qualityScore + '</td><td>' + AUDIT_RESULT[p.audit].label + '</td></tr>'; }).join('') +
+      '<div class="cp-sect"><div class="cp-callout' + (st === 'NORMAL' ? '' : ' warn') + '"><strong>记录备注：</strong>' + esc(r.note) + '</div></div>' +
+      (t ? '<div class="cp-sect"><h4 class="cp-h">目录要求</h4><div class="cp-callout">' + esc(t.keyIndicator) + '<div class="cp-note" style="margin-top:6px">资质要求：' + esc(t.requireCert) + '</div></div></div>' : '') +
+      '<div class="cp-sect"><h4 class="cp-h">该技术省内例数分布（前 5）</h4><table class="cp-pivot" style="width:100%"><thead><tr><th>机构</th><th>例数</th><th>授权/备案</th><th>运行状态</th></tr></thead><tbody>' +
+      peers.slice(0, 5).map(function (p) { return '<tr' + (p.id === r.id ? ' style="background:#f4f9ff"' : '') + '><td>' + esc(p.org) + '</td><td>' + nInt(p.volume) + '</td><td>' + esc(p.certified) + '</td><td>' + RUN_STATUS[runStatusOf(p)].label + '</td></tr>'; }).join('') +
       '</tbody></table></div>';
-    const mask = cpModal('技术开展记录 · ' + r.id, body, '<button class="btn btn-ghost" data-close>关闭</button><button class="btn btn-primary" onclick="cpGoScore(\'' + r.org.replace(/'/g, "\\'") + '\')">查看机构评分</button>');
+    const mask = cpModal('技术开展记录 · ' + r.id, body, '<button class="btn btn-ghost" data-close>关闭</button><button class="btn btn-primary" onclick="showTechDetail(\'' + r.techCode + '\')">查看技术目录要求</button>');
     mask.querySelector('[data-close]').addEventListener('click', function () { mask.remove(); });
   }
-  function cpGoScore(orgName) { state.score.org = orgName; closeCpModals(); if (typeof navigateTo === 'function') navigateTo('cap-score'); }
 
   /* ==================== 页面 3：医疗质量核心指标明细 ==================== */
   function renderQuality() {
@@ -682,16 +541,6 @@
         && (f.domain === 'ALL' || r.domain === f.domain)
         && (!kw || [r.id, r.org, r.name, r.code].join(' ').toLowerCase().includes(kw));
     });
-    const alerted = qualityRecords.filter(function (r) { return r.alerted; });
-    const unmet = qualityRecords.filter(function (r) { return !r.meet; });
-    const kpis = [
-      cpKpi('指标定义', qualityDefs.length, '安全/过程/结果/效率 四域'),
-      cpKpi('指标明细', nInt(qualityRecords.length), ORGS.length + ' 家 × ' + qualityDefs.length + ' 项 · ' + EVAL_YEAR),
-      cpKpi('未达目标值', unmet.length, n1(unmet.length / qualityRecords.length * 100) + '% 明细未达目标', unmet.length ? 'warn' : 'ok'),
-      cpKpi('突破预警线', alerted.length, '需列入整改清单', alerted.length ? 'danger' : 'ok'),
-      cpKpi('围手术期死亡率', n1(qualityRecords.filter(function (r) { return r.code === 'MQ-001'; }).reduce(function (a, r) { return a + r.value; }, 0) / ORGS.length) + '%', '全省 ' + ORGS.length + ' 家均值')
-    ].join('');
-
     const rows = list.slice(0, 60).map(function (r) {
       const ratio = r.dir === 'lower'
         ? Math.min(100, r.value / Math.max(r.alert, 0.01) * 100)
@@ -728,18 +577,14 @@
       return '<tr><td>' + esc(o.name) + '</td>' + cells + '<td>' + (al ? '<span class="badge badge-danger">' + al + '</span>' : '<span class="badge badge-success">0</span>') + '</td></tr>';
     }).join('');
 
-    return '<div class="cp-page">' + cpHeader('医疗质量核心指标明细',
-      '存储<b>围手术期死亡率、并发症率</b>等医疗质量指标的机构级明细。每项指标带目标值、预警线、分子分母口径与数据来源，可与全省均值对标并保留三年趋势；突破预警线的指标进入整改清单，并在专科能力综合评分中扣减对应维度得分。', [
-      '<button class="btn btn-outline btn-sm" onclick="cpToastMsg(\'指标明细已导出\')">导出明细</button>',
-      '<button class="btn btn-outline btn-sm" onclick="showAlertList()">整改清单</button>',
-      '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'cap-score\')">能力评分报告</button>'
-    ]) +
-      '<div class="cp-kpis">' + kpis + '</div>' +
+    return '<div class="cp-page">' +
       '<div class="cp-filter">' +
-      '<div class="form-group" style="grid-column:span 2"><label>机构</label><select onchange="cpSet(\'quality\',\'org\',this.value)">' + orgOpts + '</select></div>' +
+      '<div class="form-group" style="flex-grow:1.6;max-width:560px"><label>机构</label><select onchange="cpSet(\'quality\',\'org\',this.value)">' + orgOpts + '</select></div>' +
       '<div class="form-group"><label>指标域</label><select onchange="cpSet(\'quality\',\'domain\',this.value)">' + dmOpts + '</select></div>' +
-      '<div class="form-group" style="grid-column:span 2"><label>检索</label><input value="' + esc(f.keyword) + '" placeholder="指标编码 / 名称" onchange="cpSet(\'quality\',\'keyword\',this.value)"></div>' +
-      '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="cpResetQuality()">重置</button></div></div>' +
+      '<div class="form-group" style="flex-grow:1.6;max-width:560px"><label>检索</label><input value="' + esc(f.keyword) + '" placeholder="指标编码 / 名称" onchange="cpSet(\'quality\',\'keyword\',this.value)"></div>' +
+      '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="cpResetQuality()">重置</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="cpToastMsg(\'指标明细已导出\')">导出明细</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="showAlertList()">整改清单</button></div></div>' +
       '<div class="cp-table-wrap"><table class="cp-table"><thead><tr><th>指标编码</th><th>指标名称</th><th>机构</th><th>实测值</th><th>目标 / 预警</th><th>全省均值</th><th>分母</th><th>判定</th><th>操作</th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="9"><div class="cp-empty">暂无符合条件的指标明细</div></td></tr>') + '</tbody></table></div>' +
       (list.length > 60 ? '<div class="cp-note" style="margin-top:8px">共 ' + list.length + ' 条，已显示前 60 条，请使用筛选缩小范围。</div>' : '') +
@@ -769,8 +614,8 @@
     const body = '<div class="cp-fields">' + fields + '</div>' +
       '<div class="cp-sect"><h4 class="cp-h">计算口径</h4><div class="cp-callout"><strong>公式：</strong>' + esc(r.formula) + '<br><strong>数据来源：</strong>' + esc(r.source) + '</div></div>' +
       '<div class="cp-sect"><h4 class="cp-h">近三年趋势</h4><table class="cp-pivot" style="width:100%"><thead><tr><th>年度</th><th>2023</th><th>2024</th><th>2025</th></tr></thead><tbody><tr><td>' + esc(r.name.slice(0, 12)) + '</td>' + trendRow + '</tbody></table></div>' +
-      (r.alerted ? '<div class="cp-sect"><div class="cp-callout warn"><strong>已突破预警线：</strong>该指标已列入 ' + esc(r.org) + ' 的医疗质量整改清单，需在下一评估周期前提交整改方案；在专科能力综合评分中，本指标所属「' + esc(QUALITY_DOMAIN[r.domain]) + '」维度得分相应下调。</div></div>' : '');
-    const mask = cpModal('质量指标明细 · ' + r.code, body, '<button class="btn btn-ghost" data-close>关闭</button><button class="btn btn-primary" onclick="cpGoScore(\'' + r.org.replace(/'/g, "\\'") + '\')">查看机构评分</button>');
+      (r.alerted ? '<div class="cp-sect"><div class="cp-callout warn"><strong>已突破预警线：</strong>该指标已列入 ' + esc(r.org) + ' 的医疗质量整改清单，需在下一评估周期前提交整改方案。</div></div>' : '');
+    const mask = cpModal('质量指标明细 · ' + r.code, body, '<button class="btn btn-ghost" data-close>关闭</button>');
     mask.querySelector('[data-close]').addEventListener('click', function () { mask.remove(); });
   }
 
@@ -795,25 +640,12 @@
         && (f.factor === 'ALL' || c.factors.includes(f.factor))
         && (!kw || [c.id, c.org, c.dx, c.mdt, c.referredFrom].join(' ').toLowerCase().includes(kw));
     });
-    const avgCmi = complexCases.reduce(function (a, c) { return a + c.cmiLike; }, 0) / complexCases.length;
-    const referred = complexCases.filter(function (c) { return c.referredFrom.indexOf('本院') < 0; }).length;
-    const icuCases = complexCases.filter(function (c) { return c.icu > 0; }).length;
-    const kpis = [
-      cpKpi('疑难病例', complexCases.length, EVAL_YEAR + ' 年度入库样例'),
-      cpKpi('平均难度指数', n2(avgCmi), '按收治特征加权（类 CMI）'),
-      cpKpi('外院转入', referred, n1(referred / complexCases.length * 100) + '% 为下级机构转诊', 'ok'),
-      cpKpi('需 ICU 支持', icuCases, '平均 ' + n1(complexCases.reduce(function (a, c) { return a + c.icu; }, 0) / complexCases.length) + ' 天'),
-      cpKpi('平均住院日', n1(complexCases.reduce(function (a, c) { return a + c.los; }, 0) / complexCases.length), '疑难病例显著高于常规'),
-      cpKpi('特征维度', Object.keys(COMPLEX_FACTOR).length, '晚期/多原发/罕见/复发/合并症等')
-    ].join('');
-
     const rows = list.map(function (c) {
       return '<tr>' +
         '<td class="cp-nowrap"><button class="cp-id" onclick="showComplexDetail(\'' + c.id + '\')">' + c.id + '</button><div class="cp-sec">' + esc(c.sex) + ' · ' + c.age + ' 岁</div></td>' +
         '<td>' + esc(c.org) + '<div class="cp-sec">' + esc(c.city) + '</div></td>' +
         '<td style="white-space:normal;min-width:260px">' + esc(c.dx) + '</td>' +
         '<td>' + c.factors.map(function (k) { return '<span class="cp-chip ' + (COMPLEX_FACTOR[k].weight >= 1.8 ? 'lv4' : COMPLEX_FACTOR[k].weight >= 1.6 ? 'lv3' : 'lv2') + '">' + esc(COMPLEX_FACTOR[k].label) + '</span>'; }).join('') + '</td>' +
-        '<td class="cp-num cp-nowrap"><strong>' + n2(c.cmiLike) + '</strong>' + bar(c.cmiLike / 5.5 * 100, c.cmiLike >= 4.3 ? 'bad' : c.cmiLike >= 3.8 ? 'warn' : '') + '</td>' +
         '<td class="cp-nowrap">' + esc(c.asa) + '</td>' +
         '<td class="cp-num cp-nowrap">' + c.los + ' 日<div class="cp-sec">ICU ' + c.icu + ' 日</div></td>' +
         '<td class="cp-nowrap">' + esc(c.referredFrom) + '</td>' +
@@ -828,37 +660,32 @@
 
     const factorRows = Object.keys(COMPLEX_FACTOR).map(function (k) {
       const cnt = complexCases.filter(function (c) { return c.factors.includes(k); }).length;
-      return '<tr><td>' + esc(COMPLEX_FACTOR[k].label) + '</td><td class="cp-num">' + n1(COMPLEX_FACTOR[k].weight) + '</td><td class="cp-num">' + cnt + '</td>' +
+      return '<tr><td>' + esc(COMPLEX_FACTOR[k].label) + '</td><td class="cp-num">' + cnt + '</td>' +
         '<td style="text-align:left;white-space:normal">' + esc(COMPLEX_FACTOR[k].note) + '</td></tr>';
     }).join('');
 
     const orgRows = ORGS.map(function (o) {
       const p = complexProfile(o.name);
-      if (!p.list.length) return '<tr><td>' + esc(o.name) + '</td><td class="cp-num">0</td><td class="cp-num">-</td><td class="cp-num">-</td><td class="cp-num">-</td></tr>';
-      return '<tr><td>' + esc(o.name) + '</td><td class="cp-num">' + p.list.length + '</td><td class="cp-num">' + n2(p.cmi) + '</td>' +
+      if (!p.list.length) return '<tr><td>' + esc(o.name) + '</td><td class="cp-num">0</td><td class="cp-num">-</td><td class="cp-num">-</td></tr>';
+      return '<tr><td>' + esc(o.name) + '</td><td class="cp-num">' + p.list.length + '</td>' +
         '<td class="cp-num">' + p.referredIn + '</td><td class="cp-num">' + n1(p.avgLos) + '</td></tr>';
     }).join('');
 
-    return '<div class="cp-page">' + cpHeader('疑难病例收治特征库',
-      '量化机构收治疑难重症的能力，用于<b>专科能力建设评估</b>。每例按晚期转诊、多原发、罕见病理、复发再治疗、重度合并症、高龄、挽救性手术、联合多器官切除等特征加权，得出类 CMI 难度指数；外院转入占比反映机构在区域内的技术承接地位。', [
-      '<button class="btn btn-outline btn-sm" onclick="cpToastMsg(\'特征库已导出\')">导出特征库</button>',
-      '<button class="btn btn-outline btn-sm" onclick="showFactorRule()">加权规则</button>',
-      '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'cap-score\')">能力评分报告</button>'
-    ]) +
-      '<div class="cp-kpis">' + kpis + '</div>' +
+    return '<div class="cp-page">' +
       '<div class="cp-filter">' +
-      '<div class="form-group" style="grid-column:span 2"><label>收治机构</label><select onchange="cpSet(\'complex\',\'org\',this.value)">' + orgOpts + '</select></div>' +
+      '<div class="form-group" style="flex-grow:1.6;max-width:560px"><label>收治机构</label><select onchange="cpSet(\'complex\',\'org\',this.value)">' + orgOpts + '</select></div>' +
       '<div class="form-group"><label>疑难特征</label><select onchange="cpSet(\'complex\',\'factor\',this.value)">' + fcOpts + '</select></div>' +
-      '<div class="form-group" style="grid-column:span 2"><label>检索</label><input value="' + esc(f.keyword) + '" placeholder="病例号 / 诊断 / 转诊来源" onchange="cpSet(\'complex\',\'keyword\',this.value)"></div>' +
-      '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="cpResetComplex()">重置</button></div></div>' +
-      '<div class="cp-table-wrap"><table class="cp-table" style="min-width:1240px"><thead><tr><th>病例号</th><th>收治机构</th><th>诊断</th><th>疑难特征</th><th>难度指数</th><th>ASA</th><th>住院日</th><th>转诊来源</th><th>操作</th></tr></thead><tbody>' +
-      (rows || '<tr><td colspan="9"><div class="cp-empty">暂无符合条件的疑难病例</div></td></tr>') + '</tbody></table></div>' +
+      '<div class="form-group" style="flex-grow:1.6;max-width:560px"><label>检索</label><input value="' + esc(f.keyword) + '" placeholder="病例号 / 诊断 / 转诊来源" onchange="cpSet(\'complex\',\'keyword\',this.value)"></div>' +
+      '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="cpResetComplex()">重置</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="cpToastMsg(\'特征库已导出\')">导出特征库</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="showFactorRule()">判定规则</button></div></div>' +
+      '<div class="cp-table-wrap"><table class="cp-table" style="min-width:1240px"><thead><tr><th>病例号</th><th>收治机构</th><th>诊断</th><th>疑难特征</th><th>ASA</th><th>住院日</th><th>转诊来源</th><th>操作</th></tr></thead><tbody>' +
+      (rows || '<tr><td colspan="8"><div class="cp-empty">暂无符合条件的疑难病例</div></td></tr>') + '</tbody></table></div>' +
       '<div class="cp-grid2" style="margin-top:14px">' +
-      '<div class="cp-card"><div class="cp-card-head"><div class="cp-card-title">机构收治难度对比</div></div><div class="cp-card-body" style="overflow:auto">' +
-      '<table class="cp-pivot" style="width:100%"><thead><tr><th>机构</th><th>疑难例数</th><th>平均难度</th><th>外院转入</th><th>平均住院日</th></tr></thead><tbody>' + orgRows + '</tbody></table>' +
-      '<div class="cp-note" style="margin-top:9px">疑难例数为 0 的机构不代表零疑难收治，而是本年度未有病例达到入库标准（难度指数 ≥ 3.0）。</div></div></div>' +
-      '<div class="cp-card"><div class="cp-card-head"><div class="cp-card-title">特征权重与分布</div></div><div class="cp-card-body" style="overflow:auto">' +
-      '<table class="cp-pivot" style="width:100%"><thead><tr><th>特征</th><th>权重</th><th>例数</th><th>说明</th></tr></thead><tbody>' + factorRows + '</tbody></table></div></div>' +
+      '<div class="cp-card"><div class="cp-card-head"><div class="cp-card-title">机构疑难收治对比</div></div><div class="cp-card-body" style="overflow:auto">' +
+      '<table class="cp-pivot" style="width:100%"><thead><tr><th>机构</th><th>疑难例数</th><th>外院转入</th><th>平均住院日</th></tr></thead><tbody>' + orgRows + '</tbody></table></div></div>' +
+      '<div class="cp-card"><div class="cp-card-head"><div class="cp-card-title">特征分布</div></div><div class="cp-card-body" style="overflow:auto">' +
+      '<table class="cp-pivot" style="width:100%"><thead><tr><th>特征</th><th>例数</th><th>说明</th></tr></thead><tbody>' + factorRows + '</tbody></table></div></div>' +
       '</div></div>';
   }
   function cpResetComplex() { state.complex = { org: 'ALL', factor: 'ALL', keyword: '' }; renderPage(state.page); }
@@ -870,157 +697,31 @@
     const fields = [
       ['病例号', c.id], ['收治机构', c.org], ['所属地市', c.city],
       ['性别 / 年龄', c.sex + ' · ' + c.age + ' 岁'], ['ASA 分级', c.asa],
-      ['难度指数', n2(c.cmiLike)], ['住院日', c.los + ' 日'], ['ICU 天数', c.icu + ' 日'],
+      ['住院日', c.los + ' 日'], ['ICU 天数', c.icu + ' 日'],
       ['主要技术', t ? t.name : c.tech], ['技术分级', t ? TECH_LEVEL[t.level].label : '-'],
       ['MDT 参与', c.mdt], ['转诊来源', c.referredFrom]
     ].map(function (x) { return '<div class="cp-field"><div class="cp-field-label">' + esc(x[0]) + '</div><div class="cp-value">' + esc(x[1]) + '</div></div>'; }).join('');
     const factorRows = c.factors.map(function (k) {
       const f = COMPLEX_FACTOR[k];
-      return '<tr><td style="text-align:left">' + esc(f.label) + '</td><td>' + n1(f.weight) + '</td><td style="text-align:left;white-space:normal">' + esc(f.note) + '</td></tr>';
+      return '<tr><td style="text-align:left">' + esc(f.label) + '</td><td style="text-align:left;white-space:normal">' + esc(f.note) + '</td></tr>';
     }).join('');
     const body = '<div class="cp-callout"><strong>诊断：</strong>' + esc(c.dx) + '</div>' +
       '<div class="cp-sect"><div class="cp-fields">' + fields + '</div></div>' +
-      '<div class="cp-sect"><h4 class="cp-h">疑难特征与加权</h4><table class="cp-pivot" style="width:100%"><thead><tr><th>特征</th><th>权重</th><th>说明</th></tr></thead><tbody>' + factorRows + '</tbody></table>' +
-      '<div class="cp-note" style="margin-top:7px">难度指数 = 基线 1.0 × 各特征权重连乘后取对数压缩，上限 5.5；用于机构间可比，不用于病例间优劣评价。</div></div>' +
+      '<div class="cp-sect"><h4 class="cp-h">疑难特征</h4><table class="cp-pivot" style="width:100%"><thead><tr><th>特征</th><th>说明</th></tr></thead><tbody>' + factorRows + '</tbody></table></div>' +
       '<div class="cp-sect"><h4 class="cp-h">诊疗结果</h4><div class="cp-callout">' + esc(c.outcome) + '</div></div>' +
       '<div class="cp-sect"><h4 class="cp-h">评估备注</h4><div class="cp-callout">' + esc(c.note) + '</div></div>';
-    const mask = cpModal('疑难病例详情 · ' + c.id, body, '<button class="btn btn-ghost" data-close>关闭</button><button class="btn btn-primary" onclick="cpGoScore(\'' + c.org.replace(/'/g, "\\'") + '\')">查看机构评分</button>');
+    const mask = cpModal('疑难病例详情 · ' + c.id, body, '<button class="btn btn-ghost" data-close>关闭</button>');
     mask.querySelector('[data-close]').addEventListener('click', function () { mask.remove(); });
   }
 
   function showFactorRule() {
     const rows = Object.keys(COMPLEX_FACTOR).map(function (k) {
       const f = COMPLEX_FACTOR[k];
-      return '<tr><td style="text-align:left">' + esc(f.label) + '</td><td>' + n1(f.weight) + '</td><td style="text-align:left;white-space:normal">' + esc(f.note) + '</td></tr>';
+      return '<tr><td style="text-align:left">' + esc(f.label) + '</td><td style="text-align:left;white-space:normal">' + esc(f.note) + '</td></tr>';
     }).join('');
-    const mask = cpModal('疑难病例加权规则', '<div class="cp-callout">入库标准：难度指数 ≥ 3.0，或具备「多原发癌 / 罕见病理 / 挽救性手术 / 联合多器官切除」中任一特征。</div>' +
-      '<div class="cp-sect"><table class="cp-pivot" style="width:100%"><thead><tr><th>特征</th><th>权重</th><th>判定说明</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
-      '<div class="cp-sect"><div class="cp-callout warn"><strong>使用边界：</strong>难度指数用于横向比较机构收治结构，不能作为医疗质量或疗效指标；难度高而并发症率同步偏高的机构，需结合「医疗质量核心指标明细」判断是超范围开展还是合理的高难度承接。</div></div>',
+    const mask = cpModal('疑难病例判定规则', '<div class="cp-callout">入库标准：具备「多原发癌 / 罕见病理 / 挽救性手术 / 联合多器官切除」中任一特征。</div>' +
+      '<div class="cp-sect"><table class="cp-pivot" style="width:100%"><thead><tr><th>特征</th><th>判定说明</th></tr></thead><tbody>' + rows + '</tbody></table></div>',
       '<button class="btn btn-ghost" data-close>关闭</button>', true);
-    mask.querySelector('[data-close]').addEventListener('click', function () { mask.remove(); });
-  }
-
-  /* ==================== 页面 5：专科能力综合评分报告 ==================== */
-  function renderScore() {
-    const target = scoreBoard.find(function (s) { return s.org === state.score.org; }) || scoreBoard[0];
-    const dims = SCORE_DIMS.map(function (d) { return d.name; });
-    const values = SCORE_DIMS.map(function (d) { return target.parts[d.key]; });
-    const avgValues = SCORE_DIMS.map(function (d) { return provinceAvgParts[d.key]; });
-
-    const kpis = [
-      cpKpi('综合得分', n1(target.total), EVAL_YEAR + ' 年度 · 满分 100', target.total >= 85 ? 'ok' : target.total >= 70 ? 'warn' : 'danger'),
-      cpKpi('省内排名', target.rank + ' / ' + scoreBoard.length, '按综合得分降序'),
-      cpKpi('达标技术', target.techCount + ' / ' + target.techTotal, '四级 ' + target.l4Count + ' 项 · 限制类 ' + target.restrictCount + ' 项'),
-      cpKpi('年开展例数', nInt(target.volume), '目录内技术合计'),
-      cpKpi('超预警线指标', target.alertedIndicators.length, '未达目标 ' + target.unmetIndicators + ' 项', target.alertedIndicators.length ? 'danger' : 'ok'),
-      cpKpi('疑难难度指数', target.complex.list.length ? n2(target.complex.cmi) : '-', target.complex.list.length + ' 例入库')
-    ].join('');
-
-    const dimRows = SCORE_DIMS.map(function (d) {
-      const v = target.parts[d.key];
-      const avg = provinceAvgParts[d.key];
-      const tone = v >= 85 ? 'ok' : v >= 70 ? 'warn' : 'bad';
-      const diff = v - avg;
-      return '<div class="cp-dim-row"><div class="cp-dim-name">' + esc(d.name) + '<div class="cp-note">权重 ' + (d.weight * 100).toFixed(0) + '%</div></div>' +
-        '<div>' + bar(v, tone) + '<div class="cp-note">省均 ' + n1(avg) + ' · ' + (diff >= 0 ? '高于省均 ' + n1(diff) : '低于省均 ' + n1(-diff)) + ' 分</div></div>' +
-        '<div class="cp-dim-score" style="color:' + (v >= 85 ? '#15803d' : v >= 70 ? '#b54708' : '#b42335') + '">' + n1(v) + '</div></div>';
-    }).join('');
-
-    const boardRows = scoreBoard.map(function (s) {
-      const isCur = s.org === target.org;
-      return '<tr' + (isCur ? ' style="background:#f4f9ff"' : '') + '>' +
-        '<td class="cp-num cp-nowrap">' + s.rank + '</td>' +
-        '<td><button class="cp-id" onclick="cpPickOrg(\'' + s.org.replace(/'/g, "\\'") + '\')">' + esc(s.org) + '</button><div class="cp-sec">' + esc(s.city) + ' · ' + esc(s.level) + '</div></td>' +
-        '<td class="cp-num cp-nowrap"><strong>' + n1(s.total) + '</strong>' + bar(s.total, s.total >= 85 ? 'ok' : s.total >= 70 ? 'warn' : 'bad') + '</td>' +
-        '<td class="cp-nowrap"><span class="cp-grade ' + s.grade.grade + '">' + esc(s.grade.label) + '</span></td>' +
-        SCORE_DIMS.map(function (d) { return '<td class="cp-num cp-nowrap">' + n1(s.parts[d.key]) + '</td>'; }).join('') +
-        '<td class="cp-num cp-nowrap">' + s.techCount + '/' + s.techTotal + '</td>' +
-        '<td class="cp-nowrap">' + (s.alertedIndicators.length ? '<span class="badge badge-danger">' + s.alertedIndicators.length + '</span>' : '<span class="badge badge-success">0</span>') + '</td>' +
-        '</tr>';
-    }).join('');
-
-    /* 短板与建议 */
-    const sorted = SCORE_DIMS.slice().sort(function (a, b) { return target.parts[a.key] - target.parts[b.key]; });
-    const weak = sorted.slice(0, 2);
-    const strong = sorted.slice(-2).reverse();
-    const advice = weak.map(function (d) {
-      const v = target.parts[d.key];
-      let text;
-      if (d.key === 'tech') {
-        const missing = techCatalog.filter(function (t) {
-          return t.status === 'ACTIVE' && !techRecords.some(function (r) { return r.org === target.org && r.techCode === t.code && r.reach; });
-        });
-        text = '目录内尚未达标开展 ' + missing.length + ' 项，其中四级/限制类 ' + missing.filter(function (t) { return t.level === 'L4' || t.level === 'RESTRICT'; }).length + ' 项。建议优先补齐本地高发癌种对应技术：' + missing.slice(0, 3).map(function (t) { return t.name; }).join('、') + '。';
-      } else if (d.key === 'volume') {
-        text = '多项技术年例数接近目录下限，规模效应不足。建议通过区域转诊协作集中病例，避免低例数高难度技术分散开展。';
-      } else if (d.key === 'safety') {
-        const al = target.alertedIndicators.filter(function (r) { return r.domain === 'SAFETY'; });
-        text = al.length ? '围手术期安全域有 ' + al.length + ' 项指标突破预警线（' + al.map(function (r) { return r.name; }).join('、') + '），须先控制安全风险再扩大技术范围。' : '安全域整体达标但离目标值仍有差距，建议加强术前评估与并发症上报完整性。';
-      } else if (d.key === 'process') {
-        const al = target.alertedIndicators.filter(function (r) { return r.domain === 'PROCESS'; });
-        text = '规范诊疗流程执行不足' + (al.length ? '，突破预警线：' + al.map(function (r) { return r.name; }).join('、') : '') + '。MDT 覆盖率与治疗前病理确诊率是最易改善的两项。';
-      } else if (d.key === 'outcome') {
-        text = 'R0 切除率或淋巴结清扫达标率偏低，提示手术规范性与病理协作需加强，建议开展术式标准化培训与病理取材规范复训。';
-      } else {
-        text = '疑难病例收治结构偏简单，区域承接能力有限。建议建立与下级机构的转诊通道，同时提升 ICU 与多学科支撑条件。';
-      }
-      return '<li><strong>' + esc(d.name) + '（' + n1(v) + ' 分）：</strong>' + esc(text) + '</li>';
-    }).join('');
-
-    const alertRows = target.alertedIndicators.length ? target.alertedIndicators.map(function (r) {
-      return '<tr><td style="text-align:left">' + esc(r.name) + '</td><td>' + n1(r.value) + ' ' + esc(r.unit) + '</td><td>' + n1(r.alert) + '</td><td style="text-align:left">' + esc(QUALITY_DOMAIN[r.domain]) + '</td></tr>';
-    }).join('') : '<tr><td colspan="4"><div class="cp-empty">无突破预警线的指标</div></td></tr>';
-
-    const orgOpts = ORGS.map(function (o) { return '<option value="' + esc(o.name) + '"' + (target.org === o.name ? ' selected' : '') + '>' + esc(o.name) + '</option>'; }).join('');
-
-    return '<div class="cp-page">' + cpHeader('专科能力综合评分报告',
-      '自动生成机构肿瘤专科能力评估报告，含<b>多维得分与对标分析</b>。六个维度按权重合成综合得分：技术广度 22%、服务规模 16%、围手术期安全 20%、规范诊疗 18%、治疗结果 14%、疑难收治 10%；对标基准为全省同类机构均值。', [
-      '<button class="btn btn-outline btn-sm" onclick="showScoreRule()">评分规则</button>',
-      '<button class="btn btn-outline btn-sm" onclick="cpToastMsg(\'评分报告已导出 PDF\')">导出报告</button>',
-      '<button class="btn btn-primary btn-sm" onclick="cpToastMsg(\'报告已下发至机构并归档\')">下发报告</button>'
-    ]) +
-      '<div class="cp-filter" style="grid-template-columns:minmax(260px,1fr) auto">' +
-      '<div class="form-group"><label>评估机构</label><select onchange="cpSet(\'score\',\'org\',this.value)">' + orgOpts + '</select></div>' +
-      '<div class="filter-actions"><span class="cp-note">评估年度 ' + EVAL_YEAR + ' · 目录版本 V2026.1</span></div></div>' +
-      '<div class="cp-kpis">' + kpis + '</div>' +
-      '<div class="cp-grid2">' +
-      '<div class="cp-card"><div class="cp-card-head"><div class="cp-card-title">多维得分<span class="cp-card-sub">实线为本机构，虚线为全省均值</span></div>' +
-      '<span class="cp-grade ' + target.grade.grade + '">' + esc(target.grade.label) + '</span></div>' +
-      '<div class="cp-card-body">' +
-      '<div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">' +
-      '<div style="flex:0 0 auto;text-align:center"><div class="cp-score-big">' + n1(target.total) + '</div><div class="cp-note" style="margin-top:5px">综合得分 · 省内第 ' + target.rank + ' 位</div></div>' +
-      '<div style="flex:1 1 260px;min-width:240px">' + radar(dims, values, avgValues) + '</div></div>' +
-      '<div style="margin-top:10px">' + dimRows + '</div>' +
-      '</div></div>' +
-      '<div class="cp-card"><div class="cp-card-head"><div class="cp-card-title">对标分析与改进建议</div></div><div class="cp-card-body">' +
-      '<div class="cp-callout"><strong>相对优势：</strong>' + strong.map(function (d) { return esc(d.name) + '（' + n1(target.parts[d.key]) + ' 分，省均 ' + n1(provinceAvgParts[d.key]) + '）'; }).join('；') + '</div>' +
-      '<div class="cp-sect"><h4 class="cp-h">主要短板与改进方向</h4><div class="cp-callout warn"><ol style="margin:0 0 0 18px;padding:0">' + advice + '</ol></div></div>' +
-      '<div class="cp-sect"><h4 class="cp-h">突破预警线的质量指标</h4><table class="cp-pivot" style="width:100%"><thead><tr><th>指标</th><th>实测</th><th>预警线</th><th>指标域</th></tr></thead><tbody>' + alertRows + '</tbody></table></div>' +
-      '<div class="cp-sect"><div class="cp-callout"><strong>疑难收治画像：</strong>' + (target.complex.list.length
-        ? '本年度入库疑难病例 ' + target.complex.list.length + ' 例，平均难度指数 ' + n2(target.complex.cmi) + '，其中外院转入 ' + target.complex.referredIn + ' 例，平均住院 ' + n1(target.complex.avgLos) + ' 日。'
-        : '本年度无病例达到疑难特征库入库标准，区域技术承接作用有限。') + '</div></div>' +
-      '</div></div></div>' +
-      '<div class="cp-card"><div class="cp-card-head"><div class="cp-card-title">全省机构能力对标排行<span class="cp-card-sub">' + EVAL_YEAR + ' 年度 · ' + scoreBoard.length + ' 家</span></div>' +
-      '<button class="btn btn-ghost btn-xs" onclick="showScoreRule()">评分规则</button></div>' +
-      '<div class="cp-card-body" style="padding:0"><div class="cp-table-wrap" style="border:0;border-radius:0"><table class="cp-table" style="min-width:1180px"><thead><tr><th>排名</th><th>机构</th><th>综合得分</th><th>等级</th>' +
-      SCORE_DIMS.map(function (d) { return '<th>' + esc(d.name) + '</th>'; }).join('') + '<th>达标技术</th><th>超预警</th></tr></thead><tbody>' + boardRows + '</tbody></table></div></div></div>' +
-      '<div class="cp-callout warn"><strong>使用边界：</strong>本报告评估的是机构<b>肿瘤专科诊疗能力</b>，数据来自病案首页、手术与病理记录、MDT 记录与疑难病例特征库，与「预警监测与处置」考核的<b>登记数据质量</b>（MV%、DCO%、M/I 比）是两套独立体系，不得相互替代或合并排名。</div>' +
-      '</div>';
-  }
-  function cpPickOrg(name) { state.score.org = name; renderPage('cap-score'); }
-
-  function showScoreRule() {
-    const rows = SCORE_DIMS.map(function (d) {
-      return '<tr><td style="text-align:left">' + esc(d.name) + '</td><td>' + (d.weight * 100).toFixed(0) + '%</td><td style="text-align:left;white-space:normal">' + esc(d.desc) + '</td></tr>';
-    }).join('');
-    const gradeRows = GRADE_RULE.map(function (g) {
-      return '<tr><td><span class="cp-grade ' + g.grade + '">' + esc(g.label) + '</span></td><td>' + (g.min ? '≥ ' + g.min + ' 分' : '< 70 分') + '</td>' +
-        '<td class="cp-num">' + scoreBoard.filter(function (s) { return s.grade.grade === g.grade; }).length + ' 家</td></tr>';
-    }).join('');
-    const mask = cpModal('专科能力评分规则', '<table class="cp-pivot" style="width:100%"><thead><tr><th>维度</th><th>权重</th><th>计分内容</th></tr></thead><tbody>' + rows + '</tbody></table>' +
-      '<div class="cp-sect"><h4 class="cp-h">等级划分</h4><table class="cp-pivot" style="width:100%"><thead><tr><th>等级</th><th>综合得分</th><th>本年度机构数</th></tr></thead><tbody>' + gradeRows + '</tbody></table></div>' +
-      '<div class="cp-sect"><div class="cp-callout"><strong>关键计分口径：</strong><br>1. 技术广度按难度加权（限制类 2.0、四级 1.7、三级 1.2、常规 1.0），未达最低例数或未完成备案的技术不计分。<br>2. 质量指标先折算为 0-100 分再按域取均值：达目标值起步 90 分，突破预警线降至 60 分以下。<br>3. 服务规模以全省该技术例数中位数为基准，上限封顶 2.2 倍，避免单一机构规模优势掩盖质量短板。<br>4. 疑难收治按难度指数与外院转入占比合成，权重仅 10%，防止诱导收治高难度病例。</div></div>',
-      '<button class="btn btn-ghost" data-close>关闭</button>');
     mask.querySelector('[data-close]').addEventListener('click', function () { mask.remove(); });
   }
 
@@ -1033,16 +734,15 @@
     if (pageId === 'cap-records') return renderRecords();
     if (pageId === 'cap-quality') return renderQuality();
     if (pageId === 'cap-complex') return renderComplex();
-    if (pageId === 'cap-score') return renderScore();
     return '<div class="cp-page"><div class="cp-empty">页面开发中</div></div>';
   }
 
   const publicApi = {
-    ORGS, techCatalog, techRecords, qualityDefs, qualityRecords, complexCases, scoreBoard, SCORE_DIMS,
-    scoreOrg, domainScore, complexProfile, provinceAvgParts,
+    ORGS, techCatalog, techRecords, qualityDefs, qualityRecords, complexCases,
+    domainScore, complexProfile,
     cpSet, cpToastMsg, cpResetCatalog, cpResetRecords, cpResetQuality, cpResetComplex, closeCpModals,
-    showTechDetail, showTechOrgs, showCatalogVersion, showRecordDetail, cpGoScore,
-    showQualityDetail, showAlertList, showComplexDetail, showFactorRule, showScoreRule, cpPickOrg,
+    showTechDetail, showTechOrgs, showCatalogVersion, showRecordDetail,
+    showQualityDetail, showAlertList, showComplexDetail, showFactorRule, showCertList,
     renderCapabilityPage
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = publicApi;

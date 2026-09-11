@@ -22,11 +22,6 @@ spStyle.textContent = `
 .sp-filter-bar .form-group.wide{width:260px}
 .sp-filter-actions{margin-left:auto;display:flex;gap:8px}
 .sp-table-wrap{overflow-x:auto}
-.sp-qc-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:18px}
-.sp-qc-card{background:var(--surface);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:14px;text-align:center;cursor:pointer;transition:border-color var(--dur-fast)}
-.sp-qc-card:hover,.sp-qc-card.active{border-color:var(--color-primary);background:var(--color-primary-soft)}
-.sp-qc-card .num{font-size:var(--fs-stat-sm);font-weight:700;color:var(--color-primary);font-family:var(--font-num)}
-.sp-qc-card .lbl{font-size:var(--fs-xs);color:var(--color-text-muted);margin-top:2px}
 .sp-kv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px 16px}
 .sp-kv-item{display:flex;flex-direction:column;gap:2px;padding:8px 0;border-bottom:1px dashed var(--color-border)}
 .sp-kv-item .k{font-size:var(--fs-xs);color:var(--color-text-muted)}
@@ -167,8 +162,8 @@ spStyle.textContent = `
 .spf-form-grid .spf-item.span2{grid-column:1/-1}
 @media(max-width:1280px){.sp-patient-strip{grid-template-columns:auto minmax(220px,1fr) auto}.sp-patient-badges{grid-column:2/3}.sp-patient-score{grid-column:3;grid-row:1/3}.spf-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.spf-item.span3{grid-column:1/-1}}
 @media(max-width:820px){.sp-patient-strip{grid-template-columns:auto 1fr}.sp-patient-badges{grid-column:1/-1}.sp-patient-score{grid-column:2;grid-row:1}.spf-grid,.spd-grid,.spf-form-grid{grid-template-columns:1fr}.spf-item.span2,.spf-item.span3{grid-column:1/-1}.spf-label{flex:0 0 84px}.sp-rec-tab{padding:9px 12px;font-size:var(--fs-sm)}}
-@media(max-width:1200px){.sp-stat-row,.sp-qc-summary{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:768px){.sp-stat-row,.sp-qc-summary{grid-template-columns:1fr}.sp-filter-bar{flex-direction:column}.sp-filter-bar .form-group,.sp-filter-bar .form-group.wide{width:100%}.sp-filter-actions{margin-left:0;width:100%}}
+@media(max-width:1200px){.sp-stat-row{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:768px){.sp-stat-row{grid-template-columns:1fr}.sp-filter-bar{flex-direction:column}.sp-filter-bar .form-group,.sp-filter-bar .form-group.wide{width:100%}.sp-filter-actions{margin-left:0;width:100%}}
 `;
 document.head.appendChild(spStyle);
 
@@ -229,28 +224,6 @@ var assessRecords = {
     {date:'2026-08-25',type:'心理痛苦',tool:'PHQ-9',score:'15分',level:'中度抑郁',cls:'badge-orange',assessor:'心理门诊 王琳',advice:'精神科会诊，家属沟通治疗目标'},
     {date:'2026-08-25',type:'压疮风险',tool:'Braden',score:'12分',level:'中危',cls:'badge-caution',assessor:'责任护士 周燕',advice:'每2小时翻身，气垫床使用'},
     {date:'2026-08-24',type:'功能状态',tool:'ECOG/KPS',score:'ECOG 2 / KPS 60',level:'生活部分自理',cls:'badge-caution',assessor:'主管医师 吴强',advice:'减量方案，加强支持治疗'}
-  ]
-};
-
-/* 筛查记录 */
-var screenRecords = {
-  TE001:[
-    {no:'SC2026011801',date:'2026-01-18',way:'低剂量螺旋CT',target:'肺',result:'阳性',cls:'badge-danger',conclusion:'右肺上叶后段结节 2.6cm，分叶伴毛刺，Lung-RADS 4B',suggest:'建议增强CT+穿刺活检',referred:'是'},
-    {no:'SC2026061802',date:'2026-06-18',way:'PET-CT',target:'全身',result:'阳性',cls:'badge-danger',conclusion:'右肺上叶病灶 SUVmax 6.8，右肺门及4R淋巴结代谢增高',suggest:'分期评估至 IIIB 期',referred:'否'},
-    {no:'SC2026082003',date:'2026-08-20',way:'增强CT复查',target:'胸部',result:'阳性',cls:'badge-danger',conclusion:'右肺上叶病灶较前缩小约18%',suggest:'继续当前方案，2周期后复评',referred:'否'}
-  ],
-  TE002:[
-    {no:'SC2025110301',date:'2025-11-03',way:'结肠镜',target:'结肠',result:'阳性',cls:'badge-danger',conclusion:'升结肠距回盲瓣12cm溃疡型肿物，活检为中-高分化腺癌',suggest:'限期行腹腔镜右半结肠根治术',referred:'是'},
-    {no:'SC2026031202',date:'2026-03-12',way:'肠镜复查',target:'结肠',result:'阴性',cls:'badge-success',conclusion:'吻合口光滑，未见局部复发征象',suggest:'12个月后复查肠镜',referred:'否'}
-  ],
-  TE003:[
-    {no:'SC2026032001',date:'2026-03-20',way:'乳腺超声+钼靶',target:'乳房',result:'阳性',cls:'badge-danger',conclusion:'左乳外上象限结节 2.1cm，BI-RADS 5类',suggest:'超声引导下空芯针穿刺',referred:'是'},
-    {no:'SC2026082402',date:'2026-08-24',way:'乳腺MRI',target:'乳房',result:'阳性',cls:'badge-orange',conclusion:'左乳病灶较前缩小，未见胸壁及对侧新发病灶',suggest:'继续TC方案后转内分泌维持',referred:'否'}
-  ],
-  TE004:[
-    {no:'SC2026070801',date:'2026-07-08',way:'胃镜',target:'胃',result:'阳性',cls:'badge-danger',conclusion:'胃窦大弯侧溃疡 4.2cm，环周生长，活检为低分化腺癌',suggest:'增强CT评估可切除性',referred:'是'},
-    {no:'SC2026071002',date:'2026-07-10',way:'腹部增强CT',target:'胃/腹膜',result:'阳性',cls:'badge-danger',conclusion:'胃壁增厚伴腹膜多发结节及腹水，分期 IV 期',suggest:'转肿瘤内科全身治疗',referred:'否'},
-    {no:'SC2026082603',date:'2026-08-26',way:'肿瘤标志物',target:'血',result:'阳性',cls:'badge-orange',conclusion:'CEA 42.6↑ CA19-9 128.4↑，较前上升',suggest:'提示进展，纳入MDT讨论',referred:'否'}
   ]
 };
 
@@ -417,7 +390,6 @@ function kv(label,value){return '<div class="sp-kv-item"><span class="k">'+esc(l
 function renderWorkbench(){
   var filter='<div class="sp-filter-bar">'+
     '<div class="form-group wide"><label>关键字</label><input type="text" placeholder="姓名 / 地区 / 诊断" id="spSearch"></div>'+
-    '<div class="form-group"><label>疾病阶段</label><select id="spStageFilter"><option value="">全部</option><option>治疗中</option><option>随访中</option><option>进展</option></select></div>'+
     '<div class="form-group"><label>预警</label><select id="spWarnFilter"><option value="">全部</option><option>高危</option><option>中度风险</option><option>可疑</option></select></div>'+
     '<div class="form-group"><label>确认状态</label><select><option value="">全部</option><option>已确认</option><option>待确认</option></select></div>'+
     '<div class="sp-filter-actions"><button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'spSearch\').value=\'\';renderSpecialtyPortrait()">重置</button><button class="btn btn-primary btn-sm" onclick="renderSpecialtyPortrait()">查询</button></div>'+
@@ -431,13 +403,16 @@ function renderWorkbench(){
     var nutritionCell = nutritionRisk ? badge(nutritionRisk.level, nutritionRisk.cls) : '<span style="color:var(--color-text-muted)">-</span>';
     var otherRiskCell = otherRisks.length ? otherRisks.map(function(r){return badge(r.type+' '+r.level,r.cls)}).join(' ') : '<span style="color:var(--color-text-muted)">-</span>';
 
+    var respCls=e.response==='CR'||e.response==='PR'?'badge-success':e.response==='SD'?'badge-orange':e.response==='PD'?'badge-danger':'badge-neutral';
     return '<tr style="cursor:pointer" onclick="window._spOpenDetail && window._spOpenDetail(\''+esc(e.id)+'\')">'+
-      '<td><div style="font-weight:600">'+esc(e.patient)+'</div><div style="font-size:12px;color:var(--color-text-muted)">'+esc(e.sex)+' · '+e.age+'岁</div></td>'+
-      '<td><div>'+esc(e.diagnosis)+'</div><div style="font-size:12px;color:var(--color-text-muted)">'+esc(e.region)+'</div></td>'+
-      '<td>'+esc(e.stage)+'<div style="font-size:11px;color:var(--color-text-muted)">'+esc(e.stageDate)+'</div></td>'+
-      '<td>'+badge(e.phase,e.phase==='治疗中'?'badge-info':e.phase==='随访中'?'badge-success':'badge-danger')+'</td>'+
-      '<td><div style="font-size:12px;font-weight:500">'+esc(e.line)+'</div><div style="font-size:11px;color:var(--color-text-muted);white-space:normal;line-height:1.4">'+esc(e.regimen)+'</div></td>'+
-      '<td>ECOG '+e.ecog+' · '+esc(e.response)+'</td>'+
+      '<td>'+esc(e.patient)+'</td>'+
+      '<td>'+esc(e.sex)+'</td>'+
+      '<td>'+e.age+'</td>'+
+      '<td>'+esc(e.diagnosis)+'</td>'+
+      '<td>'+esc(e.region)+'</td>'+
+      '<td>'+esc(e.stage)+'</td>'+
+      '<td>'+e.ecog+'</td>'+
+      '<td>'+badge(e.response,respCls)+'</td>'+
       '<td>'+nutritionCell+'</td>'+
       '<td>'+otherRiskCell+'</td>'+
       '<td>'+scoreDot(e.qcScore)+'</td>'+
@@ -445,33 +420,9 @@ function renderWorkbench(){
   }).join('');
 
   var table='<div class="panel"><div class="panel-header"><span>肿瘤事件列表</span><span style="font-size:12px;color:var(--color-text-muted)">共 '+tumorEvents.length+' 个事件</span></div>'+
-    '<div class="sp-table-wrap"><table class="data-table"><thead><tr><th>患者信息</th><th>诊断与地区</th><th>分期</th><th>阶段</th><th>治疗方案</th><th>体能/疗效</th><th>营养风险</th><th>其他风险</th><th>质控分</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+    '<div class="sp-table-wrap"><table class="data-table"><thead><tr><th>患者</th><th>性别</th><th>年龄</th><th>诊断</th><th>地区</th><th>分期</th><th>ECOG</th><th>疗效</th><th>营养风险</th><th>其他风险</th><th>质控分</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
 
   return filter+table;
-}
-
-/* ===================== 子页面：画像质控 ===================== */
-function renderQC(){
-  // Summary cards removed per user request
-  var catTabs='<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">'+
-    ['全部','完整性','一致性','及时性','可追溯性'].map(function(c,i){
-      return '<button class="btn '+(i===0?'btn-primary':'btn-ghost')+' btn-sm">'+esc(c)+'</button>';
-    }).join('')+'</div>';
-
-  var levelBadge=function(l){return l==='高'?badge('高','badge-danger'):l==='中'?badge('中','badge-orange'):badge('低','badge-info')};
-  var rows=qcWorkOrders.map(function(w){
-    return '<tr><td style="font-weight:600;font-size:13px">'+esc(w.id)+'</td>'+
-      '<td><div style="font-weight:500">'+esc(w.patient)+'</div><div style="font-size:12px;color:var(--color-text-muted)">'+esc(w.diagnosis)+'</div></td>'+
-      '<td>'+badge(w.category,'badge-neutral')+'</td>'+
-      '<td>'+levelBadge(w.level)+'</td>'+
-      '<td style="max-width:260px;white-space:normal;line-height:1.5">'+esc(w.problem)+'</td>'+
-      '<td style="max-width:300px;white-space:normal;line-height:1.5;color:var(--color-text-muted)">'+esc(w.desc)+'</td></tr>';
-  }).join('');
-
-  var table='<div class="panel"><div class="panel-header"><span>质控工单列表</span></div>'+
-    '<div class="sp-table-wrap"><table class="data-table"><thead><tr><th>规则ID</th><th>关联患者</th><th>质控类别</th><th>严重级别</th><th>问题描述</th><th>详细说明</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
-
-  return catTabs+table;
 }
 
 /* ===================== 图表绘制（纯 CSS，无图表库） ===================== */
@@ -580,7 +531,6 @@ var qcStatus = {};
 var SP_DETAIL_TABS = [
   {key:'basic',label:'基本信息'},
   {key:'assess',label:'评估记录'},
-  {key:'screen',label:'筛查记录'},
   {key:'mdt',label:'MDT记录'},
   {key:'consult',label:'远程会诊记录'},
   {key:'referral',label:'转诊记录'},
@@ -805,13 +755,6 @@ function spRecConfig(tab,ev){
       add:'新增评估',
       form:[{k:'date',l:'评估日期',t:'date'},{k:'type',l:'评估维度',t:'select',o:['营养风险','VTE血栓','疼痛','心理痛苦','跌倒风险','功能状态','压疮风险']},{k:'tool',l:'评估工具',t:'text',ph:'如 NRS2002'},{k:'score',l:'得分',t:'text',ph:'如 4分'},{k:'level',l:'风险等级',t:'select',o:['无风险','低危','轻度','可疑抑郁','中度风险','中危','高度风险','高危']},{k:'assessor',l:'评估人',t:'text',ph:'科室 + 姓名'},{k:'advice',l:'干预建议',t:'textarea',span:2}],
       detail:function(x){return spDetailKv([['评估日期',x.date],['评估维度',x.type],['评估工具',x.tool],['得分',x.score],['风险等级',badge(x.level,x.cls||'badge-neutral'),true],['评估人',x.assessor],['干预建议',x.advice,true]])}},
-    screen:{title:'筛查记录',rows:screenRecords[ev.id]||[],
-      cols:[cText('筛查编号','no','132px'),cText('筛查日期','date','106px'),cText('筛查方式','way','132px'),cText('靶器官/部位','target','96px'),cBadge('筛查结果','result','cls','96px'),cWrap('结论描述','conclusion'),cWrap('后续建议','suggest'),cText('是否转诊','referred','80px')],
-      search:{keys:['no','way','conclusion','suggest','target'],ph:'编号 / 方式 / 结论'},
-      filters:[{k:'result',l:'筛查结果',o:['阳性','阴性','可疑阳性']},{k:'referred',l:'是否转诊',o:['是','否']}],
-      add:'新增筛查',
-      form:[{k:'no',l:'筛查编号',t:'text'},{k:'date',l:'筛查日期',t:'date'},{k:'way',l:'筛查方式',t:'select',o:['低剂量螺旋CT','胸部CT','胃镜','肠镜','乳腺超声+钼靶','乳腺超声','腹部超声','肿瘤标志物','PET-CT','增强CT复查','粪便隐血FIT','宫颈HPV+TCT']},{k:'target',l:'靶器官/部位',t:'text'},{k:'result',l:'筛查结果',t:'select',o:['阳性','阴性','可疑阳性']},{k:'conclusion',l:'结论描述',t:'textarea',span:2},{k:'suggest',l:'后续建议',t:'text'},{k:'referred',l:'是否转诊',t:'select',o:['是','否']}],
-      detail:function(x){return spDetailKv([['筛查编号',x.no],['筛查日期',x.date],['筛查方式',x.way],['靶器官/部位',x.target],['筛查结果',badge(x.result,x.cls||'badge-neutral'),true],['是否转诊',x.referred],['结论描述',x.conclusion,true],['后续建议',x.suggest,true]])}},
     consult:{title:'远程会诊记录',rows:consultRecords[ev.id]||[],
       cols:[cText('会诊编号','no','132px'),cText('申请日期','applyDate','106px'),cWrap('受邀机构','hospital'),cText('会诊专家','expert','150px'),cText('会诊方式','way','96px'),cWrap('会诊意见','opinion'),cBadge('状态','status','cls','92px')],
       search:{keys:['no','hospital','expert','opinion'],ph:'编号 / 机构 / 专家 / 意见'},
@@ -844,7 +787,7 @@ function spRecConfig(tab,ev){
   return cfgs[tab];
 }
 function spRecRowsOf(tab,ev){
-  var m={assess:assessRecords,screen:screenRecords,consult:consultRecords,referral:referralRecords,path:pathRecords,fu:followupRecords};
+  var m={assess:assessRecords,consult:consultRecords,referral:referralRecords,path:pathRecords,fu:followupRecords};
   return (m[tab]&&m[tab][ev.id])||[];
 }
 
@@ -932,7 +875,7 @@ function spQcPanel(tab,ev){
   var shown=spApplyFilter(tab,spIndexRows(list).map(function(x){
     x._c='badge-neutral';x._l=x.level==='高'?'badge-danger':x.level==='中'?'badge-orange':'badge-info';return x;
   }),cfg);
-  h+='<div class="panel"><div class="panel-header"><span>该画像质控工单<span class="spr-count">共 '+list.length+' 条</span></span></div><div class="panel-body">';
+  h+='<div class="panel"><div class="panel-header"><span>该患者质控工单<span class="spr-count">共 '+list.length+' 条</span></span></div><div class="panel-body">';
   h+=spToolbarHtml(tab,cfg,shown.length,list.length);
   if(!shown.length){h+='<div class="spr-empty">'+(list.length?'暂无符合条件的工单':'该画像暂无质控问题 ✓')+'</div>';}
   else{
@@ -1012,7 +955,6 @@ function renderDetailPanel(eventId){
   var tab=_currentDetailTab;
   if(tab==='basic'){body=spProfileHtml(ev);}
   else if(tab==='assess'){var c=spRecConfig('assess',ev);body=spAssessExtra(ev)+spRecPanel('assess',c,c.rows,'风险评估记录');}
-  else if(tab==='screen'){var c2=spRecConfig('screen',ev);body=spRecPanel('screen',c2,c2.rows,'筛查记录');}
   else if(tab==='mdt'){body=spMdtPanel('mdt',ev);}
   else if(tab==='consult'){var c3=spRecConfig('consult',ev);body=spRecPanel('consult',c3,c3.rows,'远程会诊记录');}
   else if(tab==='referral'){var c4=spRecConfig('referral',ev);body=spRecPanel('referral',c4,c4.rows,'转诊记录');}
@@ -1026,7 +968,6 @@ function renderDetailPanel(eventId){
 function spTabCount(ev,key){
   switch(key){
     case 'assess':return (assessRecords[ev.id]||[]).length+(examRecords[ev.id]||[]).length;
-    case 'screen':return (screenRecords[ev.id]||[]).length;
     case 'mdt':return (mdtRecords[ev.id]||[]).length;
     case 'consult':return (consultRecords[ev.id]||[]).length;
     case 'referral':return (referralRecords[ev.id]||[]).length;
@@ -1109,7 +1050,7 @@ window._spViewRec=function(tab,i){
 };
 window._spDelRec=function(tab,i){
   var ev=_currentDetailEvent;if(!ev)return;
-  var nameMap={assess:'评估记录',screen:'筛查记录',mdt:'MDT记录',consult:'远程会诊记录',referral:'转诊记录',path:'病理记录',fu:'随访记录',rehab:'康复履约记录'};
+  var nameMap={assess:'评估记录',mdt:'MDT记录',consult:'远程会诊记录',referral:'转诊记录',path:'病理记录',fu:'随访记录',rehab:'康复履约记录'};
   spModal('删除确认','<div style="padding:6px 0;font-size:var(--fs-body);color:var(--color-text-body)">确认删除该条'+esc(nameMap[tab]||'记录')+'？删除后不可恢复。</div>',
     '<button class="btn btn-ghost" onclick="var m=this.closest(\'.sp-modal-mask\');m&&m.remove()">取消</button><button class="btn btn-danger" onclick="window._spDelRecGo(\''+tab+'\','+i+')">确认删除</button>',true);
 };
@@ -1118,7 +1059,7 @@ window._spDelRecGo=function(tab,i){
   spCloseModals();
   if(tab==='mdt'){(mdtRecords[ev.id]||[]).splice(i,1)}
   else if(tab==='rehab'){var rc=rehabContracts[ev.id];if(rc&&rc.plan)rc.plan.splice(i,1)}
-  else{var m={assess:assessRecords,screen:screenRecords,consult:consultRecords,referral:referralRecords,path:pathRecords,fu:followupRecords};if(m[tab])m[tab][ev.id].splice(i,1)}
+  else{var m={assess:assessRecords,consult:consultRecords,referral:referralRecords,path:pathRecords,fu:followupRecords};if(m[tab])m[tab][ev.id].splice(i,1)}
   spRerenderDetail();
   toast('记录已删除');
 };
@@ -1168,9 +1109,8 @@ window._spAddRecSave=function(tab){
   if(missing){toast('请填写「'+missing+'」','error');return}
   if(tab==='mdt'){obj.cls=obj.status==='已完成'?'badge-success':'badge-info';(mdtRecords[ev.id]=mdtRecords[ev.id]||[]).push(obj)}
   else{
-    var m={assess:assessRecords,screen:screenRecords,consult:consultRecords,referral:referralRecords,path:pathRecords,fu:followupRecords};
+    var m={assess:assessRecords,consult:consultRecords,referral:referralRecords,path:pathRecords,fu:followupRecords};
     if(tab==='assess')obj.cls=obj.level==='高危'||obj.level==='高度风险'?'badge-danger':(obj.level.indexOf('中')>=0?'badge-orange':'badge-success');
-    if(tab==='screen')obj.cls=obj.result==='阳性'?'badge-danger':obj.result==='阴性'?'badge-success':'badge-orange';
     if(tab==='consult')obj.cls=obj.status==='已完成'?'badge-success':obj.status==='待受理'?'badge-caution':'badge-info';
     if(tab==='referral')obj.cls=obj.status==='已接收'?'badge-success':obj.status==='已退回'?'badge-danger':'badge-caution';
     if(tab==='path')obj.status=obj.status||'待审核';
@@ -1214,7 +1154,6 @@ function render(subPage){
   // Header and Tabs UI removed per user request, but logic preserved for left-nav switching
   var content='';
   if(_spCurrentSubPage==='workbench') content=renderWorkbench();
-  else if(_spCurrentSubPage==='qc') content=renderQC();
   else if(_spCurrentSubPage==='stats') content=renderStats();
 
   return '<div style="padding:0"><div id="spMainContent">'+content+'</div></div>';
@@ -1224,8 +1163,8 @@ window._spSwitchSubPage=function(page){
   _spCurrentSubPage=page;
   var pc=document.getElementById('pageContainer');
   if(pc){pc.innerHTML=render();}
-  if(typeof updateBreadcrumb==='function')updateBreadcrumb('specialty-portrait',page==='qc'?'画像质控':page==='stats'?'画像统计':'画像工作台');
-  if(typeof setActiveMenu==='function'){var menuId=page==='qc'?'sp-qc':page==='stats'?'sp-stats':'sp-workbench';setActiveMenu(menuId);}
+  if(typeof updateBreadcrumb==='function')updateBreadcrumb('specialty-portrait',page==='stats'?'画像统计':'画像工作台');
+  if(typeof setActiveMenu==='function'){var menuId=page==='stats'?'sp-stats':'sp-workbench';setActiveMenu(menuId);}
 };
 
 window.renderSpecialtyPortrait=render;

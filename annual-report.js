@@ -11,8 +11,6 @@
   if (!st) { st = document.createElement("style"); st.id = "arReportStyles"; document.head.appendChild(st); }
   st.textContent =
     ".ar-hint{font-size:12px;color:#667085;line-height:1.5}" +
-    ".ar-role-switch{display:inline-flex;align-items:center;gap:6px;margin-left:auto}" +
-    ".ar-role-switch select{height:30px;font-size:13px}" +
     ".ar-context{display:flex;flex-wrap:wrap;gap:9px 20px;align-items:center;padding:12px 16px;background:linear-gradient(180deg,#f8fafc,#ffffff);border:1px solid var(--border);border-radius:8px;margin-bottom:14px;font-size:12px;color:#475569}" +
     ".ar-context b{color:#1f2937;font-weight:650}" +
     ".ar-ctx-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;background:#f1f5f9;border:1px solid var(--border);border-radius:999px}" +
@@ -234,7 +232,6 @@
     archived: { label: "已归档", cls: "neutral" },
     voided: { label: "已作废", cls: "danger" }
   };
-  var AR_ROLES = { province_reporter: "省级上报岗", province_reviewer: "省级审核岗" };
   var CHANNELS = [
     { id: "nccr", label: "国家平台上报（NCCR）" }
   ];
@@ -289,7 +286,7 @@
   var arState = {
     page: "ar-tasks",
     currentTaskId: (function () { try { return localStorage.getItem(LS.cur) || "AR-2024-0001"; } catch (e) { return "AR-2024-0001"; } })(),
-    stage: 1, chartTab: "pyramid", editChapter: "ch1", role: "province_reporter", taskTab: "tasks",
+    stage: 1, chartTab: "pyramid", editChapter: "ch1", taskTab: "tasks",
     filters: { year: "", keyword: "" },
     tplView: "list", tplEditingId: null, editSectionId: null, tplPreview: null, reportPreview: null,
     agg: { running: false, pct: 0 }, valid: { running: false, pct: 0 }
@@ -336,14 +333,6 @@
     for (i = 0; i < 18; i++) out.push({ age: AGE18[i], male: Math.round(wM[i] / sumM * targetM), female: Math.round(wF[i] / sumF * targetF) });
     return out;
   }
-  function arCan(action) {
-    if (arState.role === "province_reviewer") return action === "approve" || action === "return";
-    return action === "submit" || action === "publish" || action === "archive" || action === "void" || action === "new" || action === "tpl-edit";
-  }
-  function roleSwitchHtml() {
-    var opts = Object.keys(AR_ROLES).map(function (k) { return '<option value="' + k + '"' + (arState.role === k ? ' selected' : '') + '>' + AR_ROLES[k] + '</option>'; }).join('');
-    return '<div class="ar-role-switch"><span class="ar-hint">当前角色</span><select onchange="arSetRole(this.value)">' + opts + '</select></div>';
-  }
   function lifecycleTimeline(t) {
     var steps = [
       { key: 'created', label: '创建', at: t.createdAt },
@@ -363,7 +352,7 @@
     }).join('<span class="ar-tl-line"></span>') + '</div>';
   }
   function pageToolbar(title) {
-    return '<div class="page-toolbar" style="margin-bottom:14px"><div style="font-size:16px;font-weight:700;color:#1f2937;display:flex;align-items:center;gap:8px"><span style="width:4px;height:18px;background:var(--primary);border-radius:2px;display:inline-block"></span>' + title + '</div>' + roleSwitchHtml() + '</div>';
+    return '<div class="page-toolbar" style="margin-bottom:14px"><div style="font-size:16px;font-weight:700;color:#1f2937;display:flex;align-items:center;gap:8px"><span style="width:4px;height:18px;background:var(--primary);border-radius:2px;display:inline-block"></span>' + title + '</div>' + '</div>';
   }
 
   window.arSwitchTaskTab = function (k) { arState.taskTab = (k === 'subs') ? 'subs' : 'tasks'; renderPage('ar-tasks'); };
@@ -411,14 +400,14 @@
   /* ===================== 7. 编制工作台 ===================== */
   function workbenchActions(t) {
     var html = '';
-    if (t.status === 'draft' && arCan('submit')) html += '<button class="btn btn-primary" onclick="arSubmit()">提交审核</button> ';
+    if (t.status === 'draft') html += '<button class="btn btn-primary" onclick="arSubmit()">提交审核</button> ';
     if (t.status === 'submitted') {
-      if (arCan('approve')) html += '<button class="btn btn-success" onclick="arApprove()">审核通过</button> ';
-      if (arCan('return')) html += '<button class="btn btn-warning" onclick="arReturn()">退回修改</button> ';
+      html += '<button class="btn btn-success" onclick="arApprove()">审核通过</button> ';
+      html += '<button class="btn btn-warning" onclick="arReturn()">退回修改</button> ';
     }
-    if (t.status === 'approved' && arCan('publish')) html += '<button class="btn btn-export" onclick="arPublish()">发布 · 生成上报记录</button> ';
-    if (t.status === 'published' && arCan('archive')) html += '<button class="btn btn-primary" onclick="arArchive()">归档入库</button> ';
-    if ((t.status === 'draft' || t.status === 'submitted') && arCan('void')) html += '<button class="btn btn-danger" onclick="arVoid()">作废</button> ';
+    if (t.status === 'approved') html += '<button class="btn btn-export" onclick="arPublish()">发布 · 生成上报记录</button> ';
+    if (t.status === 'published') html += '<button class="btn btn-primary" onclick="arArchive()">归档入库</button> ';
+    if ((t.status === 'draft' || t.status === 'submitted')) html += '<button class="btn btn-danger" onclick="arVoid()">作废</button> ';
     return html;
   }
 
@@ -429,7 +418,7 @@
     }
     var header = '<div class="page-toolbar" style="margin-bottom:12px">' +
       '<div style="font-size:16px;font-weight:700;color:#1f2937;display:flex;align-items:center;gap:8px"><span style="width:4px;height:18px;background:var(--primary);border-radius:2px;display:inline-block"></span>' + e(t.title) + '</div>' +
-      '<div style="display:flex;gap:8px;align-items:center">' + statusBadge(t.status) + badge('neutral', '版本 ' + t.version) + roleSwitchHtml() + '</div></div>';
+      '<div style="display:flex;gap:8px;align-items:center">' + statusBadge(t.status) + badge('neutral', '版本 ' + t.version) + '</div></div>';
 
     var stepper = '<div class="entry-step-tabs" style="margin:0 0 18px"><div class="step-tabs-inner">' +
       ['口径与取数','质量校验','指标与图表','报告编制','导出'].map(function (label, i) {
@@ -1197,7 +1186,7 @@
     }).join('');
     return pageToolbar('模板管理') + '<div class="panel" style="margin-bottom:16px"><div class="panel-body">' +
       '<div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:14px">' +
-      (arCan('tpl-edit') ? '<button class="btn btn-primary" onclick="arNewTemplate()">新增模板</button>' : '') + '</div>' +
+      '<button class="btn btn-primary" onclick="arNewTemplate()">新增模板</button>' + '</div>' +
       '<div class="table-wrap"><table class="data-table" style="width:100%;min-width:1080px"><thead><tr>' +
       '<th style="text-align:left">模板名称</th><th style="text-align:left">类型</th><th style="text-align:left">周期 / 范围</th><th style="text-align:right">章节数</th><th style="text-align:left">状态</th><th style="text-align:left">版本</th><th style="text-align:left">更新时间 / 人</th><th style="text-align:left">操作</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div></div></div>';
@@ -1294,7 +1283,6 @@
     renderPage(page);
   }
 
-  window.arSetRole = function (r) { arState.role = r; renderPage(arState.page); };
   window.arGoPage = function (page) { goPage(page); };
   window.arGoStage = function (n) { arState.stage = n; arState.reportPreview = null; renderPage('ar-workbench'); };
   window.arSetChartTab = function (tab) { arState.chartTab = tab; renderPage('ar-workbench'); };
@@ -1319,7 +1307,7 @@
       templateId: defTpl.id, templateSnapshot: templateSnapshotForTask(defTpl), status: 'draft', version: 'V0.1', popCal: 'usual', stdPop: 'cn', cancer: '全部恶性肿瘤',
       agg: { done: false, result: null }, valid: { done: false, result: null }, chapters: {}, corrections: [],
       exportCfg: { format: 'pdf', ci5: true, channels: ['nccr'] },
-      createdAt: nowStr(), updatedAt: nowStr(), createdBy: AR_ROLES[arState.role]
+      createdAt: nowStr(), updatedAt: nowStr(), createdBy: "省级上报岗"
     };
     tasks.unshift(task);
     arState.currentTaskId = id; arState.stage = 1;
@@ -1352,14 +1340,14 @@
     var t = curTask(); if (!t) return;
     if (t.status !== 'submitted') { toast('当前状态不可审核通过', 'error'); return; }
     t.status = 'approved'; t.approvedAt = nowStr(); t.updatedAt = nowStr();
-    t.corrections.push({ ver: t.version, at: nowStr(), by: AR_ROLES[arState.role], note: '审核通过，允许发布' });
+    t.corrections.push({ ver: t.version, at: nowStr(), by: "省级上报岗", note: '审核通过，允许发布' });
     persist(); renderPage('ar-workbench'); toast('审核通过，当前为待发布状态');
   };
   window.arReturn = function () {
     var t = curTask(); if (!t) return;
     if (t.status !== 'submitted') { toast('当前状态不可退回', 'error'); return; }
     t.status = 'draft'; t.updatedAt = nowStr();
-    t.corrections.push({ ver: t.version, at: nowStr(), by: AR_ROLES[arState.role], note: '审核退回：请补充/修正问题数据后重新提交' });
+    t.corrections.push({ ver: t.version, at: nowStr(), by: "省级上报岗", note: '审核退回：请补充/修正问题数据后重新提交' });
     persist(); renderPage('ar-workbench'); toast('已退回修改，任务回到草稿状态');
   };
   window.arPublish = function () {
@@ -1387,7 +1375,7 @@
     if (t.status !== 'draft' && t.status !== 'submitted') { toast('当前状态不可作废', 'error'); return; }
     showConfirm('作废任务', '确定将「' + t.title + '」作废吗？作废后不可再编制，记录保留。', function () {
       t.status = 'voided'; t.voidReason = '人工作废'; t.updatedAt = nowStr();
-      t.corrections.push({ ver: t.version, at: nowStr(), by: AR_ROLES[arState.role], note: '任务作废：人工作废' });
+      t.corrections.push({ ver: t.version, at: nowStr(), by: "省级上报岗", note: '任务作废：人工作废' });
       persist(); renderPage('ar-workbench'); toast('任务已作废');
     });
   };
@@ -1491,7 +1479,7 @@
     if (cut >= 0) html = html.slice(cut + 5);
     t.chapters[arState.editChapter] = html; t.updatedAt = nowStr();
     var ch = chapterConfigById(t, arState.editChapter);
-    t.corrections.unshift({ ver: '修订', at: nowStr(), by: AR_ROLES[arState.role], note: '人工校订：' + (ch ? ch.title : arState.editChapter) });
+    t.corrections.unshift({ ver: '修订', at: nowStr(), by: "省级上报岗", note: '人工校订：' + (ch ? ch.title : arState.editChapter) });
     persist(); renderPage('ar-workbench'); toast('本章已保存');
   };
   window.arResetChapter = function () {
@@ -1506,7 +1494,7 @@
     if (ct.rules && ct.rules.allowManualEdit === false) { toast('该章节模板设为只读，不可生成', 'error'); return; }
     t.chapters[arState.editChapter] = buildChapterHtml(t, arState.editChapter); t.updatedAt = nowStr();
     var meta = CHAPTER_META.filter(function (c) { return c.id === arState.editChapter; })[0];
-    t.corrections.unshift({ ver: '生成', at: nowStr(), by: AR_ROLES[arState.role], note: '按数据自动生成：' + (meta ? meta.title : arState.editChapter) });
+    t.corrections.unshift({ ver: '生成', at: nowStr(), by: "省级上报岗", note: '按数据自动生成：' + (meta ? meta.title : arState.editChapter) });
     persist(); renderPage('ar-workbench'); toast('已按汇总数据生成本章正文');
   };
   window.arGenerateAll = function () {
@@ -1518,7 +1506,7 @@
       t.chapters[c.id] = buildChapterHtml(t, c.id);
     });
     t.updatedAt = nowStr();
-    t.corrections.unshift({ ver: '生成', at: nowStr(), by: AR_ROLES[arState.role], note: '一键按数据生成全部章节正文' });
+    t.corrections.unshift({ ver: '生成', at: nowStr(), by: "省级上报岗", note: '一键按数据生成全部章节正文' });
     persist(); renderPage('ar-workbench'); toast('已生成全部章节正文');
   };
   window.arViewReport = function () {
@@ -1566,14 +1554,13 @@
   window.arSetTaskCancer = function (v) { var t = curTask(); if (!t) return; t.cancer = v; touch(t); renderPage('ar-workbench'); };
 
   /* 模板管理动作 */
-  window.arNewTemplate = function () { if (!arCan('tpl-edit')) { toast('当前角色无权限', 'error'); return; } arState.tplEditingId = null; arState.tplView = 'form'; renderPage('ar-templates'); };
+  window.arNewTemplate = function () { arState.tplEditingId = null; arState.tplView = 'form'; renderPage('ar-templates'); };
   window.arManageChapterTemplates = function (id) { if (!tplById(id)) { toast('模板不存在或已删除', 'error'); return; } arState.tplEditingId = id; arState.tplView = 'chapter-list'; renderPage('ar-templates'); };
-  window.arEditChapterTemplate = function (id) { if (!arCan('tpl-edit')) { toast('当前角色无权限编辑章节模板', 'error'); return; } var tp = tplById(arState.tplEditingId); if (!tp || !chapterIdsForTemplate(tp).some(function (x) { return x === id; })) { toast('章节不存在或已被停用', 'error'); return; } arState.editChapter = id; arState.tplView = 'chapter-form'; renderPage('ar-templates'); };
+  window.arEditChapterTemplate = function (id) { var tp = tplById(arState.tplEditingId); if (!tp || !chapterIdsForTemplate(tp).some(function (x) { return x === id; })) { toast('章节不存在或已被停用', 'error'); return; } arState.editChapter = id; arState.tplView = 'chapter-form'; renderPage('ar-templates'); };
   window.arChapterTemplateList = function () { arState.tplView = 'chapter-list'; renderPage('ar-templates'); };
-  window.arEditTemplate = function (id) { if (!arCan('tpl-edit')) { toast('当前角色无权限', 'error'); return; } arState.tplEditingId = id; arState.tplView = 'form'; renderPage('ar-templates'); };
+  window.arEditTemplate = function (id) { arState.tplEditingId = id; arState.tplView = 'form'; renderPage('ar-templates'); };
   window.arTplList = function () { arState.tplView = 'list'; arState.tplEditingId = null; renderPage('ar-templates'); };
   window.arSaveChapterTemplate = function () {
-    if (!arCan('tpl-edit')) { toast('当前角色无权限', 'error'); return; }
     var tp = tplById(arState.tplEditingId); if (!tp) return;
     var c = chapterTemplate(tp, arState.editChapter);
     c.title = document.getElementById('ctTitle').value.trim() || c.title;
@@ -1591,7 +1578,7 @@
     persist(); arState.tplPreview = null; arState.tplView = 'chapter-list'; renderPage('ar-templates'); toast('章节模板已保存，模板版本已升级');
   };
   function bumpTemplate(tp) {
-    tp.updatedAt = nowStr(); tp.updatedBy = AR_ROLES[arState.role];
+    tp.updatedAt = nowStr(); tp.updatedBy = "省级上报岗";
     tp.version = 'v' + ((parseInt(String(tp.version).replace(/[^0-9]/g, ''), 10) || 0) + 1);
   }
   function curChapterTpl() {
@@ -1606,7 +1593,6 @@
   }
   /* 小节维护 */
   window.arEditSection = function (id) {
-    if (!arCan('tpl-edit')) { toast('当前角色无权限', 'error'); return; }
     arState.editSectionId = id; arState.tplView = 'section-form'; renderPage('ar-templates');
   };
   window.arBackToChapterForm = function () { arState.tplView = 'chapter-form'; arState.editSectionId = null; renderPage('ar-templates'); };
@@ -1695,7 +1681,6 @@
     toast('已插入变量 {{' + key + '}}');
   };
   window.arSaveSection = function () {
-    if (!arCan('tpl-edit')) { toast('当前角色无权限', 'error'); return; }
     var h = curSection(); if (!h) return;
     var tb = document.getElementById('secTitle');
     if (tb && String(tb.value || '').trim()) h.sec.title = String(tb.value).trim();
@@ -1717,7 +1702,6 @@
   window.arClosePreviewChapterTpl = function () { arState.tplPreview = null; renderPage('ar-templates'); };
 
   window.arSaveTemplate = function () {
-    if (!arCan('tpl-edit')) { toast('当前角色无权限', 'error'); return; }
     var name = document.getElementById('tplName').value.trim();
     if (!name) { toast('请填写模板名称', 'error'); return; }
     var type = document.getElementById('tplType').value;
@@ -1742,16 +1726,16 @@
     if (isDefault) templates.forEach(function (x) { x.isDefault = false; });
     if (arState.tplEditingId) {
       var tp = tplById(arState.tplEditingId);
-      if (tp) { tp.name = name; tp.type = type; tp.cycle = cycle; tp.volume = volume; tp.desc = desc; tp.enabled = enabled; tp.isDefault = isDefault; tp.chapters = chs; tp.chapterConfigs = chapterConfigs; tp.version = 'v' + ((parseInt(String(tp.version).replace(/[^0-9]/g, ''), 10) || 0) + 1); tp.updatedAt = now; tp.updatedBy = AR_ROLES[arState.role]; }
+      if (tp) { tp.name = name; tp.type = type; tp.cycle = cycle; tp.volume = volume; tp.desc = desc; tp.enabled = enabled; tp.isDefault = isDefault; tp.chapters = chs; tp.chapterConfigs = chapterConfigs; tp.version = 'v' + ((parseInt(String(tp.version).replace(/[^0-9]/g, ''), 10) || 0) + 1); tp.updatedAt = now; tp.updatedBy = "省级上报岗"; }
     } else {
-      templates.unshift({ id: 'TPL-' + Date.now(), name: name, type: type, cycle: cycle, volume: volume, desc: desc, enabled: enabled, isDefault: isDefault, version: 'v1', updatedAt: now, updatedBy: AR_ROLES[arState.role], chapters: chs, chapterConfigs: chapterConfigs });
+      templates.unshift({ id: 'TPL-' + Date.now(), name: name, type: type, cycle: cycle, volume: volume, desc: desc, enabled: enabled, isDefault: isDefault, version: 'v1', updatedAt: now, updatedBy: "省级上报岗", chapters: chs, chapterConfigs: chapterConfigs });
     }
     persist(); arState.tplView = 'list'; arState.tplEditingId = null; renderPage('ar-templates'); toast('模板已保存');
   };
   window.arDuplicateTemplate = function (id) {
     var tp = tplById(id); if (!tp) return;
     var now = nowStr();
-    templates.unshift({ id: 'TPL-' + Date.now(), name: tp.name + '（副本）', type: tp.type, cycle: tp.cycle, volume: tp.volume, desc: tp.desc, enabled: true, isDefault: false, version: 'v1', updatedAt: now, updatedBy: AR_ROLES[arState.role], chapters: tp.chapters.slice(), chapterConfigs: cloneTemplateValue(templateChapterConfigs(tp)), chapterTemplates: cloneTemplateValue(tp.chapterTemplates || {}) });
+    templates.unshift({ id: 'TPL-' + Date.now(), name: tp.name + '（副本）', type: tp.type, cycle: tp.cycle, volume: tp.volume, desc: tp.desc, enabled: true, isDefault: false, version: 'v1', updatedAt: now, updatedBy: "省级上报岗", chapters: tp.chapters.slice(), chapterConfigs: cloneTemplateValue(templateChapterConfigs(tp)), chapterTemplates: cloneTemplateValue(tp.chapterTemplates || {}) });
     persist(); renderPage('ar-templates'); toast('已复制模板');
   };
   window.arSetDefaultTemplate = function (id) {
@@ -1760,7 +1744,7 @@
   };
   window.arToggleTemplate = function (id) {
     var tp = tplById(id); if (!tp) return;
-    tp.enabled = !tp.enabled; tp.updatedAt = nowStr(); tp.updatedBy = AR_ROLES[arState.role];
+    tp.enabled = !tp.enabled; tp.updatedAt = nowStr(); tp.updatedBy = "省级上报岗";
     persist(); renderPage('ar-templates'); toast(tp.enabled ? '模板已启用' : '模板已停用');
   };
   window.arDeleteTemplate = function (id) {

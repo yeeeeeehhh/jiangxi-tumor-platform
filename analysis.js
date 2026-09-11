@@ -34,6 +34,7 @@
     chartsCollapsed: false,
     highlight: '',
     onlyAbnormal: false,
+    abnormalSite: null,
     qualityTab: 'process',
     crossTpl: 'site_sex',
     crossRow: 'ICD',
@@ -87,6 +88,16 @@
     deathMatchMin: 70,
     icdConsistMin: 95,
     followCompleteMin: 80
+  };
+  /* 各部位粗率相对近三年均值的偏离幅度（mock）：正值=高于基线，负值=低于基线；null=不参与率值预警 */
+  var RATE_DEV = {
+    'C50 乳腺': { inc: 0.23, mor: 0.08 },
+    'C34 肺': { inc: 0.06, mor: 0.31 },
+    'C16 胃': { inc: -0.02, mor: -0.27 },
+    'C18 结肠': { inc: 0.28, mor: 0.11 },
+    'C22 肝': { inc: -0.31, mor: -0.19 },
+    'C80 原发部位不明': null,
+    '全癌种合计': { inc: 0.12, mor: 0.09 }
   };
   var AGE_LABELS = [
     '0-4岁', '5-9岁', '10-14岁', '15-19岁', '20-24岁', '25-29岁',
@@ -284,6 +295,20 @@
       '.da-combo-val.accent{color:#b42335}',
       '.da-combo-tip{margin-top:8px;font-size:12px;color:#64748b}',
       '.da-empty{padding:48px 20px;text-align:center;color:#94a3b8;border:1px dashed #d0d5dd;border-radius:8px;background:#fff}',
+      '.da-mi{font-variant-numeric:tabular-nums}',
+      '.da-mi-watch{color:#b45309;font-weight:700}',
+      '.da-mi-bad{color:#b42335;font-weight:700}',
+      '.da-dim{color:#cbd5e1}',
+      '.da-table-wrap tr.da-row-abn td{background:#fdecef!important}',
+      '.da-table-wrap tr.da-row-watch td{background:#fff7e6!important}',
+      '.da-table-wrap th.da-abn-col{text-align:left;padding-left:12px;white-space:nowrap}',
+      '.da-table-wrap td.da-abn-col{text-align:left;padding-left:10px;white-space:nowrap}',
+      '.da-table-wrap td.da-abn-col .da-abn-flag{margin-left:0}',
+      '.da-abn-flag{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:#fde7ea;color:#b42335;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}',
+      '.da-abn-go{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:4px;border:1px solid #f0b8c0;background:#fff;color:#b42335;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap}',
+      '.da-abn-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}',
+      '.da-abn-k{font-size:11px;color:#64748b;margin-bottom:2px}',
+      '.da-abn-v{font-size:13px;color:#1e293b;font-weight:600;line-height:1.5}',
       '.da-modal{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}',
       '.da-modal-box{background:#fff;border-radius:10px;width:min(720px,100%);max-height:90vh;overflow:auto;box-shadow:0 16px 40px rgba(15,23,42,.25)}',
       '.da-modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border)}',
@@ -428,8 +453,11 @@
     return '<div class="da-filter">' + diseasePicker() +
       selectField('行政区划', 'region', ['江西省', '南昌市', '赣州市', '九江市']) +
       agePicker() +
-      selectField('统计指标', 'cellMetric', ['发病数', '发病率', '死亡数', '死亡率']) +
+      selectField('统计指标', 'cellMetric', ['发病数', '发病率', '死亡数', '死亡率', '死亡发病比(M/I)']) +
       selectField('日期类型', 'dateType', ['确诊日期', '上报日期', '死亡日期']) +
+      ((state.cellMetric === '死亡发病比(M/I)' || state.cellMetric === '发病率' || state.cellMetric === '死亡率')
+        ? '<div class="form-group"><label>异常筛选</label><select onchange="DA.set(\'onlyAbnormal\',this.value)"><option value="false"' + (state.onlyAbnormal ? '' : ' selected') + '>全部部位</option><option value="true"' + (state.onlyAbnormal ? ' selected' : '') + '>只看异常</option></select></div>'
+        : '') +
       commonFields({ omitRegion: true }) + actions() + '</div>';
   }
 
@@ -778,6 +806,7 @@
     if (kind === '死亡数') return slice.death;
     if (kind === '发病率') return +crudeRate(slice.inc, slice.pop).toFixed(2);
     if (kind === '死亡率') return +crudeRate(slice.death, slice.pop).toFixed(2);
+    if (kind === '死亡发病比(M/I)') return slice.inc ? +(slice.death / slice.inc).toFixed(2) : 0;
     return 0;
   }
 
@@ -795,6 +824,49 @@
 
   function isRateMetric(kind) {
     return kind === '发病率' || kind === '死亡率';
+  }
+
+  /* ===== 统计页异常判定复用、染色与工单联动（依赖预警模块导出的 miJudge / devJudge / createStatsWarning） ===== */
+  function statsPeriod() { return String(state.dateStart || '2026').slice(0, 4); }
+  function metricRuleId() {
+    if (state.cellMetric === '死亡发病比(M/I)') return 'B-MI-RATIO';
+    if (state.cellMetric === '发病率') return 'C-INC-RATE-DEV';
+    if (state.cellMetric === '死亡率') return 'C-MOR-RATE-DEV';
+    return null;
+  }
+  function judgeOf(site, slice) {
+    if (state.cellMetric === '死亡发病比(M/I)') {
+      return (typeof miJudge === 'function' && slice.inc) ? miJudge(site.name, slice.inc, slice.death) : null;
+    }
+    if (state.cellMetric === '发病率' || state.cellMetric === '死亡率') {
+      var rule = (typeof findRule === 'function') ? findRule(metricRuleId()) : null;
+      if (typeof devJudge !== 'function' || !rule) return null;
+      var isInc = state.cellMetric === '发病率';
+      var dev = (RATE_DEV[site.name] || {})[isInc ? 'inc' : 'mor'];
+      if (dev == null || 1 + dev <= 0) return null;
+      var n = isInc ? slice.inc : slice.death;
+      if (!n || n < rule.minSampleSize) return null;
+      var cur = crudeRate(n, slice.pop);
+      return devJudge(metricRuleId(), site.name, state.cellMetric, cur, cur / (1 + dev));
+    }
+    return null;
+  }
+  function toneWrap(judge, inner) {
+    var tone = judge && judge.band === 'abnormal' ? ' da-mi-bad' : judge && judge.band === 'watch' ? ' da-mi-watch' : '';
+    return tone ? '<span class="da-mi' + tone + '">' + inner + '</span>' : inner;
+  }
+  function miCellHtml(judge, inc, death) {
+    var v = inc ? death / inc : NaN;
+    return toneWrap(judge, fmtRate(v, 2));
+  }
+  function miDedupeKey(name) { return [metricRuleId() || 'B-MI-RATIO', state.region + '|' + name, statsPeriod()].join('|'); }
+  function miTicketOf(name) {
+    if (typeof warnings === 'undefined' || !warnings) return null;
+    var w = null;
+    for (var i = 0; i < warnings.length; i++) if (warnings[i].dedupeKey === miDedupeKey(name)) { w = warnings[i]; break; }
+    if (!w) return null;
+    var t = typeof findTicketByWarning === 'function' ? findTicketByWarning(w.id) : null;
+    return t ? { warning: w, ticket: t } : null;
   }
 
   function renderBurden() {
@@ -815,6 +887,13 @@
     var eventKind = rateKindOf(state.cellMetric);
     var isDeath = eventKind === '死亡';
     var showRate = isRateMetric(state.cellMetric);
+    var isMI = state.cellMetric === '死亡发病比(M/I)';
+    var miRule = (typeof findRule === 'function') ? findRule('B-MI-RATIO') : null;
+    var miMinSample = miRule ? miRule.minSampleSize : 20;
+    var isRate = isRateMetric(state.cellMetric);
+    var isJudged = isMI || isRate;
+    var rateRuleId = state.cellMetric === '发病率' ? 'C-INC-RATE-DEV' : (state.cellMetric === '死亡率' ? 'C-MOR-RATE-DEV' : null);
+    var rateRule = (isRate && typeof findRule === 'function') ? findRule(rateRuleId) : null;
     var countLabel = isDeath ? '死亡数' : '发病数';
     var crudeLabel = isDeath ? '粗死亡率' : '粗发病率';
     var cnLabel = isDeath ? '中标死亡率' : '中标发病率';
@@ -831,6 +910,11 @@
     var slices = sites.map(function (site) {
       return { site: site, slice: siteSliceAges(site, ageIdxs) };
     });
+    if (isJudged) {
+      slices.forEach(function (x) { x.judge = judgeOf(x.site, x.slice); });
+      if (state.onlyAbnormal) slices = slices.filter(function (x) { return x.judge && x.judge.band === 'abnormal'; });
+      if (!slices.length) return burdenFilter() + emptyResult('当前条件下无触发异常监测规则的部位');
+    }
 
     function siteGetSlice(site) {
       return function (i) { return siteSlice(site, i); };
@@ -855,6 +939,11 @@
     function ageCells(getSlice) {
       return ageIdxs.map(function (i) {
         var sl = getSlice(i);
+        if (isMI) {
+          return '<td class="num">' + (sl.inc >= miMinSample
+            ? miCellHtml(null, sl.inc, sl.death)
+            : '<span class="da-dim">—</span>') + '</td>';
+        }
         var n = isDeath ? sl.death : sl.inc;
         return '<td class="num">' + (showRate ? rate(n, sl.pop) : num(n)) + '</td>';
       }).join('');
@@ -863,43 +952,77 @@
     function resultTable() {
       var rows = slices.map(function (x) {
         var b = rateBundle(siteGetSlice(x.site), eventKind);
-        var hl = state.highlight === x.site.name ? ' class="row-hl row-click"' : ' class="row-click"';
+        var cls = 'row-click';
+        if (x.judge) {
+          if (x.judge.band === 'abnormal') cls += ' da-row-abn';
+          else if (x.judge.band === 'watch') cls += ' da-row-watch';
+        }
+        if (state.highlight === x.site.name) cls += ' row-hl';
+        var hl = ' class="' + cls + '"';
+        var siteCell = '<td class="sticky">' + x.site.name + '</td>';
         var mid;
-        if (showRate) {
+        if (isMI) {
+          mid = '<td class="num sticky-inc">' + miCellHtml(x.judge, x.slice.inc, x.slice.death) + '</td>';
+        } else if (showRate) {
+          var crudeWrap = x.judge ? toneWrap(x.judge, rateHtml(b.crude)) : rateHtml(b.crude);
           mid = isAllAges()
-            ? ('<td class="num sticky-inc">' + rateHtml(b.crude) +
+            ? ('<td class="num sticky-inc">' + crudeWrap +
               '</td><td class="num">' + rateHtml(b.cn) +
               '</td><td class="num">' + rateHtml(b.world) +
               '</td><td class="num">' + fmtRate(b.cum) + '%</td>')
-            : ('<td class="num sticky-inc">' + rateHtml(b.crude) + '</td>');
+            : ('<td class="num sticky-inc">' + crudeWrap + '</td>');
         } else {
           mid = '<td class="num sticky-inc">' + num(b.count) + '</td>';
         }
-        return '<tr' + hl + ' onclick="DA.highlight(\'' + esc(x.site.name) + '\')"><td class="sticky">' + x.site.name +
-          '</td>' + mid + ageCells(siteGetSlice(x.site)) + '</tr>';
+        var abnCell = isJudged
+          ? ('<td class="da-abn-col">' + (x.judge && x.judge.band === 'abnormal'
+              ? '<span class="da-abn-flag" onclick="event.stopPropagation();DA.showAbnormal(\'' + esc(x.site.name) + '\')">⚠ 触发规则</span>' +
+                '<button type="button" class="da-abn-go" onclick="event.stopPropagation();DA.miTicket(\'' + esc(x.site.name) + '\')">' + (miTicketOf(x.site.name) ? '查看工单' : '生成工单') + '</button>'
+              : '') + '</td>')
+          : '';
+        return '<tr' + hl + ' onclick="DA.highlight(\'' + esc(x.site.name) + '\')">' + siteCell +
+          mid + abnCell + ageCells(siteGetSlice(x.site)) + '</tr>';
       }).join('');
 
       var pooled = rateBundle(pooledGetSlice(), eventKind);
       var headMid;
       var totalMid;
-      if (showRate) {
+      if (isMI) {
+        headMid = '<th class="num sticky-inc">死亡发病比(M/I)</th>';
+        var ps = { inc: 0, death: 0 };
+        slices.forEach(function (x) { ps.inc += x.slice.inc; ps.death += x.slice.death; });
+        var pj = (typeof miJudge === 'function' && ps.inc >= miMinSample) ? miJudge('全癌种合计', ps.inc, ps.death) : null;
+        totalMid = '<td class="num sticky-inc">' + miCellHtml(pj, ps.inc, ps.death) + '</td>';
+      } else if (showRate) {
         headMid = isAllAges()
           ? ('<th class="num sticky-inc">' + crudeLabel + '</th><th class="num">' + cnLabel +
             '</th><th class="num">' + worldLabel + '</th><th class="num">' + cumLabel + '</th>')
           : ('<th class="num sticky-inc">' + crudeLabel + '(/10万)</th>');
+        var tps = { inc: 0, death: 0 };
+        slices.forEach(function (x) { tps.inc += x.slice.inc; tps.death += x.slice.death; });
+        var trj = null;
+        if (rateRule) {
+          var tIsInc = state.cellMetric === '发病率';
+          var tDev = (RATE_DEV['全癌种合计'] || {})[tIsInc ? 'inc' : 'mor'];
+          var tN = tIsInc ? tps.inc : tps.death;
+          if (tDev != null && tN >= rateRule.minSampleSize && typeof devJudge === 'function') {
+            trj = devJudge(metricRuleId(), '全癌种合计', state.cellMetric, pooled.crude, pooled.crude / (1 + tDev));
+          }
+        }
+        var tWrap = trj ? toneWrap(trj, rateHtml(pooled.crude)) : rateHtml(pooled.crude);
         totalMid = isAllAges()
-          ? ('<td class="num sticky-inc">' + rateHtml(pooled.crude) + '</td><td class="num">' + rateHtml(pooled.cn) +
+          ? ('<td class="num sticky-inc">' + tWrap + '</td><td class="num">' + rateHtml(pooled.cn) +
             '</td><td class="num">' + rateHtml(pooled.world) + '</td><td class="num">' + fmtRate(pooled.cum) + '%</td>')
-          : ('<td class="num sticky-inc">' + rateHtml(pooled.crude) + '</td>');
+          : ('<td class="num sticky-inc">' + tWrap + '</td>');
       } else {
         headMid = '<th class="num sticky-inc">' + countLabel + '</th>';
         totalMid = '<td class="num sticky-inc">' + num(pooled.count) + '</td>';
       }
 
       return '<div class="da-table-wrap"><table class="data-table"><thead><tr>' +
-        '<th class="sticky">ICD 部位</th>' + headMid + ageHead() +
+        '<th class="sticky">ICD 部位</th>' + headMid + (isJudged ? '<th class="da-abn-col">异常处置</th>' : '') + ageHead() +
         '</tr></thead><tbody>' + rows +
-        '<tr class="total"><td class="sticky">合计</td>' + totalMid + ageCells(pooledGetSlice()) +
+        '<tr class="total"><td class="sticky">合计</td>' + totalMid + (isJudged ? '<td class="da-abn-col"></td>' : '') + ageCells(pooledGetSlice()) +
         '</tr></tbody></table></div>';
     }
 
@@ -914,7 +1037,7 @@
           return metricValue(siteSlice(x.site, i), kind);
         });
       });
-      var isRate = isRateMetric(kind);
+      var isRate = isRateMetric(kind) || kind === '死亡发病比(M/I)';
       var siteBars = slices.map(function (x) {
         return { name: x.site.name, value: metricValue(x.slice, kind) };
       }).sort(function (a, b) { return b.value - a.value; });
@@ -1241,6 +1364,32 @@
           '<p style="color:#64748b;line-height:1.7">（原型预览）此处展示 PDF 首页缩略内容。正式环境将嵌入 PDF 阅读器并记录查看审计。</p></div></div>' +
           '<div class="da-modal-actions"><button class="btn btn-outline btn-sm" onclick="DA.downloadFile(' + file.id + ')">下载</button>' +
           '<button class="btn btn-primary btn-sm" onclick="DA.closePreview()">完成</button></div></div></div>';
+      }
+    }
+    if (state.abnormalSite) {
+      var abS = scaleSites().filter(function (x) { return x.name === state.abnormalSite; })[0];
+      var abJ = abS ? judgeOf(abS, siteSliceAges(abS, selectedAgeIndices())) : null;
+      if (abJ) {
+        var abLinked = miTicketOf(state.abnormalSite);
+        var abMetric = abJ.kind === 'rate'
+          ? '<div><div class="da-abn-k">本口径' + htmlEsc(abJ.metricLabel) + '</div><div class="da-abn-v"><span class="da-mi-bad">' + fmtRate(abJ.current, 1) + ' /10万</span>（三年基线 ' + fmtRate(abJ.baseline, 1) + ' /10万）</div></div>' +
+            '<div><div class="da-abn-k">阈值口径</div><div class="da-abn-v">偏离近三年基线 ±' + abJ.tol + '%</div></div>'
+          : '<div><div class="da-abn-k">本口径 M/I</div><div class="da-abn-v"><span class="da-mi-bad">' + fmtRate(abJ.mi, 2) + '</span>（死亡 ' + num(abJ.death) + ' / 发病 ' + num(abJ.inc) + '）</div></div>' +
+            '<div><div class="da-abn-k">参考区间</div><div class="da-abn-v">' + fmtRate(abJ.ref.low, 2) + ' ~ ' + fmtRate(abJ.ref.high, 2) + '（容差 ' + (abJ.tol * 100) + '%）</div></div>';
+        html += '<div class="da-modal" onclick="DA.closeModal(event)">' +
+          '<div class="da-modal-box" onclick="event.stopPropagation()">' +
+          '<div class="da-modal-head"><h4>' + (abJ.kind === 'rate' ? htmlEsc(abJ.metricLabel) + '异常' : 'M/I 异常') + ' · ' + htmlEsc(state.abnormalSite) + '</h4><button class="btn btn-ghost btn-xs" onclick="DA.closeAbnormal()">关闭</button></div>' +
+          '<div class="da-modal-body"><div class="da-abn-grid">' +
+          '<div><div class="da-abn-k">触发规则</div><div class="da-abn-v">' + htmlEsc(abJ.ruleId + ' · ' + abJ.ruleName) + '</div></div>' +
+          '<div><div class="da-abn-k">预警级别</div><div class="da-abn-v">' + htmlEsc(abJ.severityLabel) + '</div></div>' +
+          abMetric +
+          '<div><div class="da-abn-k">偏差</div><div class="da-abn-v">' + (abJ.dev ? htmlEsc(abJ.dev.dir) + ' ' + (abJ.kind === 'rate' ? fmtRate(abJ.dev.abs, 1) + '/10万' : fmtRate(abJ.dev.abs, 2)) + '（' + fmtRate(abJ.dev.pct, 1) + '%）' : '—') + '</div></div>' +
+          '<div><div class="da-abn-k">方向提示</div><div class="da-abn-v">' + htmlEsc(abJ.hint) + '</div></div>' +
+          '<div><div class="da-abn-k">统计口径</div><div class="da-abn-v">' + htmlEsc(state.region + ' · ' + statsPeriod() + '年 · ' + ageFilterLabel()) + '</div></div>' +
+          '<div><div class="da-abn-k">判定依据</div><div class="da-abn-v" style="font-weight:400;font-size:12px;line-height:1.6">' + htmlEsc(abJ.basis) + '</div></div>' +
+          '</div></div>' +
+          '<div class="da-modal-actions"><button class="btn btn-ghost btn-sm" onclick="DA.closeAbnormal()">关闭</button>' +
+          '<button class="btn btn-primary btn-sm" onclick="DA.miTicket(\'' + esc(state.abnormalSite) + '\')">' + (abLinked ? '查看工单' : '生成工单') + '</button></div></div></div>';
       }
     }
     if (state.uploadOpen) {
@@ -1617,6 +1766,39 @@
         refresh();
         toast('已批量删除 ' + ids.length + ' 个报表，审计记录已保留');
       });
+    },
+    showAbnormal: function (name) { state.abnormalSite = name; refresh(); },
+    closeAbnormal: function () { state.abnormalSite = null; refresh(); },
+    miTicket: function (name) {
+      var s = scaleSites().filter(function (x) { return x.name === name; })[0];
+      if (!s) { if (typeof toast === 'function') toast('未找到该部位的当前统计结果', 'error'); return; }
+      if (typeof createStatsWarning !== 'function') { if (typeof toast === 'function') toast('预警模块未加载，无法生成工单', 'error'); return; }
+      var slice = siteSliceAges(s, selectedAgeIndices());
+      var j = judgeOf(s, slice);
+      if (!j || j.band !== 'abnormal') { if (typeof toast === 'function') toast('该部位未触发异常规则，无需生成工单', 'error'); return; }
+      var period = statsPeriod();
+      var isRateJ = j.kind === 'rate';
+      var res = createStatsWarning(j.ruleId, {
+        targetType: isRateJ ? 'REGION_CANCER' : 'REGISTRY_CANCER', targetId: state.region + '|' + s.name,
+        targetLabel: period + '年 ' + state.region + ' ' + s.name + (isRateJ ? ' ' + j.metricLabel + ' ' + fmtRate(j.current, 1) + '/10万 偏离基线' + fmtRate(j.dev.pct, 1) + '%' : ' M/I ' + fmtRate(j.mi, 2)) + '（统计分析联动）', period,
+        metricValue: isRateJ ? j.dev.pct : j.mi, metricLabel: isRateJ ? (j.metricLabel + ' ' + fmtRate(j.current, 1) + '/10万（' + j.dev.dir + fmtRate(j.dev.pct, 1) + '%）') : ('M/I ' + fmtRate(j.mi, 2)), severity: j.severity,
+        thresholdSnapshot: isRateJ ? ('偏离近三年基线 ±' + j.tol + '%') : ('参考区间 ' + fmtRate(j.ref.low, 2) + '~' + fmtRate(j.ref.high, 2) + '（容差' + (j.tol * 100) + '%）'),
+        snapshot: Object.assign({ 统计口径: state.region + ' · ' + period + '年 · ' + ageFilterLabel(), 部位: s.name, 提示: j.hint, 来源: '统计分析页联动生成' },
+          isRateJ
+            ? { 指标: j.metricLabel, 当前值: fmtRate(j.current, 1) + ' /10万', 三年基线: fmtRate(j.baseline, 1) + ' /10万', 偏离: j.dev.dir + ' ' + fmtRate(j.dev.pct, 1) + '%', 触发线: '偏离近三年基线 ±' + j.tol + '%' }
+            : { 'M/I 比': fmtRate(j.mi, 2), 参考区间: fmtRate(j.ref.low, 2) + ' ~ ' + fmtRate(j.ref.high, 2), 判定容差: (j.tol * 100) + '%', 偏差: j.dev.dir + ' ' + fmtRate(j.dev.abs, 2) + '（' + fmtRate(j.dev.pct, 1) + '%）', 死亡例数: slice.death + '例', 发病例数: slice.inc + '例' }),
+        evidence: [
+          { label: '指标依据', value: j.basis },
+          { label: isRateJ ? '当前/基线' : '死亡/发病', value: isRateJ ? (fmtRate(j.current, 1) + ' / ' + fmtRate(j.baseline, 1) + ' /10万') : (slice.death + ' / ' + slice.inc + ' 例') },
+          { label: '方向提示', value: j.hint },
+          { label: '触发来源', value: '统计分析 · ' + period + '年 ' + state.region + '（' + ageFilterLabel() + '）' }
+        ]
+      });
+      if (!res) { if (typeof toast === 'function') toast('生成工单失败，请稍后重试', 'error'); return; }
+      state.abnormalSite = null;
+      if (typeof toast === 'function') toast(res.created ? '已按规则生成预警与工单 ' + (res.ticket ? res.ticket.id : '') : '该部位已存在工单，正在打开');
+      if (typeof waNavigate === 'function') waNavigate('warning-tickets');
+      if (res.ticket && typeof showTicketDetail === 'function') showTicketDetail(res.ticket.id);
     },
     isPage: function (id) { return id === 'analysis' || id === 'report-files' || (id && id.indexOf('analysis-') === 0); },
     render: render,

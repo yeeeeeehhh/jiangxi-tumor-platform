@@ -1,11 +1,11 @@
 /**
  * 国家肿瘤数据上报（国家癌症中心 NCCR 上报闭环）
  * 一级导航：国家肿瘤数据上报 → 数据预览 / 上报记录 / 上报列表
- * 实现：结构化重写（数据层 nccrData 与渲染分离 + 逐交互 loading/空态/错误态 + 权限门控 + 隐私脱敏）
+ * 实现：结构化重写（数据层 nccrData 与渲染分离 + 逐交互 loading/空态/错误态 + 隐私脱敏）
  * 依据 docs/国家肿瘤数据上报_模块细化设计.md（PRD 收敛版）与 docs/国家肿瘤数据上报_交互实现规划.md
  *
  * 一期范围：Level 0–3 全部交互 + 系统配置 + 横切规范。
- * 后置（不做）：M2 排名 / M3 趋势 / M9 真实 API / M15 真实 RBAC（本期为角色常量模拟）。
+ * 后置（不做）：M2 排名 / M3 趋势 / M9 真实 API。
  * 数据说明：nccrData 内为【原型演示数据】，真实接入仅替换 nccrData 取数实现，UI 不动。
  */
 (function () {
@@ -36,8 +36,6 @@
     '.nccr-spinner{width:18px;height:18px;border:2px solid #cbd5e1;border-top-color:#185fa5;border-radius:50%;animation:nccrSpin .7s linear infinite;margin-right:8px}' +
     '@keyframes nccrSpin{to{transform:rotate(360deg)}}' +
     '.btn.is-loading{opacity:.65;pointer-events:none}' +
-    '.nccr-role-switch{display:inline-flex;align-items:center;gap:6px;margin-left:auto}' +
-    '.nccr-role-switch select{height:30px;font-size:13px}' +
     '.nccr-frozen-tag{display:inline-block;font-size:12px;color:#b42318;font-weight:600;margin-left:8px}' +
     '.nccr-mask{filter:blur(4px);user-select:none}' +
     '.nccr-detail-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 18px;margin-bottom:14px;font-size:13px}' +
@@ -181,21 +179,6 @@
     recordFilters: { year: '', receipt: '', keyword: '' },
     form: { year: '2024', registry: '360100001', packages: ['A', 'B', 'C', 'D'], transport: 'file', remark: '' }
   };
-
-  var ROLES = { province_reporter: '省级上报岗', province_reviewer: '省级审核岗', registry: '登记处操作员', admin: '系统管理员' };
-  var ROLE_PERMS = {
-    province_reporter: ['create', 'gate', 'forcepass', 'deliver', 'receipt', 'clone', 'void', 'config'],
-    province_reviewer: ['view', 'receipt', 'forcepass'],
-    registry: ['view'],
-    admin: ['create', 'gate', 'forcepass', 'deliver', 'receipt', 'clone', 'void', 'config']
-  };
-  var nccrCurrentRole = 'province_reporter';
-  function nccrCan(action) { var p = ROLE_PERMS[nccrCurrentRole] || ['view']; return p.indexOf(action) >= 0; }
-  function nccrRoleLabel() { return ROLES[nccrCurrentRole] || nccrCurrentRole; }
-  function nccrRoleSwitchHtml() {
-    var opts = Object.keys(ROLES).map(function (k) { return '<option value="' + k + '"' + (k === nccrCurrentRole ? ' selected' : '') + '>' + ROLES[k] + '</option>'; }).join('');
-    return '<div class="nccr-role-switch"><span class="nccr-hint">当前角色</span><select onchange="nccrSetRole(this.value)">' + opts + '</select></div>';
-  }
 
   /* ===================== 6. 展示辅助 ===================== */
   function packageLabel(codes) {
@@ -411,7 +394,7 @@
 
   /* ===================== 10. 页面渲染 ===================== */
   function nccrToolbar(actionsHtml) {
-    return '<div class="page-toolbar"><div class="toolbar-actions">' + (actionsHtml || '') + '</div>' + nccrRoleSwitchHtml() + '</div>';
+    return '<div class="page-toolbar"><div class="toolbar-actions">' + (actionsHtml || '') + '</div></div>';
   }
 
   function filteredBatches() {
@@ -465,8 +448,8 @@
 
     var f = nccrState.filters;
     return nccrToolbar(
-      (nccrCan('create') ? '<button class="btn btn-outline btn-sm" onclick="nccrDownloadTemplate()">下载空白模板</button>' : '') +
-      (nccrCan('create') ? '<button class="btn btn-primary btn-sm" onclick="nccrNew()">+ 新建上报</button>' : '')
+      '<button class="btn btn-outline btn-sm" onclick="nccrDownloadTemplate()">下载空白模板</button>' +
+      '<button class="btn btn-primary btn-sm" onclick="nccrNew()">+ 新建上报</button>'
     ) +
       '<div class="panel"><div class="panel-header">上报列表</div><div class="panel-body">' +
       '<div class="filter-toolbar">' +
@@ -487,7 +470,7 @@
   function renderListRowOps(b) {
     var primary = listPrimaryAction(b);
     var html = '<div class="nccr-row-ops"><button class="btn btn-ghost btn-xs" onclick="nccrOpenDetail(\'' + b.id + '\')">详情</button>';
-    if (primary && nccrCan(primary.perm)) {
+    if (primary) {
       html += '<button class="btn ' + primary.cls + ' btn-xs" onclick="' + primary.fn + '(\'' + b.id + '\')">' + primary.label + '</button>';
     }
     html += '</div>';
@@ -495,12 +478,12 @@
   }
 
   function listPrimaryAction(b) {
-    if (b.status === '草稿' || (b.status === '待投递' && (!b.gate || b.gate === 'block'))) return { cls: 'btn-outline', fn: 'nccrRunGate', label: '质控', perm: 'gate' };
-    if (b.status === '待投递' && b.gate === 'warn' && !b.forcePassBy) return { cls: 'btn-warning', fn: 'nccrForcePass', label: '确认风险', perm: 'forcepass' };
-    if (b.status === '待投递' && canDeliver(b)) return { cls: 'btn-primary', fn: 'nccrDeliver', label: '上报', perm: 'deliver' };
-    if (b.status === '已投递') return { cls: 'btn-primary', fn: 'nccrReceipt', label: '登记回执', perm: 'receipt' };
-    if (b.status === '已退回') return { cls: 'btn-outline', fn: 'nccrClone', label: '以此新建', perm: 'clone' };
-    if (b.status === '已回执归档' && (b.fileName || b.exportedAt)) return { cls: 'btn-outline', fn: 'nccrDownload', label: '下载', perm: 'view' };
+    if (b.status === '草稿' || (b.status === '待投递' && (!b.gate || b.gate === 'block'))) return { cls: 'btn-outline', fn: 'nccrRunGate', label: '质控' };
+    if (b.status === '待投递' && b.gate === 'warn' && !b.forcePassBy) return { cls: 'btn-warning', fn: 'nccrForcePass', label: '确认风险' };
+    if (b.status === '待投递' && canDeliver(b)) return { cls: 'btn-primary', fn: 'nccrDeliver', label: '上报' };
+    if (b.status === '已投递') return { cls: 'btn-primary', fn: 'nccrReceipt', label: '登记回执' };
+    if (b.status === '已退回') return { cls: 'btn-outline', fn: 'nccrClone', label: '以此新建' };
+    if (b.status === '已回执归档' && (b.fileName || b.exportedAt)) return { cls: 'btn-outline', fn: 'nccrDownload', label: '下载' };
     return null;
   }
 
@@ -568,12 +551,12 @@
         '<td class="' + toneClass(metricTone('ou', r.ou)) + '">' + r.ou.toFixed(1) + '%</td>' +
         '<td>' + (r.popOk ? '齐全' : '缺') + '</td>' +
         '<td>' + levelLabel(lv) + '</td>' +
-        '<td class="sticky-col">' + (nccrCan('create') ? '<button class="btn btn-primary btn-xs" onclick="nccrGoListForRegistry(\'' + r.code + '\',\'' + r.year + '\')">去组批上报</button>' : '<span class="nccr-hint">只读</span>') + '</td>' +
+        '<td class="sticky-col">' + '<button class="btn btn-primary btn-xs" onclick="nccrGoListForRegistry(\'' + r.code + '\',\'' + r.year + '\')">去组批上报</button>' + '</td>' +
         '</tr>';
     }).join('') || '<tr><td colspan="11">' + emptyState('该筛选条件下暂无数据') + '</td></tr>';
 
     return nccrToolbar(
-      (nccrCan('create') ? '<button class="btn btn-primary btn-sm" onclick="nccrState.filters.year=nccrState.previewYear||\'2024\';nccrNew()">+ 新建上报</button>' : '')
+      '<button class="btn btn-primary btn-sm" onclick="nccrState.filters.year=nccrState.previewYear||\'2024\';nccrNew()">+ 新建上报</button>'
     ) +
       '<div class="panel"><div class="panel-header">数据预览</div><div class="panel-body">' +
       '<div class="filter-toolbar">' +
@@ -596,8 +579,8 @@
     var rows = list.map(function (b) {
       var ops = ['<button class="btn btn-ghost btn-xs" onclick="nccrOpenDetail(\'' + b.id + '\')">详情</button>'];
       if (b.fileName || b.status === '已投递' || b.status === '已回执归档') ops.push('<button class="btn btn-ghost btn-xs" onclick="nccrDownload(\'' + b.id + '\')">下载</button>');
-      if (b.status === '已投递' && nccrCan('receipt')) ops.push('<button class="btn btn-primary btn-xs" onclick="nccrReceipt(\'' + b.id + '\')">登记回执</button>');
-      if (b.status === '已退回' && nccrCan('clone')) ops.push('<button class="btn btn-outline btn-xs" onclick="nccrClone(\'' + b.id + '\')">以此新建</button>');
+      if (b.status === '已投递') ops.push('<button class="btn btn-primary btn-xs" onclick="nccrReceipt(\'' + b.id + '\')">登记回执</button>');
+      if (b.status === '已退回') ops.push('<button class="btn btn-outline btn-xs" onclick="nccrClone(\'' + b.id + '\')">以此新建</button>');
       return '<tr>' +
         '<td><a href="javascript:void(0)" style="color:var(--primary)" onclick="nccrOpenDetail(\'' + b.id + '\')">' + e(b.id) + '</a></td>' +
         '<td>' + b.year + '</td><td>' + e(b.registryName) + '</td><td>' + e(packageLabel(b.packages)) + '</td>' +
@@ -606,10 +589,10 @@
         '<td>' + e(receiptMap[b.receiptStatus] || (b.status === '已投递' ? '待回执' : statusLabel(b.status))) + '</td>' +
         '<td>' + statusBadge(b.status) + '</td>' +
         '<td class="sticky-col">' + ops.join(' ') + '</td></tr>';
-    }).join('') || '<tr><td colspan="11">' + emptyState('暂无历史上报。完成后的批次会出现在这里。', nccrCan('create') ? '<button class="btn btn-primary btn-sm" onclick="nccrNew()">+ 新建上报</button>' : '') + '</td></tr>';
+    }).join('') || '<tr><td colspan="11">' + emptyState('暂无历史上报。完成后的批次会出现在这里。', '<button class="btn btn-primary btn-sm" onclick="nccrNew()">+ 新建上报</button>') + '</td></tr>';
 
     return nccrToolbar(
-      (nccrCan('create') ? '<button class="btn btn-primary btn-sm" onclick="nccrNew()">+ 新建上报</button>' : '')
+      '<button class="btn btn-primary btn-sm" onclick="nccrNew()">+ 新建上报</button>'
     ) +
       '<div class="panel"><div class="panel-header">上报记录</div><div class="panel-body">' +
       '<div class="filter-toolbar">' +
@@ -773,13 +756,13 @@
       '</div>';
 
     var actions = '<button class="btn btn-ghost btn-sm" onclick="nccrBackList()">← 返回</button>';
-    if ((b.status === '草稿' || b.status === '待投递') && nccrCan('gate')) actions += ' <button class="btn btn-outline btn-sm" onclick="nccrRunGate(\'' + b.id + '\')">质控</button>';
-    if (b.status === '待投递' && b.gate === 'warn' && !b.forcePassBy && nccrCan('forcepass')) actions += ' <button class="btn btn-warning btn-sm" onclick="nccrForcePass(\'' + b.id + '\')">确认风险</button>';
-    if (canDeliver(b) && b.status === '待投递' && nccrCan('deliver')) actions += ' <button class="btn btn-primary btn-sm" onclick="nccrDeliver(\'' + b.id + '\')">上报</button>';
-    if (b.status === '已投递' && nccrCan('receipt')) actions += ' <button class="btn btn-primary btn-sm" onclick="nccrReceipt(\'' + b.id + '\')">登记回执</button>';
+    if ((b.status === '草稿' || b.status === '待投递')) actions += ' <button class="btn btn-outline btn-sm" onclick="nccrRunGate(\'' + b.id + '\')">质控</button>';
+    if (b.status === '待投递' && b.gate === 'warn' && !b.forcePassBy) actions += ' <button class="btn btn-warning btn-sm" onclick="nccrForcePass(\'' + b.id + '\')">确认风险</button>';
+    if (canDeliver(b) && b.status === '待投递') actions += ' <button class="btn btn-primary btn-sm" onclick="nccrDeliver(\'' + b.id + '\')">上报</button>';
+    if (b.status === '已投递') actions += ' <button class="btn btn-primary btn-sm" onclick="nccrReceipt(\'' + b.id + '\')">登记回执</button>';
     if ((b.fileName || b.status === '已投递' || b.status === '已回执归档')) actions += ' <button class="btn btn-outline btn-sm" onclick="nccrDownload(\'' + b.id + '\')">下载</button>';
-    if (b.status === '草稿' && nccrCan('void')) actions += ' <button class="btn btn-danger btn-sm" onclick="nccrVoid(\'' + b.id + '\')">取消</button>';
-    if ((b.status === '已回执归档' || b.status === '已退回' || b.status === '已投递') && nccrCan('clone')) actions += ' <button class="btn btn-outline btn-sm" onclick="nccrClone(\'' + b.id + '\')">以此新建</button>';
+    if (b.status === '草稿') actions += ' <button class="btn btn-danger btn-sm" onclick="nccrVoid(\'' + b.id + '\')">取消</button>';
+    if ((b.status === '已回执归档' || b.status === '已退回' || b.status === '已投递')) actions += ' <button class="btn btn-outline btn-sm" onclick="nccrClone(\'' + b.id + '\')">以此新建</button>';
 
     var qualityBlock =
       '<div class="analysis-kpi-row">' +
@@ -815,7 +798,6 @@
   window.renderNationalReportPage = renderPageContent;
   window.nccrRefresh = nccrRefresh;
 
-  window.nccrSetRole = function (r) { nccrCurrentRole = r; toast('已切换为 ' + ROLES[r]); nccrRefresh(); };
 
   window.nccrGoListForRegistry = function (code, year) {
     nccrState.filters.year = String(year || '');
@@ -923,7 +905,6 @@
   };
 
   window.nccrSaveDraft = function (runGate) {
-    if (!nccrCan('create')) { toast('当前角色无新建权限', 'error'); return; }
     var year = document.getElementById('nccrYear').value;
     var registry = document.getElementById('nccrRegistry').value;
     var transport = document.getElementById('nccrTransport').value;
@@ -940,7 +921,7 @@
       packages: pkgs, templateVersion: TEMPLATE_VERSION, transport: transport,
       status: '草稿', gate: '', caseCount: metrics.incidence, metrics: metrics,
       caseErrors: [], fileName: '', fileHash: '', remoteRef: '', receiptNo: '', receiptStatus: '', receiptRemark: '',
-      createdBy: nccrRoleLabel(), createdAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+      createdBy: '省级上报岗', createdAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
       exportedAt: '', remark: remark, forcePassBy: '', forcePassReason: '', forcePassAt: '',
       frozen: false, individualCheck: null, popCheck: null, receiptAt: '', deliver: null
     };
@@ -954,7 +935,6 @@
     var b = nccrData.getBatch(id);
     if (!b) return;
     if (b.frozen) { toast('批次已冻结，不可再检查', 'error'); return; }
-    if (!nccrCan('gate')) { toast('当前角色无质控权限', 'error'); return; }
     b.status = '门禁中'; nccrRefresh();
     nccrSetLoading(true, '质量检查中…');
     setTimeout(function () {
@@ -985,7 +965,6 @@
     var b = nccrData.getBatch(id);
     if (!b || b.gate !== 'warn') return;
     if (b.frozen) { toast('批次已冻结，不可操作', 'error'); return; }
-    if (!nccrCan('forcepass')) { toast('当前角色无强制放行权限', 'error'); return; }
     var overlay = document.createElement('div');
     overlay.className = 'cd-overlay nccr-modal'; overlay.style.zIndex = '10000';
     overlay.innerHTML = '<div class="cd-dialog" style="max-width:520px"><div class="cd-header"><span>确认风险并放行</span><span class="cd-close" onclick="this.closest(\'.cd-overlay\').remove()">×</span></div>' +
@@ -1000,7 +979,7 @@
       var reason = document.getElementById('nccrFpReason').value.trim();
       var err = document.getElementById('nccrFpErr');
       if (!reason) { err.style.display = 'block'; return; }
-      b.forcePassBy = nccrRoleLabel();
+      b.forcePassBy = '省级上报岗';
       b.forcePassReason = reason;
       b.forcePassAt = new Date().toISOString().slice(0, 16).replace('T', ' ');
       b.status = '待投递';
@@ -1014,7 +993,6 @@
     var b = nccrData.getBatch(id);
     if (!b) return;
     if (b.frozen) { toast('批次已冻结，不可重复投递', 'error'); return; }
-    if (!nccrCan('deliver')) { toast('当前角色无投递权限', 'error'); return; }
     if (b.gate === 'block') { toast('质量未达标，不能上报', 'error'); return; }
     if (b.individualCheck && b.individualCheck.fail > 0) { toast('存在 ' + b.individualCheck.fail + ' 条未通过个案门禁，请先整改后再投递', 'error'); return; }
     if (b.popCheck && b.popCheck.complete === false) { toast('人口分母缺失，不能上报：' + b.popCheck.missingGroups.join('、'), 'error'); return; }
@@ -1025,7 +1003,7 @@
       b.fileName = '41_' + b.registry + '_' + b.year + '_' + b.packages.join('') + '_' + b.templateVersion + '_' + ts + '.csv';
       b.fileHash = hashStub(b.fileName + b.id);
       b.exportedAt = new Date().toISOString().slice(0, 16).replace('T', ' ');
-      b.deliver = { channel: b.transport, at: b.exportedAt, by: nccrRoleLabel() };
+      b.deliver = { channel: b.transport, at: b.exportedAt, by: '省级上报岗' };
       if (b.transport === 'http') { b.remoteRef = 'REMOTE-' + ts; toast('已模拟在线推送，单号 ' + b.remoteRef + '。下一步：登记回执'); }
       else if (b.transport === 'sftp') { b.remoteRef = 'SFTP-' + ts; toast('已模拟上传到文件服务器。下一步：登记回执'); }
       else { toast('文件已下载，请登录国家平台手工导入。下一步：登记回执'); }
@@ -1056,7 +1034,6 @@
   window.nccrReceipt = function (id) {
     var b = nccrData.getBatch(id);
     if (!b) return;
-    if (!nccrCan('receipt')) { toast('当前角色无回执登记权限', 'error'); return; }
     var overlay = document.createElement('div');
     overlay.className = 'cd-overlay nccr-modal'; overlay.style.zIndex = '10000';
     overlay.innerHTML = '<div class="cd-dialog" style="max-width:520px"><div class="cd-header"><span>登记国家回执</span><span class="cd-close" onclick="this.closest(\'.cd-overlay\').remove()">×</span></div>' +
@@ -1087,7 +1064,6 @@
   window.nccrVoid = function (id) {
     var b = nccrData.getBatch(id);
     if (b && b.frozen) { toast('批次已冻结，不可作废', 'error'); return; }
-    if (!nccrCan('void')) { toast('当前角色无作废权限', 'error'); return; }
     showConfirm('取消上报', '确定取消 ' + id + ' 吗？', function () {
       var bb = nccrData.getBatch(id);
       if (bb) bb.status = '已作废';
@@ -1100,7 +1076,6 @@
   window.nccrClone = function (id) {
     var src = nccrData.getBatch(id);
     if (!src) return;
-    if (!nccrCan('clone')) { toast('当前角色无复制权限', 'error'); return; }
     var seq = nccrData.nextSeq(src.year);
     var copy = JSON.parse(JSON.stringify(src));
     copy.id = 'NCCR-JX-' + src.year + '-' + seq;
@@ -1109,7 +1084,7 @@
     copy.receiptNo = ''; copy.receiptStatus = ''; copy.exportedAt = '';
     copy.forcePassBy = ''; copy.forcePassReason = ''; copy.frozen = false;
     copy.createdAt = new Date().toISOString().slice(0, 16).replace('T', ' ');
-    copy.createdBy = nccrRoleLabel();
+    copy.createdBy = '省级上报岗';
     copy.remark = '复制自 ' + src.id;
     copy.revisionOf = src.id;
     copy.individualCheck = null; copy.popCheck = null; copy.receiptAt = ''; copy.deliver = null;
@@ -1121,7 +1096,6 @@
 
   /* ===================== 12. 系统配置 · 平台上报（M17） ===================== */
   window.renderNccrPlatformConfigTab = function () {
-    if (!nccrCan('config')) return '<div class="nccr-empty">当前角色（' + nccrRoleLabel() + '）无平台上报配置权限。</div>';
     var c = nccrConfig;
     return '<div class="nccr-grid-2" style="max-width:900px">' +
       '<div class="form-group"><label>默认模板版本</label><input id="nccrCfgTpl" value="' + e(c.templateVersion) + '"></div>' +
@@ -1205,8 +1179,7 @@
     var body = sysCfgTab === 'platform'
       ? renderNccrPlatformConfigTab()
       : '<div style="color:#667085;font-size:14px">一般系统参数仍由原系统配置维护。国家上报相关项请使用「平台上报」页签。</div>';
-    return '<div class="page-toolbar"><div class="page-toolbar-title"><span class="icon">●</span>系统配置</div>' + nccrRoleSwitchHtml() + '</div>' +
-      '<div class="panel"><div class="panel-body">' + tabHtml + body + '</div></div>';
+    return '<div class="panel"><div class="panel-body">' + tabHtml + body + '</div></div>';
   }
 
   var baseRender = renderPage;

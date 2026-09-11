@@ -808,14 +808,12 @@
     ensureStyles();
     var st = window.followupCycleState;
     var all = window.followupCycleData || [];
+    var kw = String(st.cancer || '').trim().toLowerCase();
     var list = all.filter(function (r) {
-      if (st.cancer && r.cancer !== st.cancer) return false;
+      if (kw && (r.cancer + ' ' + r.icd).toLowerCase().indexOf(kw) < 0) return false;
       if (st.status && r.status !== st.status) return false;
       return true;
     });
-    var cancerOpts = '<option value="">全部癌种</option>' + all.map(function (r) {
-      return '<option value="' + fcEsc(r.cancer) + '"' + (st.cancer === r.cancer ? ' selected' : '') + '>' + fcEsc(r.cancer) + '</option>';
-    }).join('');
     var statusOpts = '<option value="">全部状态</option>' + ['启用', '停用'].map(function (s) {
       return '<option value="' + s + '"' + (st.status === s ? ' selected' : '') + '>' + s + '</option>';
     }).join('');
@@ -827,33 +825,28 @@
         '<td><span class="fc-int"><input type="number" min="1" max="60" value="' + (r.interval == null ? '' : r.interval) + '"' +
           (off ? ' disabled' : '') + ' onchange="fcSetInterval(\'' + r.id + '\',this.value)"><span>月</span></span></td>' +
         '<td>' + (off ? badge('停用', 'muted') : badge('启用', 'success')) + '</td>' +
-        '<td style="white-space:nowrap"><button class="btn btn-ghost btn-xs" onclick="fcToggleStatus(\'' + r.id + '\')">' + (off ? '启用' : '停用') + '</button></td>' +
+        '<td style="white-space:nowrap"><button class="btn btn-ghost btn-xs" onclick="fcToggleStatus(\'' + r.id + '\')">' + (off ? '启用' : '停用') + '</button>' +
+        '</td>' +
         '</tr>';
     }).join('') || '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:36px">暂无匹配的随访周期配置</td></tr>';
 
     return '<div class="panel"><div class="panel-body">' +
       '<div class="filter-toolbar">' +
-      '<div class="form-group"><label>癌种</label><select onchange="followupCycleState.cancer=this.value;renderPage(\'followup-cycle\')">' + cancerOpts + '</select></div>' +
+      '<div class="form-group search-group"><label>癌种</label><input placeholder="癌种名称 / ICD-10 编码" value="' + fcEsc(st.cancer || '') +
+      '" onkeydown="if(event.key===\'Enter\'){followupCycleState.cancer=this.value.trim();renderPage(\'followup-cycle\')}"></div>' +
       '<div class="form-group"><label>状态</label><select onchange="followupCycleState.status=this.value;renderPage(\'followup-cycle\')">' + statusOpts + '</select></div>' +
-      '<div class="filter-actions">' +
-      '<button class="btn btn-ghost btn-sm" onclick="fcResetFilter()">重置</button>' +
-      '<button class="btn btn-outline btn-sm" onclick="toast(\'随访周期配置导出中…\')">导出Excel</button>' +
-      '</div></div>' +
+      '</div>' +
       '<div style="margin-bottom:8px;color:#667085;font-size:13px">共 ' + list.length + ' 个癌种 · 启用 ' +
       list.filter(function (r) { return r.status === '启用'; }).length + ' 个</div>' +
       '<div class="table-wrap"><table class="data-table fc-table"><thead><tr>' +
       '<th>癌种</th><th style="width:96px">ICD-10</th><th style="width:150px">随访间隔期</th>' +
-      '<th style="width:88px">状态</th><th style="width:88px">操作</th>' +
+      '<th style="width:88px">状态</th><th style="width:118px">操作</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
       '<div class="void-pagination"><div class="void-pagination-info">共' + list.length + '条记录，第1/1页</div>' +
       '<div class="void-pagination-controls"><button onclick="toast(\'已是第一页\')">‹</button><input type="text" value="1" readonly><button onclick="toast(\'已是最后一页\')">›</button></div></div>' +
       '</div></div>';
   };
 
-  window.fcResetFilter = function () {
-    window.followupCycleState = { cancer: '', status: '' };
-    renderPage('followup-cycle');
-  };
   window.fcSetInterval = function (id, value) {
     var rec = (window.followupCycleData || []).filter(function (r) { return r.id === id; })[0];
     if (!rec) return;

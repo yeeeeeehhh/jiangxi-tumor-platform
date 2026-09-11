@@ -7,7 +7,7 @@
 (function () {
   'use strict';
 
-  const OWNED_IDS = ['warning-overview', 'warning-records', 'warning-tickets', 'warning-rules'];
+  const OWNED_IDS = ['warning-records', 'warning-tickets', 'warning-rules', 'mon-analysis-stats', 'mon-analysis-quality'];
   const CURRENT_USER = '省级登记中心 · 陈敏';
   const PERIOD_MONTH = '202608';
   const PERIOD_YEAR = '2025';
@@ -184,7 +184,7 @@
   };
 
   const state = {
-    page: 'warning-overview',
+    page: 'warning-records',
     record: { type: 'ALL', severity: 'ALL', status: 'ALL', keyword: '', dateFrom: '' },
     ticket: { type: 'ALL', severity: 'ALL', status: 'ALL', keyword: '', sort: 'overdue' },
     rule: { type: 'ALL', keyword: '' }
@@ -351,7 +351,15 @@
       { id: 'C-DENOMINATOR', name: '人口分母异常（率值不可信）', type: 'DISEASE_SIGNAL', point: 'DENOMINATOR',
         scope: '地区人口基数', method: 'YOY同比', threshold: 5, unit: '%', minSample: 0, severity: 'URGENT',
         window: '年度', basis: '人口基数年度变动超过 5% 缺乏行政区划或普查依据时，本地区所有率值不可用',
-        params: '触发后自动为同地区在途信号预警加上「分母待核」标注', confirm: '已由省级登记中心确认' }
+        params: '触发后自动为同地区在途信号预警加上「分母待核」标注', confirm: '已由省级登记中心确认' },
+      { id: 'C-INC-RATE-DEV', name: '发病率偏离近三年基线', type: 'DISEASE_SIGNAL', point: 'INC_RATE_BASELINE',
+        scope: '省定重点癌种 × 地市', method: 'BASELINE近3年均值基线', threshold: 20, unit: '%', minSample: 30, severity: 'ATTENTION',
+        window: '年度（对比近3年均值）', basis: '粗发病率偏离本地区近三年均值≥20%时发起研判线索；单年偏离不定性为疾病信号，结案需专家组论证',
+        params: '偏离≥20%关注级；≥35%升紧急级。年病例数不足30例不参与评价', confirm: '待省级专家组论证' },
+      { id: 'C-MOR-RATE-DEV', name: '死亡率偏离近三年基线', type: 'DISEASE_SIGNAL', point: 'MOR_RATE_BASELINE',
+        scope: '省定重点癌种 × 地市', method: 'BASELINE近3年均值基线', threshold: 15, unit: '%', minSample: 30, severity: 'ATTENTION',
+        window: '年度（对比近3年均值）', basis: '粗死亡率偏离本地区近三年均值≥15%时发起研判线索；与发病趋势及随访质量联合研判',
+        params: '偏离≥15%关注级；≥30%升紧急级。年死亡数不足30例不参与评价', confirm: '待省级专家组论证' }
     ];
     defs.forEach(def => {
       rules.push({
@@ -881,6 +889,66 @@
     renderPage(state.page);
   }
 
+  /* ==================== 统计分析联动：M/I 判定与工单生成 ==================== */
+  /* 供统计分析页复用：按癌种参考区间判定 M/I（实时读取当前规则配置），色带 ok|watch|abnormal */
+  function miJudge(cancer, inc, death) {
+    const rule = findRule('B-MI-RATIO');
+    const ref = MI_REFERENCE[cancer];
+    if (!rule || !rule.isEnabled || !ref || !inc || inc < rule.minSampleSize) return null;
+    const tol = rule.thresholdValue;
+    const mi = death / inc;
+    const highLine = ref.high * (1 + tol);
+    const lowLine = ref.low * (1 - tol);
+    let band = 'ok', hint = '';
+    if (mi > highLine) { band = 'abnormal'; hint = '高于参考上限，提示发病漏报'; }
+    else if (mi < lowLine) { band = 'abnormal'; hint = '低于参考下限，提示死亡漏报或随访不足'; }
+    else if (mi > ref.high || mi < ref.low) { band = 'watch'; }
+    let dev = null;
+    if (band === 'abnormal') {
+      dev = mi < ref.low
+        ? { dir: '低于参考下限', abs: ref.low - mi, pct: (ref.low - mi) / ref.low * 100 }
+        : { dir: '高于参考上限', abs: mi - ref.high, pct: (mi - ref.high) / ref.high * 100 };
+    }
+    return {
+      ruleId: rule.id, ruleName: rule.ruleName, severity: rule.defaultSeverity,
+      severityLabel: (SEVERITY_META[rule.defaultSeverity] || {}).label || rule.defaultSeverity,
+      basis: rule.basis, minSample: rule.minSampleSize,
+      kind: 'mi', cancer, inc, death, mi, ref, tol, highLine, lowLine, band, hint, dev
+    };
+  }
+  /* 供统计分析页联动：按 dedupeKey 复用已有预警（含工单），无则建预警+工单（createWarning 内部自动派单） */
+  function createStatsWarning(ruleId, payload) {
+    const rule = findRule(ruleId);
+    if (!rule) return null;
+    const key = [ruleId, payload.targetId, payload.period || ''].join('|');
+    const existing = warnings.find(item => item.dedupeKey === key);
+    if (existing) return { warning: existing, ticket: findTicketByWarning(existing.id), created: false };
+    const w = createWarning(rule, payload);
+    return w ? { warning: w, ticket: findTicketByWarning(w.id), created: true } : null;
+  }
+  /* 供统计分析页复用：率值（发病率/死亡率）与近三年基线的偏离判定，色带 ok|watch|abnormal
+     阈值口径与 A 层基线类规则一致：unit '%'，thresholdValue 按百分数比较 */
+  function devJudge(ruleId, cancer, metricLabel, current, baseline) {
+    const rule = findRule(ruleId);
+    if (!rule || !rule.isEnabled || !baseline || baseline <= 0) return null;
+    const tol = rule.thresholdValue;
+    const dev = (current - baseline) / baseline * 100;
+    let band = 'ok', hint = '';
+    if (dev > tol) { band = 'abnormal'; hint = metricLabel + '高于近三年基线阈值，需区分真实升高、筛查项目影响或上报行为改变'; }
+    else if (dev < -tol) { band = 'abnormal'; hint = metricLabel + '低于近三年基线阈值，提示漏报、随访不足或口径变化'; }
+    else if (Math.abs(dev) >= tol * 0.6) { band = 'watch'; }
+    const devInfo = {
+      dir: dev >= 0 ? '高于三年基线' : '低于三年基线',
+      abs: Math.abs(current - baseline), pct: Math.abs(dev)
+    };
+    return {
+      kind: 'rate', ruleId: rule.id, ruleName: rule.ruleName, severity: rule.defaultSeverity,
+      severityLabel: (SEVERITY_META[rule.defaultSeverity] || {}).label || rule.defaultSeverity,
+      basis: rule.basis, minSample: rule.minSampleSize,
+      cancer, metricLabel, current, baseline, tol, dev, band, hint, dev: devInfo
+    };
+  }
+
   /* ==================== 种子数据：制造若干已流转的样例 ==================== */
   function seedData() {
     runOperationEngine();
@@ -1020,10 +1088,6 @@
     if (typeof window.autoQuery === 'function') window.autoQuery(function () { renderPage(state.page); refocus(); });
     else { renderPage(state.page); refocus(); }
   }
-  function waDrillScorecard(registry) {
-    state.record = { type: 'REGISTRY_QUALITY', severity: 'ALL', status: 'ALL', keyword: registry, dateFrom: '' };
-    waNavigate('warning-records');
-  }
   function waSetRecordType(value) { state.record.type = value; renderPage('warning-records'); }
   function waSetRuleType(value) { state.rule.type = value; renderPage('warning-rules'); }
   function waGo(type) { state.record.type = type; navigateTo('warning-records'); }
@@ -1080,93 +1144,6 @@
     if (['PROCESSING', 'ESCALATED'].includes(ticket.status)) html += ' <button class="btn btn-primary btn-xs" onclick="openFeedbackModal(\'' + ticket.id + '\')">' + (ticket.status === 'ESCALATED' ? '补充反馈' : (ticket.type === 'DISEASE_SIGNAL' ? '提交研判' : '核实反馈')) + '</button>';
     if (ticket.status === 'FEEDBACK') html += ' <button class="btn btn-primary btn-xs" onclick="openReviewModal(\'' + ticket.id + '\')">复核</button>';
     return html;
-  }
-
-  /* ==================== 页面：预警总览 ==================== */
-  function registryScorecard() {
-    const mvRule = findRule('B-MV-LOW'), dcoRule = findRule('B-DCO-HIGH'), ubRule = findRule('B-UB-HIGH'), ageRule = findRule('B-AGE-UNKNOWN'), dcnRule = findRule('B-DCN-OPEN');
-    const cell = function (value, bad, warn, digits) {
-      const cls = bad ? 'v bad' : warn ? 'v warn' : 'v';
-      return '<td class="' + cls + '">' + Number(value).toFixed(digits == null ? 1 : digits) + '%</td>';
-    };
-    const rows = registryOverallStats.map(function (s) {
-      const mvAgg = registryQualityStats.filter(function (q) { return q.registry === s.registry; });
-      const incSum = mvAgg.reduce(function (a, q) { return a + q.inc; }, 0);
-      const mvSum = mvAgg.reduce(function (a, q) { return a + q.mv; }, 0);
-      const dcoSum = mvAgg.reduce(function (a, q) { return a + q.dco; }, 0);
-      const mvRate = incSum ? mvSum / incSum * 100 : 0;
-      const dcoRate = incSum ? dcoSum / incSum * 100 : 0;
-      const ubRate = s.total ? s.ub / s.total * 100 : 0;
-      const ageRate = s.total ? s.ageUnknown / s.total * 100 : 0;
-      const dcnRate = s.dcnTotal ? s.dcnOpen / s.dcnTotal * 100 : 0;
-      return '<tr class="clickable" onclick="waDrillScorecard(\'' + esc(s.registry) + '\')" title="点击查看该登记处在办质量预警"><td>' + esc(s.registry) + '</td>' +
-        cell(mvRate, mvRate < 55, mvRate < mvRule.thresholdValue) +
-        cell(dcoRate, dcoRate > 25, dcoRate > dcoRule.thresholdValue) +
-        cell(ubRate, ubRate > 8, ubRate > ubRule.thresholdValue) +
-        cell(ageRate, ageRate > 5, ageRate > ageRule.thresholdValue) +
-        cell(dcnRate, dcnRate > 40, dcnRate > dcnRule.thresholdValue) +
-        '</tr>';
-    }).join('');
-    const headCell = function (label, cmp, rule) {
-      return '<th>' + label + '<br><span style="font-weight:400;color:#94a3b8">' + cmp + rule.thresholdValue + '%</span></th>';
-    };
-    return '<table class="wa-score"><thead><tr><th>登记处</th>' + headCell('MV%', '≥', mvRule) + headCell('DCO%', '≤', dcoRule) + headCell('UB%', '≤', ubRule) + headCell('年龄不明', '≤', ageRule) + headCell('DCN未闭环', '≤', dcnRule) + '</tr></thead><tbody>' + rows + '</tbody></table>';
-  }
-
-  function renderOverview() {
-    const open = warnings.filter(function (item) { return item.status !== 'CLOSED'; });
-    const urgentOpen = open.filter(function (item) { return item.severity === 'URGENT'; }).length;
-    const overdue = overdueTicketCount();
-    const reviewedCount = rules.reduce(function (s, r) { return s + r.reviewedCount; }, 0);
-    const falseCount = rules.reduce(function (s, r) { return s + r.falsePositiveCount; }, 0);
-    const falseRate = reviewedCount ? Math.round(falseCount / reviewedCount * 100) : 0;
-    const denomOpen = warnings.filter(function (item) { return item.ruleId === 'C-DENOMINATOR' && item.status !== 'CLOSED'; }).length;
-    const kpis = [
-      waKpi('在办预警', open.length, '待处理 / 处理中 / 已反馈 / 已升级'),
-      waKpi('紧急级', urgentOpen, '按层级 SLA 优先响应', urgentOpen ? 'danger' : ''),
-      waKpi('超时工单', overdue, '超时检测任务自动升级', overdue ? 'danger' : ''),
-      waKpi('分母待核地区', denomOpen, '率值不可用，阻断信号研判', denomOpen ? 'warn' : ''),
-      waKpi('规则误报率', falseRate + '%', '已复核 ' + reviewedCount + ' 条 / 误报 ' + falseCount + ' 条')
-    ].join('');
-
-    const layerCards = TYPE_KEYS.map(function (type) {
-      const meta = TYPE_META[type];
-      const items = warnings.filter(function (item) { return item.type === type; });
-      const openCount = items.filter(function (item) { return item.status !== 'CLOSED'; }).length;
-      const urgent = items.filter(function (item) { return item.status !== 'CLOSED' && item.severity === 'URGENT'; }).length;
-      return '<button class="wa-layer" onclick="waGo(\'' + type + '\')">' +
-        '<span class="wa-layer-top"><span class="wa-layer-name"><span class="wa-layer-code">' + meta.code + '</span>' + esc(meta.label) + '</span><span class="wa-layer-count">' + openCount + '</span></span>' +
-        '<span class="wa-layer-desc">' + esc(meta.desc) + '</span>' +
-        '<span class="wa-layer-meta">预警对象：' + esc(meta.object) + '<br>观察窗口：' + esc(meta.window) + ' · 首办：' + esc(meta.firstOwner) + '<br>归口复核：' + esc(meta.finalOwner) + (urgent ? ' · <b style="color:#b42335">紧急 ' + urgent + ' 条</b>' : '') + '</span>' +
-        '</button>';
-    }).join('');
-
-    const recent = warnings.slice().sort(function (a, b) { return new Date(b.triggerTime) - new Date(a.triggerTime); }).slice(0, 7).map(function (item) {
-      return '<div class="wa-mini-item clickable" onclick="showWarningDetail(\'' + item.id + '\')" title="点击查看预警详情"><div><div class="wa-mini-title">' + esc(item.targetLabel) + '</div><div class="wa-mini-meta">' + esc(TYPE_META[item.type].code) + ' · ' + esc(item.id) + ' · ' + fmtTime(item.triggerTime) + ' · 阈值 ' + esc(item.thresholdSnapshot) + '</div></div><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">' + severityBadge(item.severity) + warningStatusBadge(item.status) + '</div></div>';
-    }).join('');
-
-    const slaRows = TYPE_KEYS.map(function (type) {
-      const meta = TYPE_META[type];
-      const openCount = warnings.filter(function (w) { return w.type === type && w.status !== 'CLOSED'; }).length;
-      return '<tr><td>' + meta.code + ' ' + esc(meta.short) + '</td><td>' + esc(slaText(type, 'URGENT')) + ' / ' + esc(slaText(type, 'ATTENTION')) + '</td><td>' + openCount + '</td></tr>';
-    }).join('');
-
-    return '<div class="wa-page">' + waHeader('预警监测与处置',
-      '三层框架：<b>A 登记运行监测</b>（机构履职·月度） · <b>B 登记质量预警</b>（国家考核指标·年度） · <b>C 疾病信号预警</b>（标化率与聚集·年度）。单卡逐条校验请到「审核质控 · 质控规则」，本模块只做聚合指标的周期性阈值预警。', [
-      '<button class="btn btn-outline btn-sm" onclick="runLayerEngine(\'REGISTRY_OPERATION\')">跑 A 月度</button>',
-      '<button class="btn btn-outline btn-sm" onclick="runLayerEngine(\'REGISTRY_QUALITY\')">跑 B 年度</button>',
-      '<button class="btn btn-outline btn-sm" onclick="runLayerEngine(\'DISEASE_SIGNAL\')">跑 C 年度</button>',
-      '<button class="btn btn-outline btn-sm" onclick="scanOverdue()">扫描超时</button>',
-      '<button class="btn btn-primary btn-sm" onclick="waNavigate(\'warning-tickets\')">进入工单</button>'
-    ]) +
-      '<div class="wa-kpis">' + kpis + '</div>' +
-      '<div class="wa-card"><div class="wa-card-head"><div class="wa-card-title">预警分层<span class="wa-card-sub">点击进入该层预警记录</span></div><button class="btn btn-ghost btn-xs" onclick="navigateTo(\'warning-records\')">全部记录</button></div><div class="wa-card-body"><div class="wa-layer-grid">' + layerCards + '</div></div></div>' +
-      '<div class="wa-grid" style="margin-top:14px">' +
-      '<div class="wa-card"><div class="wa-card-head"><div class="wa-card-title">登记质量指标体检<span class="wa-card-sub">B 层考核口径 · ' + PERIOD_YEAR + ' 年度 · 点击行查看该处在办预警</span></div><button class="btn btn-ghost btn-xs" onclick="waGo(\'REGISTRY_QUALITY\')">查看预警</button></div><div class="wa-card-body">' + registryScorecard() + '<div class="wa-note" style="margin-top:10px">阈值来源：《中国肿瘤登记年报》与 IARC CI5 收录标准，表头数值随规则配置联动；橙色为超出考核线，红色为超出紧急线。</div></div></div>' +
-      '<div class="wa-card"><div class="wa-card-head"><div class="wa-card-title">最新触发<span class="wa-card-sub">点击查看详情</span></div></div><div class="wa-card-body"><div class="wa-mini-list">' + (recent || '<div class="wa-empty">暂无预警</div>') + '</div></div></div>' +
-      '</div>' +
-      '<div class="wa-card"><div class="wa-card-head"><div class="wa-card-title">分层响应时限</div></div><div class="wa-card-body"><table class="wa-score"><thead><tr><th>层级</th><th>紧急级 / 关注级时限</th><th>在办预警</th></tr></thead><tbody>' + slaRows + '</tbody></table></div></div>' +
-      '</div>';
   }
 
   /* ==================== 页面：预警记录 ==================== */
@@ -1698,8 +1675,10 @@
   function renderWarningPage(pageId) {
     if (!OWNED_IDS.includes(pageId)) return null;
     closeWarningModals();
+    /* 数据统计副本入口（统计分析/报卡质量监测）：委托 DA 渲染，不改动预警模块自身状态 */
+    if (pageId === 'mon-analysis-stats') return window.DA ? window.DA.render('analysis-stats') : null;
+    if (pageId === 'mon-analysis-quality') return window.DA ? window.DA.render('analysis-quality') : null;
     state.page = pageId;
-    if (pageId === 'warning-overview') return renderOverview();
     if (pageId === 'warning-records') return renderRecords();
     if (pageId === 'warning-tickets') return renderTickets();
     if (pageId === 'warning-rules') return renderRules();
@@ -1714,10 +1693,10 @@
   const publicApi = {
     rules, warnings, tickets, operationLogs, TYPE_META, SEVERITY_META,
     runAllEngines, runLayerEngine, scanOverdue,
-    waGo, waSetFilter, waOnKeyword, waDrillScorecard, waSetRecordType, waSetRuleType, waSetTicketType, waResetRecordFilter, waResetTicketFilter, waNavigate, closeWarningModals,
+    waGo, waSetFilter, waOnKeyword, waSetRecordType, waSetRuleType, waSetTicketType, waResetRecordFilter, waResetTicketFilter, waNavigate, closeWarningModals,
     showWarningDetail, showTicketDetail, openRuleModal, saveRuleVersion, toggleRule,
     receiveTicket, openFeedbackModal, submitFeedback, openReviewModal, closeTicket, returnTicket,
-    findRule, findWarning, findTicket, findTicketByWarning, renderWarningPage
+    findRule, findWarning, findTicket, findTicketByWarning, miJudge, devJudge, createStatsWarning, renderWarningPage
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = publicApi;

@@ -165,7 +165,6 @@
     { id: 'mon-cap-record', group: 'mon-capability', label: '机构技术开展记录', desc: '记录各机构开展特定技术的数量与质量，用于能力画像。' },
     { id: 'mon-cap-quality', group: 'mon-capability', label: '医疗质量核心指标明细', desc: '存储围手术期死亡率、并发症率等医疗质量指标。' },
     { id: 'mon-cap-difficulty', group: 'mon-capability', label: '疑难病例收治特征库', desc: '量化机构收治疑难重症的能力，用于专科能力建设评估。' },
-    { id: 'mon-cap-score', group: 'mon-capability', label: '专科能力综合评分报告', desc: '自动生成机构肿瘤专科能力评估报告，含多维得分与对标分析。' },
     { id: 'mon-model-warehouse', group: 'mon-model', label: '多源特征数据仓库', desc: '构建用于 AI 模型训练的标准化特征数据池。' },
     { id: 'mon-model-reg', group: 'mon-model', label: '预警模型元信息注册', desc: '管理风险预测模型的基本信息与生命周期状态。' },
     { id: 'mon-model-train', group: 'mon-model', label: '模型训练与超参记录', desc: '详细记录模型训练过程，确保实验可复现与性能可追溯。' },
@@ -389,24 +388,6 @@
       kpis([{ l: '疑难病例数', v: '3,842', m: '本年度' }, { l: 'IV 级占比', v: '46.2%', m: '疑难重症' }, { l: 'MDT 覆盖率', v: '78.5%', m: '环比 +4.1pp', tone: 'up' }, { l: '转归好转率', v: '21.3%', m: '复杂病例', tone: 'info' }]) +
       card('疑难病例收治明细', table(['患者', '诊断特征', '疑难程度', '收治机构', '诊疗模式', '转归'], tr));
   }
-  function renderCapScore() {
-    var r = [
-      { o: '江西省肿瘤医院', total: 96.2, t: 98, q: 95, d: 97, i: 94, rank: '#1' },
-      { o: '南昌大学一附院', total: 93.8, t: 95, q: 92, d: 96, i: 91, rank: '#2' },
-      { o: '赣州中心医院', total: 88.4, t: 89, q: 86, d: 90, i: 88, rank: '#5' },
-      { o: '上饶一附院', total: 85.1, t: 86, q: 83, d: 87, i: 84, rank: '#8' },
-      { o: '九江市人民医院', total: 79.6, t: 80, q: 77, d: 81, i: 78, rank: '#14' }
-    ];
-    var tr = r.map(function (x) {
-      var tc = x.total >= 90 ? '#2e7d32' : x.total >= 82 ? '#b54708' : '#b42335';
-      return '<tr><td>' + esc(x.o) + '</td><td class="num" style="font-weight:700;color:' + tc + '">' + x.total + '</td><td class="num">' + x.t + '</td><td class="num">' + x.q + '</td><td class="num">' + x.d + '</td><td class="num">' + x.i + '</td><td class="num">' + esc(x.rank) + '</td><td>' + actBtn('报告', 'view', x.o) + '</td></tr>';
-    }).join('');
-    return heads('专科能力综合评分报告', '自动生成机构肿瘤专科能力评估报告，含多维得分与对标分析。') +
-      kpis([{ l: '参评机构', v: '36', m: '全省三级医院' }, { l: '平均总分', v: '84.7', m: '较去年 +2.3' }, { l: '优秀机构', v: '12', m: '≥90 分' }, { l: '待改进机构', v: '5', m: '<80 分', tone: 'warn' }]) +
-      '<div class="mon-grid13"><div>' + card('各维度对标得分', barChart([{ l: '技术规模', v: 92 }, { l: '质量安全', v: 88 }, { l: '疑难收治', v: 86 }, { l: '协作网络', v: 84 }, { l: '持续改进', v: 81 }]), '全省平均分') + '</div>' +
-      '<div>' + card('机构综合评分排行', table(['机构', '#总分', '#技术', '#质量', '#疑难', '#改进', '#排名', '操作'], tr)) + '</div></div>';
-  }
-
   /* ==================== 预警模型构建 ==================== */
   function renderModelWarehouse() {
     var r = [
@@ -493,7 +474,7 @@
     'mon-inc-rule': renderIncRule, 'mon-inc-ticket': renderIncTicket,
     'mon-death-import': renderDeathImport, 'mon-death-cube': renderDeathCube, 'mon-death-trend': renderDeathTrend, 'mon-death-link': renderDeathLink,
     'mon-cap-tech': renderCapTech, 'mon-cap-record': renderCapRecord, 'mon-cap-quality': renderCapQuality,
-    'mon-cap-difficulty': renderCapDifficulty, 'mon-cap-score': renderCapScore,
+    'mon-cap-difficulty': renderCapDifficulty,
     'mon-model-warehouse': renderModelWarehouse, 'mon-model-reg': renderModelReg, 'mon-model-train': renderModelTrain,
     'mon-model-snapshot': renderModelSnapshot, 'mon-model-eval': renderModelEval
   };

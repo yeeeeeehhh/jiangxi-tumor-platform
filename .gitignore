@@ -8,17 +8,8 @@
 /.dsh-vision-toolkit/
 /.joycode/
 
-# ==== 调试、探针、截图等临时文件 ====
-/__*.png
-/__*.js
-/__probe_source.html
-/__filter_bug.png
-/__paste_ref.png
-/_*.png
-/_patch*.js
-/_patch*.mjs
-/_patch*/
-/_probe*.js
+# ==== 调试、探针、截图、补丁脚本等临时文件（下划线前缀一律排除）====
+/_*
 /image.png
 
 # ==== 备份文件 ====

@@ -15,18 +15,6 @@
   const style = document.createElement('style');
   style.textContent = `
 #pageContainer .md-page{padding-bottom:20px}
-#pageContainer .md-head{background:linear-gradient(135deg,#fbfdff,#f4f8fd);border:1px solid var(--border);border-left:4px solid var(--primary);border-radius:6px;padding:14px 18px;margin-bottom:14px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
-#pageContainer .md-title{font-size:17px;font-weight:700;color:#1e293b}
-#pageContainer .md-sub{margin-top:5px;font-size:12px;color:#64748b;line-height:1.85;max-width:1080px}
-#pageContainer .md-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-#pageContainer .md-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:10px;margin-bottom:14px}
-#pageContainer .md-kpi{background:#fff;border:1px solid var(--border);border-radius:6px;padding:11px 13px}
-#pageContainer .md-kpi-label{font-size:12px;color:#667085}
-#pageContainer .md-kpi-value{margin-top:5px;font-size:23px;font-weight:700;color:var(--primary);font-variant-numeric:tabular-nums}
-#pageContainer .md-kpi-value.danger{color:#b42335}
-#pageContainer .md-kpi-value.warn{color:#b54708}
-#pageContainer .md-kpi-value.ok{color:#15803d}
-#pageContainer .md-kpi-meta{margin-top:3px;font-size:11px;color:#94a3b8}
 #pageContainer .md-card{background:#fff;border:1px solid var(--border);border-radius:6px;margin-bottom:14px;overflow:hidden}
 #pageContainer .md-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;border-bottom:1px solid var(--border);background:#fbfcfe}
 #pageContainer .md-card-title{font-size:14px;font-weight:600;color:#1e293b;display:flex;align-items:baseline;gap:8px}
@@ -34,8 +22,9 @@
 #pageContainer .md-card-body{padding:13px 14px}
 #pageContainer .md-grid2{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px}
 @media(max-width:1280px){#pageContainer .md-grid2{grid-template-columns:minmax(0,1fr)}}
-#pageContainer .md-filter{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px 12px;align-items:end;padding:12px 14px;background:#f8fafc;border:1px solid var(--border);border-radius:6px;margin-bottom:12px}
-#pageContainer .md-filter .filter-actions{display:flex;gap:8px;align-items:flex-end}
+#pageContainer .md-filter{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 12px;padding:12px 14px;background:#f8fafc;border:1px solid var(--border);border-radius:6px;margin-bottom:12px}
+#pageContainer .md-filter .form-group{flex:1 1 190px;min-width:150px;max-width:420px}
+#pageContainer .md-filter .filter-actions{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;flex:0 0 auto;margin-left:auto}
 #pageContainer .md-table-wrap{overflow:auto;border:1px solid var(--border);border-radius:6px;background:#fff}
 #pageContainer .md-table{width:100%;min-width:1080px;border-collapse:collapse}
 #pageContainer .md-table th{height:40px;padding:0 11px;text-align:left;background:#f8fafc;color:#5b6673;font-size:12px;font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap}
@@ -140,12 +129,6 @@
   function badge(meta) { return meta ? '<span class="badge ' + meta.cls + '">' + esc(meta.label) + '</span>' : '-'; }
   function bar(ratio, tone) { const w = Math.max(0, Math.min(100, ratio)); return '<div class="md-bar"><i class="' + (tone || '') + '" style="width:' + w + '%"></i></div>'; }
   function mdToast(m, t) { if (typeof toast === 'function') toast(m, t); }
-  function mdHeader(title, subtitle, actions) {
-    return '<div class="md-head"><div><div class="md-title">' + esc(title) + '</div><div class="md-sub">' + subtitle + '</div></div><div class="md-actions">' + (actions || []).join('') + '</div></div>';
-  }
-  function mdKpi(label, value, meta, tone) {
-    return '<div class="md-kpi"><div class="md-kpi-label">' + esc(label) + '</div><div class="md-kpi-value ' + (tone || '') + '">' + value + '</div><div class="md-kpi-meta">' + esc(meta) + '</div></div>';
-  }
   function mdModal(title, body, foot, narrow) {
     const mask = document.createElement('div');
     mask.className = 'md-modal-mask';
@@ -634,18 +617,6 @@
         && (f.tier === 'ALL' || x.tier === f.tier)
         && (!kw || [x.code, x.name, x.source, FEATURE_DOMAIN[x.domain]].join(' ').toLowerCase().includes(kw));
     });
-    const highNull = features.filter(function (x) { return x.nullRate > 5; });
-    const highDrift = features.filter(function (x) { return x.drift > 5; });
-    const external = features.filter(function (x) { return x.source.indexOf('外部') >= 0; });
-    const kpis = [
-      mdKpi('特征总数', features.length, featureStore.entities + ' 粒度'),
-      mdKpi('样本行数', nInt(featureStore.rows), '训练 ' + nInt(featureStore.trainRows) + ' / 测试 ' + nInt(featureStore.testRows)),
-      mdKpi('特征域', Object.keys(FEATURE_DOMAIN).length, '人口/发病/质量/运行/筛查/环境/资源'),
-      mdKpi('高缺失特征', highNull.length, '缺失率 > 5%，需缺失指示变量', highNull.length ? 'warn' : 'ok'),
-      mdKpi('高漂移特征', highDrift.length, 'PSI 折算漂移 > 5%', highDrift.length ? 'warn' : 'ok'),
-      mdKpi('外部来源', external.length, '环保/统计等跨部门共享')
-    ].join('');
-
     const rows = list.map(function (x) {
       return '<tr>' +
         '<td class="md-nowrap"><button class="md-id" onclick="showFeatureDetail(\'' + x.code + '\')">' + x.code + '</button></td>' +
@@ -672,18 +643,15 @@
         '<td class="md-num">' + n3(imp) + '</td><td class="md-num">' + n1(imp * 100) + '%' + bar(imp * 100 * 2.6, imp > 0.3 ? '' : 'warn') + '</td></tr>';
     }).join('');
 
-    return '<div class="md-page">' + mdHeader('多源特征数据仓库',
-      '构建用于 AI 模型训练的<b>标准化特征数据池</b>。实体粒度为' + esc(featureStore.entities) + '，特征按更新频率分为日更/月更/年更三层；每个特征登记来源、类型、缺失率、漂移与重要性，并受防泄漏约束（标签年份 T 只允许使用 ≤ T-1 年数据）。特征库按版本快照不可变，任一训练任务都能凭版本号复现输入。', [
-      '<button class="btn btn-outline btn-sm" onclick="showLineage()">血缘与防泄漏</button>',
-      '<button class="btn btn-outline btn-sm" onclick="mdToastMsg(\'特征字典已导出\')">导出字典</button>',
-      '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'mdl-registry\')">模型注册表</button>'
-    ]) +
-      '<div class="md-kpis">' + kpis + '</div>' +
+    return '<div class="md-page">' +
       '<div class="md-filter">' +
       '<div class="form-group"><label>特征域</label><select onchange="mdSet(\'features\',\'domain\',this.value)">' + dmOpts + '</select></div>' +
       '<div class="form-group"><label>更新频率</label><select onchange="mdSet(\'features\',\'tier\',this.value)">' + trOpts + '</select></div>' +
-      '<div class="form-group" style="grid-column:span 2"><label>检索</label><input value="' + esc(f.keyword) + '" placeholder="特征编码 / 名称 / 来源" onchange="mdSet(\'features\',\'keyword\',this.value)"></div>' +
-      '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="mdResetFeatures()">重置</button></div></div>' +
+      '<div class="form-group" style="flex-grow:1.6;max-width:560px"><label>检索</label><input value="' + esc(f.keyword) + '" placeholder="特征编码 / 名称 / 来源" onchange="mdSet(\'features\',\'keyword\',this.value)"></div>' +
+      '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="mdResetFeatures()">重置</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="showLineage()">血缘与防泄漏</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="mdToastMsg(\'特征字典已导出\')">导出字典</button>' +
+      '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'mdl-registry\')">模型注册表</button></div></div>' +
       '<div class="md-table-wrap"><table class="md-table"><thead><tr><th>编码</th><th>特征名称</th><th>特征域</th><th>更新频率</th><th>数据来源</th><th>缺失率</th><th>年漂移</th><th>重要性</th><th>操作</th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="9"><div class="md-empty">暂无符合条件的特征</div></td></tr>') + '</tbody></table></div>' +
       '<div class="md-grid2" style="margin-top:14px">' +
@@ -749,16 +717,6 @@
         && (f.task === 'ALL' || m.task === f.task)
         && (!kw || [m.id, m.name, m.algo, m.owner].join(' ').toLowerCase().includes(kw));
     });
-    const prod = models.filter(function (m) { return m.status === 'PRODUCTION'; });
-    const kpis = [
-      mdKpi('注册模型', models.length, '含已下线'),
-      mdKpi('生产使用', prod.length, '已通过专家组评审', 'ok'),
-      mdKpi('影子 / 验证中', models.filter(function (m) { return m.status === 'SHADOW' || m.status === 'VALIDATING'; }).length, '不产生对外工单', 'warn'),
-      mdKpi('训练中', models.filter(function (m) { return m.status === 'TRAINING'; }).length, '尚无验证指标'),
-      mdKpi('已下线', models.filter(function (m) { return m.status === 'RETIRED'; }).length, '教训已固化为规则约束'),
-      mdKpi('最优 AUC', n3(Math.max.apply(null, models.filter(function (m) { return m.metric.auc; }).map(function (m) { return m.metric.auc; }))), 'MDL-002 v2.1.0', 'ok')
-    ].join('');
-
     const rows = list.map(function (m) {
       return '<tr>' +
         '<td class="md-nowrap"><button class="md-id" onclick="showModelDetail(\'' + m.id + '\')">' + m.id + '</button><div class="md-sec">' + esc(m.version) + '</div></td>' +
@@ -779,18 +737,15 @@
     const tkOpts = [['ALL', '全部任务类型']].concat(models.map(function (m) { return m.task; }).filter(function (v, i, a) { return a.indexOf(v) === i; }).map(function (t) { return [t, t]; }))
       .map(function (o) { return '<option value="' + esc(o[0]) + '"' + (f.task === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('');
 
-    return '<div class="md-page">' + mdHeader('预警模型元信息注册',
-      '管理风险预测模型的<b>基本信息与生命周期状态</b>：设计中 → 训练中 → 验证中 → 影子运行 → 生产使用 → 下线。每个模型登记预测目标、算法、特征数、训练/测试窗口、判定阈值、责任人与评审人、审批依据以及<b>明确的使用边界</b>；只有经省级专家组评审通过的模型才能转生产。', [
-      '<button class="btn btn-outline btn-sm" onclick="mdToastMsg(\'模型清单已导出\')">导出清单</button>',
-      '<button class="btn btn-outline btn-sm" onclick="navigateTo(\'mdl-training\')">训练记录</button>',
-      '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'mdl-predictions\')">预测结果快照</button>'
-    ]) +
-      '<div class="md-kpis">' + kpis + '</div>' +
+    return '<div class="md-page">' +
       '<div class="md-filter">' +
       '<div class="form-group"><label>生命周期状态</label><select onchange="mdSet(\'registry\',\'status\',this.value)">' + stOpts + '</select></div>' +
       '<div class="form-group"><label>任务类型</label><select onchange="mdSet(\'registry\',\'task\',this.value)">' + tkOpts + '</select></div>' +
-      '<div class="form-group" style="grid-column:span 2"><label>检索</label><input value="' + esc(f.keyword) + '" placeholder="模型编号 / 名称 / 算法" onchange="mdSet(\'registry\',\'keyword\',this.value)"></div>' +
-      '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="mdResetRegistry()">重置</button></div></div>' +
+      '<div class="form-group" style="flex-grow:1.6;max-width:560px"><label>检索</label><input value="' + esc(f.keyword) + '" placeholder="模型编号 / 名称 / 算法" onchange="mdSet(\'registry\',\'keyword\',this.value)"></div>' +
+      '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="mdResetRegistry()">重置</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="mdToastMsg(\'模型清单已导出\')">导出清单</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="navigateTo(\'mdl-training\')">训练记录</button>' +
+      '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'mdl-predictions\')">预测结果快照</button></div></div>' +
       '<div class="md-table-wrap"><table class="md-table" style="min-width:1220px"><thead><tr><th>模型编号</th><th>模型名称 / 预测目标</th><th>任务</th><th>算法</th><th>AUC</th><th>特征数</th><th>状态</th><th>责任人</th><th>操作</th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="9"><div class="md-empty">暂无符合条件的模型</div></td></tr>') + '</tbody></table></div>' +
       '<div class="md-callout warn" style="margin-top:14px"><strong>与规则预警的关系：</strong>「预警监测与处置」的 A/B/C 三层规则是<b>确定性阈值判定</b>，可解释、可追责、可直接派核查工单；本模块的模型是<b>概率化优先级排序</b>，用于在规则未命中前提示关注方向。两者并行运行、互不覆盖：模型不得单独作为预警结论，规则命中也不因模型低分而撤销。已下线的 MDL-000（月环比突变检测）就是把二者混用的失败案例——假阳性率 90.6%，警报疲劳严重。</div>' +
@@ -842,16 +797,7 @@
         && (f.status === 'ALL' || r.status === f.status)
         && (!kw || [r.id, r.modelId, r.modelVersion, r.operator, r.trigger].join(' ').toLowerCase().includes(kw));
     });
-    const succ = trainRuns.filter(function (r) { return r.status === 'SUCCESS'; });
     const failed = trainRuns.filter(function (r) { return r.status === 'FAILED' || r.status === 'ABORTED'; });
-    const kpis = [
-      mdKpi('训练任务', trainRuns.length, '近 12 个月'),
-      mdKpi('成功', succ.length, n1(succ.length / trainRuns.length * 100) + '% 成功率', 'ok'),
-      mdKpi('失败 / 中止', failed.length, '均因数据问题，非算法问题', failed.length ? 'warn' : 'ok'),
-      mdKpi('平均耗时', n1(succ.reduce(function (a, r) { return a + r.durationMin; }, 0) / succ.length) + ' 分钟', '单次全量重训'),
-      mdKpi('可复现率', '100%', '随机种子+特征版本+镜像全记录', 'ok')
-    ].join('');
-
     const rows = list.map(function (r) {
       const hyperKeys = Object.keys(r.hyper).slice(0, 3).map(function (k) { return k + '=' + r.hyper[k]; }).join(' · ');
       return '<tr>' +
@@ -879,18 +825,15 @@
       { name: 'PR-AUC', values: hist.map(function (r) { return r.metrics.pr; }), color: '#b54708' }
     ], { yZero: false, dp: 3, aria: 'MDL-002 版本指标演进', height: 190 }) : '<div class="md-empty">数据不足</div>';
 
-    return '<div class="md-page">' + mdHeader('模型训练与超参记录',
-      '详细记录模型训练过程，确保<b>实验可复现与性能可追溯</b>：每次训练固化随机种子、特征库版本、交叉验证方案、完整超参、搜索策略、产物哈希与运行环境镜像。失败与中止任务同样入库并记录原因，作为流水线校验规则的来源。', [
-      '<button class="btn btn-outline btn-sm" onclick="mdToastMsg(\'训练记录已导出\')">导出记录</button>',
-      '<button class="btn btn-outline btn-sm" onclick="showReproRule()">复现规范</button>',
-      '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'mdl-evaluation\')">评估报告</button>'
-    ]) +
-      '<div class="md-kpis">' + kpis + '</div>' +
+    return '<div class="md-page">' +
       '<div class="md-filter">' +
-      '<div class="form-group" style="grid-column:span 2"><label>模型</label><select onchange="mdSet(\'training\',\'model\',this.value)">' + mdOpts + '</select></div>' +
+      '<div class="form-group" style="flex-grow:1.6;max-width:560px"><label>模型</label><select onchange="mdSet(\'training\',\'model\',this.value)">' + mdOpts + '</select></div>' +
       '<div class="form-group"><label>任务状态</label><select onchange="mdSet(\'training\',\'status\',this.value)">' + stOpts + '</select></div>' +
-      '<div class="form-group" style="grid-column:span 2"><label>检索</label><input value="' + esc(f.keyword) + '" placeholder="任务号 / 版本 / 操作人 / 触发方式" onchange="mdSet(\'training\',\'keyword\',this.value)"></div>' +
-      '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="mdResetTraining()">重置</button></div></div>' +
+      '<div class="form-group" style="flex-grow:1.6;max-width:560px"><label>检索</label><input value="' + esc(f.keyword) + '" placeholder="任务号 / 版本 / 操作人 / 触发方式" onchange="mdSet(\'training\',\'keyword\',this.value)"></div>' +
+      '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="mdResetTraining()">重置</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="mdToastMsg(\'训练记录已导出\')">导出记录</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="showReproRule()">复现规范</button>' +
+      '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'mdl-evaluation\')">评估报告</button></div></div>' +
       '<div class="md-table-wrap"><table class="md-table" style="min-width:1240px"><thead><tr><th>任务号</th><th>模型 / 版本</th><th>触发 / 操作人</th><th>开始时间</th><th>特征版本</th><th>关键超参</th><th>指标</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="9"><div class="md-empty">暂无符合条件的训练任务</div></td></tr>') + '</tbody></table></div>' +
       '<div class="md-grid2" style="margin-top:14px">' +
@@ -958,18 +901,6 @@
         && (f.level === 'ALL' || p.level === f.level)
         && (!kw || [p.id, p.county, p.cancer, p.city].join(' ').toLowerCase().includes(kw));
     });
-    const scope = predictions.filter(function (p) { return f.model === 'ALL' || p.modelId === f.model; });
-    const high = scope.filter(function (p) { return p.level === 'HIGH'; });
-    const mid = scope.filter(function (p) { return p.level === 'MID'; });
-    const small = scope.filter(function (p) { return p.smallCount; });
-    const kpis = [
-      mdKpi('快照记录', nInt(scope.length), COUNTIES.length + ' 区县 × ' + SNAP_CANCERS.length + ' 癌种'),
-      mdKpi('高风险', high.length, '概率 ≥ 0.58，须人工研判', high.length ? 'danger' : 'ok'),
-      mdKpi('中风险', mid.length, '概率 0.36-0.58，列入观察', 'warn'),
-      mdKpi('小基数记录', small.length, '年例数 < 40，已贝叶斯收缩', 'warn'),
-      mdKpi('快照时间', '08-13 06:00', 'MDL-002 v2.1.0 · FS-2026.08')
-    ].join('');
-
     const rows = list.slice(0, 50).map(function (p) {
       const top = p.contrib[0];
       return '<tr>' +
@@ -1011,17 +942,14 @@
     });
     heat += '</div>';
 
-    return '<div class="md-page">' + mdHeader('风险预测结果快照',
-      '存储模型定期运行产生的<b>区域风险预测结果</b>。每条记录固化模型版本、特征库版本、快照时间、预测概率与置信区间、风险等级以及 SHAP 前三贡献特征，<b>结果不可修改</b>——修正只能通过新快照，保证事后可追溯"当时依据什么做出的判断"。同时标注该区域-癌种是否已被 A/B/C 规则命中，便于区分模型独有信号与规则重叠信号。', [
-      '<button class="btn btn-outline btn-sm" onclick="showSnapshotRule()">快照规则</button>',
-      '<button class="btn btn-outline btn-sm" onclick="mdToastMsg(\'快照已导出\')">导出快照</button>'
-    ]) +
-      '<div class="md-kpis">' + kpis + '</div>' +
+    return '<div class="md-page">' +
       '<div class="md-filter">' +
-      '<div class="form-group" style="grid-column:span 2"><label>模型</label><select onchange="mdSet(\'predictions\',\'model\',this.value)">' + mdOpts + '</select></div>' +
+      '<div class="form-group" style="flex-grow:1.6;max-width:560px"><label>模型</label><select onchange="mdSet(\'predictions\',\'model\',this.value)">' + mdOpts + '</select></div>' +
       '<div class="form-group"><label>风险等级</label><select onchange="mdSet(\'predictions\',\'level\',this.value)">' + lvOpts + '</select></div>' +
-      '<div class="form-group" style="grid-column:span 2"><label>检索</label><input value="' + esc(f.keyword) + '" placeholder="快照号 / 区县 / 癌种" onchange="mdSet(\'predictions\',\'keyword\',this.value)"></div>' +
-      '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="mdResetPredictions()">重置</button></div></div>' +
+      '<div class="form-group" style="flex-grow:1.6;max-width:560px"><label>检索</label><input value="' + esc(f.keyword) + '" placeholder="快照号 / 区县 / 癌种" onchange="mdSet(\'predictions\',\'keyword\',this.value)"></div>' +
+      '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="mdResetPredictions()">重置</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="showSnapshotRule()">快照规则</button>' +
+      '<button class="btn btn-primary btn-sm" onclick="mdToastMsg(\'快照已导出\')">导出快照</button></div></div>' +
       '<div class="md-table-wrap"><table class="md-table"><thead><tr><th>快照号</th><th>区县</th><th>癌种</th><th>预测概率</th><th>风险等级</th><th>基线 ASR</th><th>首要贡献特征</th><th>规则命中</th><th>操作</th></tr></thead><tbody>' +
       (rows || '<tr><td colspan="9"><div class="md-empty">暂无符合条件的预测记录</div></td></tr>') + '</tbody></table></div>' +
       (list.length > 50 ? '<div class="md-note" style="margin-top:8px">共 ' + list.length + ' 条，已显示前 50 条（按概率降序）。</div>' : '') +
@@ -1086,15 +1014,6 @@
     const ev = evaluations[id];
     const m = models.find(function (x) { return x.id === id; });
     const cm = ev.confusion;
-    const kpis = [
-      mdKpi('AUC', n3(ev.metrics.auc), '判别能力', ev.metrics.auc >= 0.8 ? 'ok' : 'warn'),
-      mdKpi('PR-AUC', n3(ev.metrics.pr), '正类稀疏场景更重要', ev.metrics.pr >= 0.5 ? 'ok' : 'warn'),
-      mdKpi('Brier', n3(ev.metrics.brier), '概率校准（越低越好）', ev.metrics.brier <= 0.08 ? 'ok' : 'warn'),
-      mdKpi('召回率', n1(ev.metrics.recall * 100) + '%', '漏报 ' + n1((1 - ev.metrics.recall) * 100) + '%'),
-      mdKpi('精确率', n1(ev.metrics.precision * 100) + '%', '误报 ' + n1((1 - ev.metrics.precision) * 100) + '%', ev.metrics.precision >= 0.45 ? 'warn' : 'danger'),
-      mdKpi('特征漂移 PSI', n3(ev.drift.psi), ev.drift.psi > 0.1 ? '已触发重训提示' : '未触发重训', ev.drift.psi > 0.1 ? 'danger' : 'ok')
-    ].join('');
-
     const roc = curveChart(ev.roc, { xLabel: '假阳性率 (1-特异度)', yLabel: '真阳性率 (召回)', color: '#1d4ed8', aria: 'ROC 曲线', note: 'AUC = ' + n3(ev.metrics.auc) + '；对角虚线为随机猜测基线。' });
     const cal = curveChart(ev.calibration, { xLabel: '预测概率（分箱均值）', yLabel: '实际发生比例', color: '#b54708', aria: '校准曲线', note: 'Brier = ' + n3(ev.metrics.brier) + '；贴近对角线说明预测概率可当作真实概率使用。' });
 
@@ -1118,21 +1037,18 @@
       return '<option value="' + k + '"' + (id === k ? ' selected' : '') + '>' + esc(k + ' ' + (mm ? mm.name : '')) + '</option>';
     }).join('');
 
-    return '<div class="md-page">' + mdHeader('模型验证与评估报告',
-      '生成模型效果评估报告，含<b>准确率、召回率、误报率</b>等指标。除整体指标外，强制包含四项内容：① 概率校准曲线（判别能力好不代表概率可信）；② 分组表现（小基数区县、筛查覆盖区县、高 DCO% 区县单独评估）；③ 特征漂移 PSI 与重训触发判定；④ 与 A/B/C 规则预警的一致性对比。评估结论必须写明使用边界。', [
-      '<button class="btn btn-outline btn-sm" onclick="showMetricGuide()">指标释义</button>',
-      '<button class="btn btn-outline btn-sm" onclick="mdToastMsg(\'评估报告已导出 PDF\')">导出报告</button>'
-    ]) +
-      '<div class="md-filter" style="grid-template-columns:minmax(320px,1fr) auto">' +
+    return '<div class="md-page">' +
+      '<div class="md-filter">' +
       '<div class="form-group"><label>评估报告</label><select onchange="mdSet(\'evaluation\',\'model\',this.value)">' + evOpts + '</select></div>' +
-      '<div class="filter-actions"><span class="md-note">' + esc(ev.reportId) + ' · ' + esc(ev.modelVersion) + ' · 评估日 ' + esc(ev.evaluatedAt) + ' · ' + esc(ev.evaluator) + '</span></div></div>' +
-      '<div class="md-kpis">' + kpis + '</div>' +
+      '<div class="filter-actions"><span class="md-note">' + esc(ev.reportId) + ' · ' + esc(ev.modelVersion) + ' · 评估日 ' + esc(ev.evaluatedAt) + ' · ' + esc(ev.evaluator) + '</span>' +
+      '<button class="btn btn-outline btn-sm" onclick="showMetricGuide()">指标释义</button>' +
+      '<button class="btn btn-primary btn-sm" onclick="mdToastMsg(\'评估报告已导出 PDF\')">导出报告</button></div></div>' +
       '<div class="md-grid2">' +
       '<div class="md-card"><div class="md-card-head"><div class="md-card-title">ROC 与校准曲线<span class="md-card-sub">' + esc(ev.period) + '</span></div>' + badge(LIFECYCLE[m.status]) + '</div>' +
       '<div class="md-card-body"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' + roc + cal + '</div>' +
       '<div class="md-callout warn" style="margin-top:11px"><strong>为什么两条曲线都要看：</strong>ROC/AUC 只反映"排序能力"，即高风险是否排在低风险前面；校准曲线反映"概率数值是否可信"。一个 AUC 0.85 但校准很差的模型，可以正确排序却会把 30% 的真实风险报成 70%，导致资源错配。本模块把两者并列展示，禁止只用 AUC 汇报模型效果。</div></div></div>' +
       '<div class="md-card"><div class="md-card-head"><div class="md-card-title">混淆矩阵与误报代价</div></div><div class="md-card-body">' +
-      '<div class="md-note" style="margin-bottom:8px">测试样本 ' + nInt(ev.sampleN) + ' 条，其中正类 ' + nInt(ev.positiveN) + ' 条（' + n1(ev.positiveN / ev.sampleN * 100) + '%），阈值 ' + (m && m.threshold !== null ? m.threshold : '-') + '</div>' +
+      '<div class="md-note" style="margin-bottom:8px">测试样本 ' + nInt(ev.sampleN) + ' 条，其中正类 ' + nInt(ev.positiveN) + ' 条（' + n1(ev.positiveN / ev.sampleN * 100) + '%），阈值 ' + (m && m.threshold !== null ? m.threshold : '-') + ' · PR-AUC ' + n3(ev.metrics.pr) + '</div>' +
       cmTable +
       '<div class="md-sect"><div class="md-callout warn"><strong>误报代价评估：</strong>' + nInt(cm.fp) + ' 例假阳性意味着约 ' + nInt(cm.fp) + ' 次不必要的区县核查动员。按每次核查投入 3 人日计，年成本约 ' + nInt(cm.fp * 3) + ' 人日。这是精确率仅 ' + n1(ev.metrics.precision * 100) + '% 的模型必须"人工研判后再派单"的直接原因——模型负责收窄范围，人负责决定是否行动。</div></div>' +
       '<div class="md-sect"><h4 class="md-h">特征漂移监测</h4><div class="md-callout' + (ev.drift.psi > 0.1 ? ' warn' : '') + '"><strong>整体 PSI：</strong>' + n3(ev.drift.psi) + '（阈值 0.10）<br>' +
