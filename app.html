@@ -676,7 +676,7 @@ const menuData=[
     {id:'warning-rules',label:'预警规则配置'}
   ]},
   {id:'health-consult',label:'健康咨询',icon:'💬',children:[{id:'consult-sessions',label:'咨询会话管理'},{id:'consult-analysis',label:'咨询问题分析'},{id:'community-management',label:'互动社区管理'},{id:'consult-education',label:'科普内容配置'}]},
-  {id:'specialty-portrait',label:'专科画像',icon:'●',children:[{id:'sp-patients',label:'患者专科画像'},{id:'sp-overview',label:'画像指标汇总'},{id:'sp-config',label:'画像配置与质控'},{id:'cap-group',label:'肿瘤专科能力分析',children:[{id:'cap-catalog',label:'肿瘤诊疗技术目录'},{id:'cap-records',label:'机构技术开展记录'},{id:'cap-quality',label:'医疗质量核心指标明细'},{id:'cap-complex',label:'疑难病例收治特征库'}]}]},
+  {id:'specialty-portrait',label:'专科画像',icon:'●',children:[{id:'sp-patients',label:'患者专科画像'},{id:'sp-overview',label:'画像指标汇总'},{id:'sp-config',label:'画像配置'},{id:'cap-group',label:'肿瘤专科能力分析',children:[{id:'cap-catalog',label:'肿瘤诊疗技术目录'},{id:'cap-records',label:'机构技术开展记录'},{id:'cap-quality',label:'医疗质量核心指标明细'},{id:'cap-complex',label:'疑难病例收治特征库'}]}]},
   {id:'quality-control',label:'肿瘤质控管理',icon:'●',children:[{id:'qc-homepage',label:'肿瘤病案首页质控'},{id:'qc-confirmed',label:'确诊病例质控'},{id:'qc-pathology',label:'病理信息质控'},{id:'qc-tnm',label:'TNM分期质控'},{id:'qc-course',label:'专病病程质控'},{id:'qc-mdt',label:'MDT多学科诊疗质控'},{id:'qc-remote',label:'远程会诊质控'},{id:'qc-cohort',label:'人群纳管与分组质控'},{id:'qc-global',label:'全域数据质控与绩效监测'}]}
 ];
 const hisRecords=[
@@ -2558,7 +2558,7 @@ function toggleMsDropdown(id){var dd=document.getElementById(id);if(!dd)return;v
 function updateMsDisplay(id){var dd=document.getElementById(id);if(!dd)return;var checks=dd.querySelectorAll('.ms-options input[type=checkbox]');var sel=[];checks.forEach(function(c){if(c.checked)sel.push(c.value)});var disp=dd.querySelector('.ms-display');disp.innerHTML=(sel.length?sel.join(', '):'请选择治疗方式')+'<span class="ms-arrow">▾</span>'}
 function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":"8140/3","C18":"8140/3","C22":"8170/3","C25":"8140/3","C53":"8010/3","C61":"8140/3","C64":"8312/3","C67":"8120/3"};var val=input.value.trim().toUpperCase();var prefix=val.match(/^C\d{2}/)?val.slice(0,3):"";var topoEl=document.getElementById("entry-icdo3-topo");if(topoEl&&!topoEl.dataset.userEdited){topoEl.value=prefix||""}var morphEl=document.getElementById("entry-icdo3-morph");if(morphEl&&!morphEl.dataset.userEdited){morphEl.value=morphMap[prefix]||""}}document.addEventListener("input",function(e){if(e.target&&(e.target.id==="entry-icdo3-topo"||e.target.id==="entry-icdo3-morph")){e.target.dataset.userEdited="1"}});
 </script>
-  <script src="specialty-portrait.js?v=20260911a"></script>
+  <script src="specialty-portrait.js?v=20260911g"></script>
   <script src="monitor-module.js?v=20260829b"></script>
 <script src="warning-module.js?v=20260910c"></script>
 <script src="capability-module.js?v=20260910d"></script>

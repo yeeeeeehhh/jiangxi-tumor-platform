@@ -1,9 +1,11 @@
 /* 肿瘤专科画像 V6 — 患者画像 / 指标汇总 / 配置质控 三层架构
    01 患者专科画像：五维画像（患者特征/疾病特征/诊疗特征/患者状态/随访与结局）+ 画像时间线
    02 画像指标汇总：卫健委视角，全省→地市→医院→病种聚合
-   03 画像配置与质控：要素元数据 / 映射规则 / 智能校验 / 质控报告 / 预警 / 版本 / 归档
+   03 画像配置：要素元数据 / 映射规则 / 智能校验 / 质控报告 / 预警 / 版本 / 归档
    全部指标由患者画像字段实时聚合，不重复采集数据 */
 (function(){ 'use strict';
+var SP_BUILD='V6.4-tabs@20260911g';
+if(typeof console!=='undefined')console.log('[specialty-portrait] '+SP_BUILD+' loaded');
 
 /* ===================== 样式 ===================== */
 var spStyle=document.createElement('style');
@@ -58,6 +60,48 @@ spStyle.textContent=`
 .sp-domain-tab.active{color:var(--color-primary);border-bottom-color:var(--color-primary)}
 .sp-2col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .spr-count{font-size:var(--fs-xs);color:var(--color-text-muted);font-weight:400;margin-left:8px}
+/* ---- 配置质控补充组件 ---- */
+.sp-progress{height:8px;border-radius:999px;background:var(--color-bg-subtle);overflow:hidden}
+.sp-progress i{display:block;height:100%;border-radius:999px;transition:width .3s}
+.sp-chart-empty{height:220px;display:flex;align-items:center;justify-content:center;color:var(--color-text-muted);font-size:var(--fs-sm)}
+.sp-btn-red{background:#dc2626!important;color:#fff!important;border-color:#dc2626!important}
+.sp-btn-red:hover{background:#b91c1c!important;border-color:#b91c1c!important}
+.sp-form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px 16px}
+.sp-form-row{display:flex;flex-direction:column;gap:5px}
+.sp-form-row label{font-size:var(--fs-xs);color:var(--color-text-muted)}
+.sp-form-row input:not([type=checkbox]):not([type=radio]),.sp-form-row select{height:34px;padding:0 10px;border:1px solid var(--color-border-strong);border-radius:6px;font-size:var(--fs-body);background:var(--surface);color:var(--color-text-body)}
+/* ---- 01 患者详情：摘要条 + 五块画像 + 时间线 ---- */
+.sp-detail-shell{min-width:0}
+.sp-detail-back{display:flex;align-items:center;margin-bottom:10px}
+.sp-patient-strip{display:grid;grid-template-columns:auto minmax(240px,1.25fr) minmax(300px,1fr) auto;align-items:center;gap:14px;padding:12px 16px;margin-bottom:14px;background:var(--surface);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-xs)}
+.sp-patient-avatar{width:42px;height:42px;border-radius:50%;background:var(--color-primary-soft);color:var(--color-primary);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700}
+.sp-patient-name{display:flex;align-items:baseline;gap:10px;min-width:0;font-size:var(--fs-h2);font-weight:700;color:var(--color-text-title);flex-wrap:wrap}
+.sp-patient-meta{font-size:var(--fs-xs);font-weight:500;color:var(--color-text-muted);white-space:nowrap}
+.sp-patient-sub{margin-top:3px;font-size:var(--fs-xs);color:var(--color-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp-patient-badges{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sp-patient-score{text-align:right;min-width:50px}
+.sp-patient-score .k{font-size:var(--fs-2xs);color:var(--color-text-muted)}
+.sp-patient-score .v{font-size:24px;font-weight:700;font-family:var(--font-num);color:var(--color-primary);line-height:1.05}
+.sp-profile-blocks{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:16px}
+.sp-profile-block{background:var(--surface);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-xs);min-width:0}
+.sp-block-head{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--color-border);flex-wrap:wrap}
+.sp-block-idx{width:22px;height:22px;border-radius:6px;background:var(--color-primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:0 0 22px}
+.sp-block-title{font-size:var(--fs-body);font-weight:700;color:var(--color-text-title)}
+.sp-block-tags{margin-left:auto;display:flex;gap:5px;flex-wrap:wrap}
+.sp-block-body{padding:12px 14px}
+.sp-kv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px 16px}
+.sp-kv-item{display:flex;flex-direction:column;gap:2px;padding:7px 0;border-bottom:1px dashed var(--color-border);min-width:0}
+.sp-kv-item .k{font-size:var(--fs-xs);color:var(--color-text-muted)}
+.sp-kv-item .v{font-size:var(--fs-body);color:var(--color-text-title);font-weight:500;word-break:break-all}
+.sp-timeline{position:relative;padding-left:24px;margin:12px 0}
+.sp-timeline::before{content:'';position:absolute;left:7px;top:4px;bottom:4px;width:2px;background:var(--color-border)}
+.sp-tl-item{position:relative;padding-bottom:14px}
+.sp-tl-item::before{content:'';position:absolute;left:-20px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--color-primary);border:2px solid var(--surface)}
+.sp-tl-date{font-size:var(--fs-xs);color:var(--color-text-muted);margin-bottom:2px}
+.sp-tl-content{font-size:var(--fs-body);color:var(--color-text-body)}
+@media(max-width:1280px){.sp-stat-row{grid-template-columns:repeat(3,1fr)}.sp-ov-grid{grid-template-columns:1fr}}
+@media(max-width:900px){.sp-2col{grid-template-columns:1fr}.sp-profile-blocks{grid-template-columns:1fr}.sp-patient-strip{grid-template-columns:auto 1fr}.sp-patient-badges{grid-column:1/-1}}
+@media(max-width:768px){.sp-stat-row{grid-template-columns:repeat(2,1fr)}.sp-filter-bar{flex-direction:column}.sp-filter-bar .form-group,.sp-filter-bar .form-group.wide{width:100%}.sp-filter-actions{margin-left:0;width:100%}.sp-mini-grid{grid-template-columns:repeat(2,1fr)}}
 `;
 document.head.appendChild(spStyle);
 
@@ -460,8 +504,9 @@ function renderOverview(){
   h+='<div class="panel" style="margin-bottom:16px"><div class="panel-header"><span>重点病种画像<span class="spr-count">点击病种卡可按病种筛选本页指标</span></span></div><div class="panel-body">'+
     '<div class="sp-site-cards">'+siteRows.map(function(r){
       var share=agg.total?Math.round(r.n/agg.total*100):0;
+      var dotColor=SP_CHART_COLORS[SP_SITES.indexOf(r.site)%SP_CHART_COLORS.length];
       return '<div class="sp-site-card'+(_spScope.site===r.site?' sel':'')+'" onclick="window._spSetScope(\'\',\''+esc(r.site)+'\')">'+
-        '<div class="sp-site-head"><span class="sp-site-dot" style="background:'+(SP_STAGE_COLORS[r.site==='肝'?'III期':'II期'])+'"></span><span class="sp-site-name">'+esc(r.site)+'</span><span class="spr-count">'+r.n+' 例 · '+share+'%</span></div>'+
+        '<div class="sp-site-head"><span class="sp-site-dot" style="background:'+dotColor+'"></span><span class="sp-site-name">'+esc(r.site)+'</span><span class="spr-count">'+r.n+' 例 · '+share+'%</span></div>'+
         '<div class="sp-site-kpis">'+
           '<div class="sp-site-kpi"><div class="k">早期占比</div><div class="v">'+r.agg.earlyRate+'<em>%</em></div></div>'+
           '<div class="sp-site-kpi"><div class="k">MDT覆盖</div><div class="v">'+r.agg.mdtRate+'<em>%</em></div></div>'+
@@ -735,42 +780,73 @@ function spDetailPage(e){
 }
 
 
-/* ===================== 七、03 画像配置与质控 ===================== */
-var _spCfgTab='meta';
-var SP_CFG_TABS=[{key:'meta',label:'要素与规则'},{key:'check',label:'校验与报告'},{key:'warn',label:'预警跟踪'},{key:'ver',label:'版本与归档'}];
+/* ===================== 七、03 画像配置 ===================== */
+var _spCfgTab='elem';
+var SP_CFG_TABS=[{key:'elem',label:'画像要素'},{key:'rule',label:'映射规则'},{key:'nlp',label:'NLP 提取'},{key:'ver',label:'版本与归档'}];
 
-/* 画像要素元数据：覆盖率实时按数据计算 */
-var SP_ELEMENTS=[
- {id:'PE01',dim:'患者特征',name:'年龄/性别',src:'登记报告卡',fn:function(e){return e.age&&e.sex}},
- {id:'PE02',dim:'患者特征',name:'户籍地区',src:'登记报告卡',fn:function(e){return e.region}},
- {id:'PE03',dim:'患者特征',name:'医保类型',src:'医保结算数据',fn:function(e){return e.insurance}},
- {id:'PE04',dim:'患者特征',name:'首诊机构/时间',src:'门诊登记数据',fn:function(e){return e.firstHosp&&e.firstDate}},
- {id:'DE01',dim:'疾病特征',name:'瘤种/部位',src:'登记报告卡',fn:function(e){return e.site&&e.laterality}},
- {id:'DE02',dim:'疾病特征',name:'病理类型/分化程度',src:'病理报告数据',fn:function(e){return e.path&&e.grade}},
- {id:'DE03',dim:'疾病特征',name:'TNM/临床分期',src:'TNM分期质控',fn:function(e){return e.tNm&&e.stage}},
- {id:'DE04',dim:'疾病特征',name:'转移/多原发',src:'诊断与病理数据',fn:function(e){return e.metastasis}},
- {id:'TR01',dim:'诊疗特征',name:'治疗方式组合',src:'病案首页数据',fn:function(e){return e.treatMode&&e.treatMode.length}},
- {id:'TR02',dim:'诊疗特征',name:'MDT/转诊记录',src:'MDT与转诊管理',fn:function(e){return e.mdt!==undefined&&e.referral!==undefined}},
- {id:'TR03',dim:'诊疗特征',name:'当前治疗阶段',src:'治疗记录数据',fn:function(e){return e.curPhase}},
- {id:'ST01',dim:'患者状态',name:'症状/疼痛/营养/体能',src:'护理评估数据',fn:function(e){return e.symptom&&e.pain&&e.nutrition&&e.physical}},
- {id:'ST02',dim:'患者状态',name:'并发症/不良反应',src:'病案首页数据',fn:function(e){return e.complication&&e.ae}},
- {id:'FU01',dim:'随访与结局',name:'最近随访时间/状态',src:'随访管理数据',fn:function(e){return e.lastFu&&e.followStatus}},
- {id:'FU02',dim:'随访与结局',name:'生存状态/结局',src:'随访与死亡登记',fn:function(e){return e.vitalStatus}}
+/* 覆盖判定字段库：新增要素时从下拉选择，覆盖率按数据实时计算 */
+var SP_ELEM_FIELD_MAP=[
+ {key:'age_sex',name:'年龄/性别',fn:function(e){return e.age&&e.sex}},
+ {key:'region',name:'户籍地区',fn:function(e){return e.region}},
+ {key:'insurance',name:'医保类型',fn:function(e){return e.insurance}},
+ {key:'first',name:'首诊机构/时间',fn:function(e){return e.firstHosp&&e.firstDate}},
+ {key:'site',name:'瘤种/部位',fn:function(e){return e.site&&e.laterality}},
+ {key:'path',name:'病理类型/分化程度',fn:function(e){return e.path&&e.grade}},
+ {key:'stage',name:'TNM/临床分期',fn:function(e){return e.tNm&&e.stage}},
+ {key:'meta2',name:'转移/多原发',fn:function(e){return e.metastasis}},
+ {key:'treat',name:'治疗方式组合',fn:function(e){return e.treatMode&&e.treatMode.length}},
+ {key:'mdt',name:'MDT/转诊记录',fn:function(e){return e.mdt!==undefined&&e.referral!==undefined}},
+ {key:'phase',name:'当前治疗阶段',fn:function(e){return e.curPhase}},
+ {key:'status',name:'症状/疼痛/营养/体能',fn:function(e){return e.symptom&&e.pain&&e.nutrition&&e.physical}},
+ {key:'comp',name:'并发症/不良反应',fn:function(e){return e.complication&&e.ae}},
+ {key:'fu',name:'最近随访时间/状态',fn:function(e){return e.lastFu&&e.followStatus}},
+ {key:'vital',name:'生存状态/结局',fn:function(e){return e.vitalStatus}}
 ];
-/* 画像维度映射规则 */
-var SP_MAP_RULES=[
- {id:'MR01',dim:'患者特征',input:'户籍地区 + 医保类型',out:'人群属性分组',logic:'按设区市 × 医保类型自动归组'},
- {id:'MR02',dim:'疾病特征',input:'部位 + 病理类型 + 分化程度',out:'瘤种画像结论',logic:'拼接生成「部位+病理」结论行'},
- {id:'MR03',dim:'疾病特征',input:'TNM + 临床/病理分期',out:'早期/晚期分层',logic:'I/II期 → 早期；IV期 → 晚期'},
- {id:'MR04',dim:'疾病特征',input:'转移记录',out:'远处转移标记',logic:'含骨/肝/肺/脑/腹膜转移 → 远处转移'},
- {id:'MR05',dim:'诊疗特征',input:'治疗方式组合',out:'治疗模式分类',logic:'≥2种方式 → 综合治疗；含靶向/免疫 → 精准治疗'},
- {id:'MR06',dim:'诊疗特征',input:'MDT记录 + 转诊记录',out:'MDT覆盖率/转诊流向',logic:'有MDT记录即计入覆盖分母'},
- {id:'MR07',dim:'患者状态',input:'疼痛 + 营养 + 并发症',out:'状态稳定度标签',logic:'重度疼痛/高度营养风险/严重并发症 → 需重点关注'},
- {id:'MR08',dim:'随访与结局',input:'最近随访时间 + 随访状态',out:'随访状态结论',logic:'失访标记 → 失访率分母'},
- {id:'MR09',dim:'随访与结局',input:'复发/转移/进展记录',out:'结局事件标记',logic:'任一阳性即标记结局事件'},
- {id:'MR10',dim:'指标汇总',input:'患者画像全量字段',out:'省/市/院/病种聚合指标',logic:'按行政区划、机构、瘤种三维实时聚合'}
+function spFieldFn(fkey){var f=SP_ELEM_FIELD_MAP.filter(function(x){return x.key===fkey})[0];return f?f.fn:function(){return true};}
+var SP_DIMS=['患者特征','疾病特征','诊疗特征','患者状态','随访与结局'];
+var SP_SOURCES=['登记报告卡','门诊登记数据','病理报告数据','TNM分期质控','病案首页数据','医保结算数据','MDT与转诊管理','护理评估数据','随访管理数据','随访与死亡登记','治疗记录数据','诊断与病理数据'];
+
+/* 画像要素元数据（工作副本：可新增/编辑/启停） */
+var _spElements=[
+ {id:'PE01',dim:'患者特征',name:'年龄/性别',src:'登记报告卡',fkey:'age_sex',on:true},
+ {id:'PE02',dim:'患者特征',name:'户籍地区',src:'登记报告卡',fkey:'region',on:true},
+ {id:'PE03',dim:'患者特征',name:'医保类型',src:'医保结算数据',fkey:'insurance',on:true},
+ {id:'PE04',dim:'患者特征',name:'首诊机构/时间',src:'门诊登记数据',fkey:'first',on:true},
+ {id:'DE01',dim:'疾病特征',name:'瘤种/部位',src:'登记报告卡',fkey:'site',on:true},
+ {id:'DE02',dim:'疾病特征',name:'病理类型/分化程度',src:'病理报告数据',fkey:'path',on:true},
+ {id:'DE03',dim:'疾病特征',name:'TNM/临床分期',src:'TNM分期质控',fkey:'stage',on:true},
+ {id:'DE04',dim:'疾病特征',name:'转移/多原发',src:'诊断与病理数据',fkey:'meta2',on:true},
+ {id:'TR01',dim:'诊疗特征',name:'治疗方式组合',src:'病案首页数据',fkey:'treat',on:true},
+ {id:'TR02',dim:'诊疗特征',name:'MDT/转诊记录',src:'MDT与转诊管理',fkey:'mdt',on:true},
+ {id:'TR03',dim:'诊疗特征',name:'当前治疗阶段',src:'治疗记录数据',fkey:'phase',on:true},
+ {id:'ST01',dim:'患者状态',name:'症状/疼痛/营养/体能',src:'护理评估数据',fkey:'status',on:true},
+ {id:'ST02',dim:'患者状态',name:'并发症/不良反应',src:'病案首页数据',fkey:'comp',on:true},
+ {id:'FU01',dim:'随访与结局',name:'最近随访时间/状态',src:'随访管理数据',fkey:'fu',on:true},
+ {id:'FU02',dim:'随访与结局',name:'生存状态/结局',src:'随访与死亡登记',fkey:'vital',on:true}
 ];
-var _spRuleOff={};
+/* 画像维度映射规则（工作副本） */
+var _spMapRules=[
+ {id:'MR01',dim:'患者特征',input:'户籍地区 + 医保类型',out:'人群属性分组',logic:'按设区市 × 医保类型自动归组',on:true},
+ {id:'MR02',dim:'疾病特征',input:'部位 + 病理类型 + 分化程度',out:'瘤种画像结论',logic:'拼接生成「部位+病理」结论行',on:true},
+ {id:'MR03',dim:'疾病特征',input:'TNM + 临床/病理分期',out:'早期/晚期分层',logic:'I/II期 → 早期；IV期 → 晚期',on:true},
+ {id:'MR04',dim:'疾病特征',input:'转移记录',out:'远处转移标记',logic:'含骨/肝/肺/脑/腹膜转移 → 远处转移',on:true},
+ {id:'MR05',dim:'诊疗特征',input:'治疗方式组合',out:'治疗模式分类',logic:'≥2种方式 → 综合治疗；含靶向/免疫 → 精准治疗',on:true},
+ {id:'MR06',dim:'诊疗特征',input:'MDT记录 + 转诊记录',out:'MDT覆盖率/转诊流向',logic:'有MDT记录即计入覆盖分母',on:true},
+ {id:'MR07',dim:'患者状态',input:'疼痛 + 营养 + 并发症',out:'状态稳定度标签',logic:'重度疼痛/高度营养风险/严重并发症 → 需重点关注',on:true},
+ {id:'MR08',dim:'随访与结局',input:'最近随访时间 + 随访状态',out:'随访状态结论',logic:'失访标记 → 失访率分母',on:true},
+ {id:'MR09',dim:'随访与结局',input:'复发/转移/进展记录',out:'结局事件标记',logic:'任一阳性即标记结局事件',on:true},
+ {id:'MR10',dim:'指标汇总',input:'患者画像全量字段',out:'省/市/院/病种聚合指标',logic:'按行政区划、机构、瘤种三维实时聚合',on:true}
+];
+var SP_RULE_TEMPLATES=['按行政区划聚合','拼接生成结论行','区间映射为分层','关键字匹配打标','计数聚合为占比','任一阳性即标记'];
+/* NLP 结构化提取结果：原文片段 → 画像要素，状态可采纳/忽略 */
+var _spNlp=[
+ {id:'NLP01',src:'病理报告 · 陈建国',snippet:'（右肺上叶）浸润性腺癌，腺泡型+乳头型，中分化',el:'病理类型/分化程度',val:'腺癌 · 中分化',conf:96,st:'已采纳'},
+ {id:'NLP02',src:'出院小结 · 赵德顺',snippet:'胃窦低分化腺癌，腹膜多发转移结节',el:'转移',val:'腹膜转移',conf:92,st:'已采纳'},
+ {id:'NLP03',src:'影像报告 · 王秀兰',snippet:'右肝后叶占位，考虑 HCC，邻近无卫星灶',el:'瘤种/部位',val:'肝 · 右肝后叶',conf:89,st:'待确认'},
+ {id:'NLP04',src:'门诊病历 · 欧阳明轩',snippet:'进食梗阻感 2 月，胸中段食管占位',el:'症状',val:'进食梗阻感',conf:85,st:'待确认'},
+ {id:'NLP05',src:'检验报告 · 李志强',snippet:'血常规 WBC 3.2×10⁹/L，II 度骨髓抑制',el:'治疗不良反应',val:'II度骨髓抑制',conf:91,st:'已采纳'},
+ {id:'NLP06',src:'随访记录 · 刘雅琴',snippet:'内分泌维持中，未见复发征象',el:'复发',val:'暂无复发记录',conf:94,st:'已采纳'}
+];
 /* 智能校验：实时按数据执行 */
 var SP_CHECKS=[
  {id:'R001',name:'分期完整性',run:function(){var bad=tumorEvents.filter(function(e){return !e.stage});return {bad:bad,detail:bad.length?bad.map(function(e){return e.patient}).join('、'):'全部患者分期完整'}}},
@@ -781,24 +857,23 @@ var SP_CHECKS=[
  {id:'R006',name:'逻辑一致性（分期与转移）',run:function(){var bad=tumorEvents.filter(function(e){return e.stage==='IV期'&&!spDistant(e)});return {bad:bad,detail:bad.length?bad.map(function(e){return e.patient+'（IV期无远处转移记录）'}).join('、'):'分期与转移记录一致'}}}
 ];
 var _spCheckTime='2026-09-11 08:30';
-var _spWarnStatus={};
-/* 质控报告快照（历史） */
-var SP_SNAPSHOTS=[
- {id:'SNP-2026-09',time:'2026-09-01 06:00',range:'全省 · 2026-08',score:94.2},
- {id:'SNP-2026-08',time:'2026-08-01 06:00',range:'全省 · 2026-07',score:92.8},
- {id:'SNP-2026-07',time:'2026-07-01 06:00',range:'全省 · 2026-06',score:91.5}
-];
+var SP_ELEM_CHECK={stage:'R001',path:'R002',fu:'R003',vital:'R004',treat:'R005',meta2:'R006'};
+function spCheck(id){return SP_CHECKS.filter(function(c){return c.id===id})[0];}
+/* 画像版本：含变更明细 */
 var SP_VERSIONS=[
- {v:'V6.0',time:'2026-09-11 10:00',by:'系统',desc:'画像架构升级：五维患者画像 + 指标汇总 + 配置质控三层',cur:true},
- {v:'V5.1',time:'2026-09-03 15:20',by:'管理员',desc:'患者详情记录页签精简，质控子页并入详情页签'},
- {v:'V5.0',time:'2026-08-28 10:00',by:'系统',desc:'个案画像模型升级，新增评估与治疗要素'},
- {v:'V4.2',time:'2026-08-25 14:30',by:'张医生',desc:'更新疗效评价，补充分子检测要素'}
+ {v:'V6.0',time:'2026-09-11 10:00',by:'系统',desc:'画像架构升级：五维患者画像 + 指标汇总 + 配置质控三层',cur:true,changes:['新增五维患者画像页（含画像时间线）','新增画像指标汇总六大板块与全省地图','画像配置迁移为四页签管理','要素/映射规则支持增删改与启停']},
+ {v:'V5.1',time:'2026-09-03 15:20',by:'管理员',desc:'患者详情记录页签精简，质控子页并入详情页签',changes:['删除独立质控子页','详情页签合并筛查记录','时间线增加疗效评价节点']},
+ {v:'V5.0',time:'2026-08-28 10:00',by:'系统',desc:'个案画像模型升级，新增评估与治疗要素',changes:['新增患者状态维度','新增营养/疼痛评估要素','随访要素扩展结局事件']},
+ {v:'V4.2',time:'2026-08-25 14:30',by:'张医生',desc:'更新疗效评价，补充分子检测要素',changes:['补充分子检测字段','疗效评价规则更新','修正分期字段字典']}
 ];
+/* 画像归档：含归档时点统计 */
 var SP_ARCHIVES=[
- {id:'AR-2026-08',range:'2026-08 全省月度归档',events:86,note:'含死亡结案与失访封存'},
- {id:'AR-2026-Q2',range:'2026年二季度归档',events:241,note:'季度画像基线'},
- {id:'AR-2025-Y',range:'2025年度终末归档',events:913,note:'年终画像归档快照'}
+ {id:'AR-2026-08',range:'2026-08 全省月度归档',events:86,note:'含死亡结案与失访封存',stats:{cities:11,sites:7,fuRate:92.4,earlyRate:31.2,score:94.2}},
+ {id:'AR-2026-Q2',range:'2026年二季度归档',events:241,note:'季度画像基线',stats:{cities:11,sites:7,fuRate:91.8,earlyRate:30.5,score:92.9}},
+ {id:'AR-2025-Y',range:'2025年度终末归档',events:913,note:'年终画像归档快照',stats:{cities:11,sites:7,fuRate:90.2,earlyRate:29.8,score:91.3}}
 ];
+var _spMetaFilter={q:'',dim:''};
+var _spRuleFilter={q:'',dim:''};
 
 function renderConfig(){
   var h='<div class="sp-domain-tabs">'+SP_CFG_TABS.map(function(t){
@@ -807,88 +882,105 @@ function renderConfig(){
   return h;
 }
 function spCfgPanel(){
-  if(_spCfgTab==='meta'){
-    var elRows=SP_ELEMENTS.map(function(el){
-      var ok=tumorEvents.filter(el.fn).length;
+  function spSel(id,cur,opts,placeholder,fn){
+    return '<select id="'+id+'" onchange="'+fn+'"><option value="">'+esc(placeholder)+'</option>'+opts.map(function(o){return '<option'+(cur===o?' selected':'')+'>'+esc(o)+'</option>'}).join('')+'</select>';
+  }
+  /* ---- 页签一：要素与规则 ---- */
+if(_spCfgTab==='elem'){
+    var f=_spMetaFilter;
+    var els=_spElements.filter(function(el){
+      if(f.dim&&el.dim!==f.dim)return false;
+      if(f.q&&(el.id+el.name+el.src).indexOf(f.q)<0)return false;
+      return true;
+    });
+    var elRows=els.map(function(el){
+      var ok=tumorEvents.filter(spFieldFn(el.fkey)).length;
       var cov=Math.round(ok/tumorEvents.length*100);
       var col=cov>=95?'var(--color-success-solid)':cov>=80?'var(--color-caution-solid)':'var(--color-danger-solid)';
       return '<tr><td>'+esc(el.id)+'</td><td>'+esc(el.dim)+'</td><td style="font-weight:600">'+esc(el.name)+'</td><td>'+esc(el.src)+'</td>'+
         '<td><div style="display:flex;align-items:center;gap:8px"><div class="sp-progress" style="flex:1"><i style="width:'+cov+'%;background:'+col+'"></i></div><span style="font-family:var(--font-num);font-weight:700;color:'+col+'">'+cov+'%</span></div></td>'+
-        '<td><button class="btn btn-ghost btn-xs" onclick="toast(\'要素 '+esc(el.id)+' 明细已打开（示例）\')">查看</button></td></tr>';
+        '<td>'+(function(){var rid=SP_ELEM_CHECK[el.fkey];if(!rid)return '—';var cr=spCheck(rid).run(),cb=cr.bad.length;return cb?'<button class="btn btn-ghost btn-xs" style="color:var(--color-danger-fg)" onclick="window._spCheckView(\''+rid+'\')">异常 '+cb+' 例</button>':badge('通过','badge-success')})()+'</td>'+
+        '<td>'+(el.on?badge('已启用','badge-success'):badge('已停用','badge-gray'))+'</td>'+
+        '<td style="white-space:nowrap">'+
+          '<button class="btn btn-ghost btn-xs" onclick="window._spElemView(\''+esc(el.id)+'\')">查看</button> '+
+          '<button class="btn btn-ghost btn-xs" onclick="window._spElemEdit(\''+esc(el.id)+'\')">编辑</button> '+
+          '<button class="btn btn-ghost btn-xs" onclick="window._spElemToggle(\''+esc(el.id)+'\')">'+(el.on?'停用':'启用')+'</button>'+
+        '</td></tr>';
     }).join('');
-    var ruleRows=SP_MAP_RULES.map(function(r){
-      var off=_spRuleOff[r.id];
+    if(!elRows)elRows='<tr><td colspan="8" style="text-align:center;color:var(--color-text-muted);padding:24px 0">无匹配要素</td></tr>';
+    return '<div class="panel">'+
+        '<div class="panel-header"><span>画像要素元数据<span class="spr-count">'+els.length+' 条</span></span></div>'+
+        '<div class="panel-body">'+
+          '<div class="sp-filter-bar">'+
+            '<div class="form-group wide"><label>关键字</label><input id="spMetaQ" placeholder="编号 / 名称 / 来源" value="'+esc(f.q)+'"></div>'+
+            '<div class="form-group"><label>维度</label>'+spSel('spMetaDim',f.dim,SP_DIMS,'全部维度','window._spMetaFilterSet()')+'</div>'+
+            '<div class="sp-filter-actions"><button class="btn btn-outline" onclick="window._spMetaReset()">重置</button><button class="btn btn-primary" onclick="window._spElemAdd()">新增要素</button></div>'+
+          '</div>'+
+          '<div class="sp-table-wrap"><table class="data-table"><thead><tr><th style="width:72px">编号</th><th style="width:90px">维度</th><th>要素名称</th><th style="width:120px">数据来源</th><th style="width:190px">覆盖率</th><th style="width:96px">校验</th><th style="width:76px">状态</th><th style="width:150px">操作</th></tr></thead><tbody>'+elRows+'</tbody></table></div>'+
+        '</div>'+
+      '</div>';
+  }
+  if(_spCfgTab==='rule'){
+    var rf=_spRuleFilter;
+    var rules=_spMapRules.filter(function(r){
+      if(rf.dim&&r.dim!==rf.dim)return false;
+      if(rf.q&&(r.id+r.input+r.out+r.logic).indexOf(rf.q)<0)return false;
+      return true;
+    });
+    var ruleRows=rules.map(function(r){
       return '<tr><td>'+esc(r.id)+'</td><td>'+esc(r.dim)+'</td><td>'+esc(r.input)+'</td><td style="font-weight:600">'+esc(r.out)+'</td><td style="white-space:normal">'+esc(r.logic)+'</td>'+
-        '<td>'+badge(off?'已停用':'已启用',off?'badge-neutral':'badge-success')+'</td>'+
-        '<td><button class="btn '+(off?'btn-primary':'btn-ghost')+' btn-xs" onclick="window._spToggleRule(\''+r.id+'\')">'+(off?'启用':'停用')+'</button></td></tr>';
+        '<td>'+(r.on?badge('已启用','badge-success'):badge('已停用','badge-gray'))+'</td>'+
+        '<td style="white-space:nowrap">'+
+          '<button class="btn btn-ghost btn-xs" onclick="window._spRuleView(\''+esc(r.id)+'\')">查看</button> '+
+          '<button class="btn btn-ghost btn-xs" onclick="window._spRuleEdit(\''+esc(r.id)+'\')">编辑</button> '+
+          '<button class="btn btn-ghost btn-xs" onclick="window._spToggleRule(\''+esc(r.id)+'\')">'+(r.on?'停用':'启用')+'</button>'+
+        '</td></tr>';
     }).join('');
-    return '<div class="sp-2col">'+
-      '<div class="panel"><div class="panel-header"><span>画像要素元数据<span class="spr-count">覆盖 5 类画像维度</span></span></div><div class="panel-body"><div class="sp-table-wrap"><table class="data-table"><thead><tr><th style="width:64px">编号</th><th style="width:86px">维度</th><th>要素</th><th style="width:130px">数据来源</th><th style="width:150px">覆盖率</th><th style="width:70px">操作</th></tr></thead><tbody>'+elRows+'</tbody></table></div></div></div>'+
-      '<div class="panel"><div class="panel-header"><span>画像维度映射规则<span class="spr-count">基础数据自动映射为画像结论</span></span></div><div class="panel-body"><div class="sp-table-wrap"><table class="data-table"><thead><tr><th style="width:64px">规则号</th><th style="width:86px">维度</th><th>输入要素</th><th>画像结论</th><th>映射逻辑</th><th style="width:76px">状态</th><th style="width:70px">操作</th></tr></thead><tbody>'+ruleRows+'</tbody></table></div></div></div>'+
-    '</div>';
+    if(!ruleRows)ruleRows='<tr><td colspan="7" style="text-align:center;color:var(--color-text-muted);padding:24px 0">无匹配规则</td></tr>';
+    return '<div class="panel">'+
+        '<div class="panel-header"><span>画像维度映射规则<span class="spr-count">'+rules.length+' 条</span></span></div>'+
+        '<div class="panel-body">'+
+          '<div class="sp-filter-bar">'+
+            '<div class="form-group wide"><label>关键字</label><input id="spRuleQ" placeholder="编号 / 输入 / 结论" value="'+esc(rf.q)+'"></div>'+
+            '<div class="form-group"><label>维度</label>'+spSel('spRuleDim',rf.dim,SP_DIMS.concat(['指标汇总']),'全部维度','window._spRuleFilterSet()')+'</div>'+
+            '<div class="sp-filter-actions"><button class="btn btn-outline" onclick="window._spRuleReset()">重置</button><button class="btn btn-primary" onclick="window._spRuleAdd()">新增规则</button></div>'+
+          '</div>'+
+          '<div class="sp-table-wrap"><table class="data-table"><thead><tr><th style="width:72px">规则号</th><th style="width:90px">维度</th><th>输入要素</th><th>画像结论</th><th>映射逻辑</th><th style="width:76px">状态</th><th style="width:150px">操作</th></tr></thead><tbody>'+ruleRows+'</tbody></table></div>'+
+        '</div>'+
+      '</div>';
   }
-  if(_spCfgTab==='check'){
-    var results=SP_CHECKS.map(function(c){
-      var r=c.run();
-      return {c:c,bad:r.bad,detail:r.detail};
-    });
-    var pass=results.filter(function(x){return !x.bad.length}).length;
-    var rows=results.map(function(x){
-      var ok=!x.bad.length;
-      return '<tr><td>'+esc(x.c.id)+'</td><td style="font-weight:600">'+esc(x.c.name)+'</td>'+
-        '<td>'+badge(ok?'通过':'异常',ok?'badge-success':'badge-danger')+'</td>'+
-        '<td style="white-space:normal">'+esc(x.detail)+'</td>'+
-        '<td>'+(ok?'—':x.bad.length+' 例')+'</td></tr>';
+  if(_spCfgTab==='nlp'){
+    var nlpRows=_spNlp.map(function(n){
+      var stCol=n.st==='已采纳'?'badge-success':n.st==='已忽略'?'badge-gray':'badge-warning';
+      return '<tr><td>'+esc(n.id)+'</td><td>'+esc(n.src)+'</td><td style="white-space:normal;color:var(--color-text-muted)">'+esc(n.snippet)+'</td><td style="font-weight:600">'+esc(n.el)+' → '+esc(n.val)+'</td>'+
+        '<td><span style="font-family:var(--font-num);font-weight:700;color:'+(n.conf>=90?'var(--color-success-solid)':'var(--color-caution-solid)')+'">'+n.conf+'%</span></td>'+
+        '<td>'+badge(n.st,stCol)+'</td>'+
+        '<td style="white-space:nowrap">'+(n.st==='待确认'?
+          '<button class="btn btn-ghost btn-xs" onclick="window._spNlpSet(\''+n.id+'\',\'已采纳\')">采纳</button> <button class="btn btn-ghost btn-xs" onclick="window._spNlpSet(\''+n.id+'\',\'已忽略\')">忽略</button>':'—')+'</td></tr>';
     }).join('');
-    var elsOk=SP_ELEMENTS.filter(function(el){return tumorEvents.filter(el.fn).length===tumorEvents.length}).length;
-    var snapRows=SP_SNAPSHOTS.map(function(s){
-      return '<tr><td>'+esc(s.id)+'</td><td>'+esc(s.time)+'</td><td>'+esc(s.range)+'</td><td>'+s.score+'%</td><td><button class="btn btn-ghost btn-xs" onclick="window._spViewSnap(\''+esc(s.id)+'\')">查看</button></td></tr>';
-    }).join('');
-    return '<div class="panel" style="margin-bottom:16px"><div class="panel-header"><span>画像智能校验<span class="spr-count">上次校验 '+esc(_spCheckTime)+' · 通过 '+pass+'/'+SP_CHECKS.length+' 项</span></span>'+
-      '<button class="btn btn-primary btn-sm" onclick="window._spRunCheck()">立即校验</button></div>'+
-      '<div class="panel-body"><div class="sp-table-wrap"><table class="data-table"><thead><tr><th style="width:64px">规则号</th><th>校验项</th><th style="width:76px">结果</th><th>详情</th><th style="width:76px">异常数</th></tr></thead><tbody>'+rows+'</tbody></table></div></div></div>'+
-      '<div class="panel"><div class="panel-header"><span>画像质控报告快照</span><button class="btn btn-outline btn-sm" onclick="window._spGenReport()">生成当前快照报告</button></div>'+
-      '<div class="panel-body"><div class="sp-table-wrap"><table class="data-table"><thead><tr><th style="width:110px">快照编号</th><th>生成时间</th><th>统计范围</th><th>画像质量分</th><th style="width:70px">操作</th></tr></thead><tbody>'+snapRows+'</tbody></table></div></div></div>'+
-      '<input type="hidden" id="spElsOk" value="'+elsOk+'">';
+    return '<div class="panel">'+
+        '<div class="panel-header"><span>NLP 结构化提取结果<span class="spr-count">待确认 '+_spNlp.filter(function(n){return n.st==='待确认'}).length+' 条</span></span></div>'+
+        '<div class="panel-body"><div class="sp-table-wrap"><table class="data-table"><thead><tr><th style="width:74px">编号</th><th style="width:130px">来源</th><th>原文片段</th><th style="width:200px">提取要素 → 值</th><th style="width:70px">置信度</th><th style="width:76px">状态</th><th style="width:110px">操作</th></tr></thead><tbody>'+nlpRows+'</tbody></table></div></div>'+
+      '</div>';
   }
-  if(_spCfgTab==='warn'){
-    var W=[];
-    spCityRows(tumorEvents).forEach(function(r){
-      if(r.n&&r.agg.lateRate>=50)W.push({id:'W-'+r.city+'-late',level:'高',type:'病情分期',msg:r.city+'晚期占比 '+r.agg.lateRate+'%',suggest:'提示属地加强早诊筛查与双向转诊'});
-    });
-    spSiteRows(tumorEvents).forEach(function(r){
-      var out=r.list.filter(spOutCity).length;
-      if(r.n>=2&&out/r.n>=0.5)W.push({id:'W-'+r.site+'-flow',level:'中',type:'就医流向',msg:r.site+'癌跨市就医率 '+Math.round(out/r.n*100)+'%',suggest:'评估属地诊疗能力缺口，引导域内首诊'});
-    });
-    var hospLost={};tumorEvents.filter(function(e){return e.lostFollow}).forEach(function(e){hospLost[e.hospital]=(hospLost[e.hospital]||0)+1});
-    Object.keys(hospLost).forEach(function(hp){
-      W.push({id:'W-'+hp+'-fu',level:'中',type:'随访结局',msg:hp+'失访 '+hospLost[hp]+' 例',suggest:'下发随访补录任务并跟踪闭环'});
-    });
-    var rows=W.map(function(w){
-      var st=_spWarnStatus[w.id]||'待处理';
-      return '<tr><td>'+badge(w.level,w.level==='高'?'badge-danger':'badge-caution')+'</td><td>'+esc(w.type)+'</td><td style="white-space:normal">'+esc(w.msg)+'</td><td style="white-space:normal">'+esc(w.suggest)+'</td>'+
-        '<td>'+badge(st,st==='已闭环'?'badge-success':st==='处理中'?'badge-caution':'badge-danger')+'</td>'+
-        '<td>'+(st==='已闭环'?'<span class="sp-ok">已闭环</span>':'<button class="btn btn-outline btn-xs" onclick="window._spWarnStep(\''+esc(w.id)+'\')">'+(st==='待处理'?'开始处理':'标记闭环')+'</button>')+'</td></tr>';
-    }).join('');
-    if(!rows)rows='<tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);padding:30px 0">当前无画像质控预警</td></tr>';
-    return '<div class="panel"><div class="panel-header"><span>画像质控预警跟踪<span class="spr-count">共 '+W.length+' 条 · 已闭环 '+W.filter(function(w){return _spWarnStatus[w.id]==='已闭环'}).length+' 条</span></span></div>'+
-      '<div class="panel-body"><div class="sp-table-wrap"><table class="data-table"><thead><tr><th style="width:64px">程度</th><th style="width:86px">类型</th><th>预警内容</th><th>处置建议</th><th style="width:80px">状态</th><th style="width:90px">操作</th></tr></thead><tbody>'+rows+'</tbody></table></div></div></div>';
-  }
+
+  /* ---- 页签四：版本与归档 ---- */
   if(_spCfgTab==='ver'){
     var verRows=SP_VERSIONS.map(function(v){
-      return '<tr><td style="font-weight:700">'+esc(v.v)+(v.cur?' '+badge('当前','badge-success'):'')+'</td><td>'+esc(v.time)+'</td><td>'+esc(v.by)+'</td><td style="white-space:normal">'+esc(v.desc)+'</td></tr>';
+      return '<tr><td style="font-weight:700">'+esc(v.v)+(v.cur?' '+badge('当前','badge-success'):'')+'</td><td>'+esc(v.time)+'</td><td>'+esc(v.by)+'</td><td style="white-space:normal">'+esc(v.desc)+'</td>'+
+        '<td><button class="btn btn-ghost btn-xs" onclick="window._spVerView(\''+esc(v.v)+'\')">查看</button></td></tr>';
     }).join('');
     var arcRows=SP_ARCHIVES.map(function(a){
-      return '<tr><td>'+esc(a.id)+'</td><td>'+esc(a.range)+'</td><td>'+a.events+' 例</td><td style="white-space:normal">'+esc(a.note)+'</td><td><button class="btn btn-ghost btn-xs" onclick="toast(\'归档 '+esc(a.id)+' 明细已打开（示例）\')">查看</button></td></tr>';
+      return '<tr><td>'+esc(a.id)+'</td><td>'+esc(a.range)+'</td><td>'+a.events+' 例</td><td style="white-space:normal">'+esc(a.note)+'</td>'+
+        '<td style="white-space:nowrap"><button class="btn btn-ghost btn-xs" onclick="window._spArcView(\''+esc(a.id)+'\')">查看</button> <button class="btn btn-ghost btn-xs" onclick="window._spArcDownload(\''+esc(a.id)+'\')">下载</button></td></tr>';
     }).join('');
     return '<div class="sp-2col">'+
-      '<div class="panel"><div class="panel-header"><span>画像版本</span></div><div class="panel-body"><div class="sp-table-wrap"><table class="data-table"><thead><tr><th style="width:120px">版本</th><th style="width:140px">更新时间</th><th style="width:90px">更新人</th><th>变更摘要</th></tr></thead><tbody>'+verRows+'</tbody></table></div></div></div>'+
-      '<div class="panel"><div class="panel-header"><span>画像归档</span><button class="btn btn-outline btn-sm" onclick="window._spDoArchive()">执行归档</button></div><div class="panel-body"><div class="sp-table-wrap"><table class="data-table"><thead><tr><th style="width:110px">归档编号</th><th>归档范围</th><th style="width:90px">画像数</th><th>说明</th><th style="width:70px">操作</th></tr></thead><tbody>'+arcRows+'</tbody></table></div></div></div>'+
+      '<div class="panel"><div class="panel-header"><span>画像版本</span></div><div class="panel-body"><div class="sp-table-wrap"><table class="data-table"><thead><tr><th style="width:110px">版本</th><th style="width:140px">更新时间</th><th style="width:80px">更新人</th><th>变更摘要</th><th style="width:60px">操作</th></tr></thead><tbody>'+verRows+'</tbody></table></div></div></div>'+
+      '<div class="panel"><div class="panel-header"><span>画像归档</span><button class="btn btn-outline btn-sm" onclick="window._spDoArchive()">执行归档</button></div><div class="panel-body"><div class="sp-table-wrap"><table class="data-table"><thead><tr><th style="width:110px">归档编号</th><th>归档范围</th><th style="width:80px">画像数</th><th>说明</th><th style="width:120px">操作</th></tr></thead><tbody>'+arcRows+'</tbody></table></div></div></div>'+
     '</div>';
   }
   return '';
 }
-
 
 /* ===================== 八、交互与主入口 ===================== */
 function spRefresh(){
@@ -945,23 +1037,6 @@ window._spOpenDetail=function(id){
 window._spBackList=function(){
   _wbDetail=null;spRefresh();
 };
-window._spCfgTabSwitch=function(t){
-  _spCfgTab=t;spRefresh();
-};
-window._spToggleRule=function(id){
-  _spRuleOff[id]=!_spRuleOff[id];
-  spRefresh();
-  toast('映射规则 '+id+' 已'+(_spRuleOff[id]?'停用':'启用'));
-};
-window._spRunCheck=function(){
-  var d=new Date();
-  var p=function(x){return x<10?'0'+x:x};
-  _spCheckTime='2026-09-11 '+p(d.getHours())+':'+p(d.getMinutes());
-  spRefresh();
-  var bad=0;
-  SP_CHECKS.forEach(function(c){if(c.run().bad.length)bad++});
-  toast('画像智能校验完成：'+(SP_CHECKS.length-bad)+'/'+SP_CHECKS.length+' 项通过'+(bad?'，'+bad+' 项异常':''));
-};
 function spModal(title,bodyHtml,foot){
   var mask=document.createElement('div');
   mask.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:1200;padding:24px';
@@ -973,42 +1048,202 @@ function spModal(title,bodyHtml,foot){
   mask.appendChild(box);
   mask.addEventListener('click',function(e){if(e.target===mask)mask.remove()});
   box.querySelector('button').addEventListener('click',function(){mask.remove()});
-  box.querySelectorAll('[data-sp-close]').forEach(function(btn){
-    btn.addEventListener('click',function(){mask.remove()});
-  });
+  box.querySelectorAll('[data-sp-close]').forEach(function(btn){btn.addEventListener('click',function(){mask.remove()})});
   (document.getElementById('pageContainer')||document.body).appendChild(mask);
   return mask;
 }
-window._spGenReport=function(){
-  var agg=spAgg(tumorEvents);
-  var bad=SP_CHECKS.filter(function(c){return c.run().bad.length});
-  var elsOk=SP_ELEMENTS.filter(function(el){return tumorEvents.filter(el.fn).length===tumorEvents.length}).length;
-  var score=Math.round((elsOk/SP_ELEMENTS.length*60+(SP_CHECKS.length-bad.length)/SP_CHECKS.length*40)*10)/10;
-  var body='<div class="sp-kv-grid" style="grid-template-columns:repeat(2,1fr)">'+
-    spKv('统计范围','全省 · 11 设区市')+spKv('画像总数',agg.total+' 例')+
-    spKv('要素完整维度',elsOk+'/'+SP_ELEMENTS.length)+spKv('校验异常项',bad.length+' 项')+
-    spKv('随访覆盖率',agg.fuRate+'%')+spKv('画像质量分',score+'%')+
-    '</div>'+(bad.length?'<div style="margin-top:12px"><div style="font-weight:700;color:var(--color-danger-fg);margin-bottom:6px">待处理异常</div>'+bad.map(function(x){return '<div style="font-size:13px;color:var(--color-text-body);padding:4px 0">· '+esc(x.name)+'：'+esc(x.run().detail)+'</div>'}).join('')+'</div>':'');
-  spModal('画像质控报告 · 2026-09-11 实时快照',body,
-    '<button class="btn btn-ghost" data-sp-close>关闭</button><button class="btn btn-primary" onclick="toast(\'报告已生成并下载（示例）\')">下载报告</button>');
+window._spCfgTabSwitch=function(t){
+  _spCfgTab=t;spRefresh();
 };
-window._spViewSnap=function(id){
-  var s=SP_SNAPSHOTS.filter(function(x){return x.id===id})[0];
-  if(!s)return;
-  spModal('画像质控报告快照 · '+id,
-    '<div class="sp-kv-grid" style="grid-template-columns:repeat(2,1fr)">'+spKv('生成时间',s.time)+spKv('统计范围',s.range)+spKv('画像质量分',s.score+'%')+'</div>',
-    '<button class="btn btn-ghost" data-sp-close>关闭</button>');
+/* ---- 要素 CRUD ---- */
+window._spMetaFilterSet=function(){
+  var g=function(id){var el=document.getElementById(id);return el?String(el.value||'').trim():''};
+  _spMetaFilter={q:g('spMetaQ'),dim:g('spMetaDim')};spRefresh();
 };
-window._spWarnStep=function(id){
-  _spWarnStatus[id]=_spWarnStatus[id]==='处理中'?'已闭环':'处理中';
+window._spMetaReset=function(){_spMetaFilter={q:'',dim:''};spRefresh();};
+window._spElemToggle=function(id){
+  var el=_spElements.filter(function(x){return x.id===id})[0];if(!el)return;
+  el.on=!el.on;spRefresh();toast('要素 '+id+' 已'+(el.on?'启用':'停用'));
+};
+function spElemFormBody(el){
+  var dimOpts=SP_DIMS.map(function(d){return '<option'+(el&&el.dim===d?' selected':'')+'>'+esc(d)+'</option>'}).join('');
+  var srcOpts=SP_SOURCES.map(function(s){return '<option'+(el&&el.src===s?' selected':'')+'>'+esc(s)+'</option>'}).join('');
+  var fOpts=SP_ELEM_FIELD_MAP.map(function(f){return '<option value="'+f.key+'"'+(el&&el.fkey===f.key?' selected':'')+'>'+esc(f.name)+'</option>'}).join('');
+  return '<div class="sp-form-grid">'+
+    '<div class="sp-form-row"><label>维度</label><select id="spf_dim">'+dimOpts+'</select></div>'+
+    '<div class="sp-form-row"><label>要素名称</label><input id="spf_name" placeholder="如：治疗不良反应" value="'+(el?esc(el.name):'')+'"></div>'+
+    '<div class="sp-form-row"><label>数据来源</label><select id="spf_src">'+srcOpts+'</select></div>'+
+    '<div class="sp-form-row"><label>覆盖判定</label><select id="spf_fkey">'+fOpts+'</select></div>'+
+  '</div>';
+}
+window._spElemAdd=function(){
+  spModal('新增画像要素',spElemFormBody(null),
+    '<button class="btn btn-ghost" data-sp-close>取消</button><button class="btn btn-primary" onclick="window._spElemSave()">保存</button>');
+};
+window._spElemEdit=function(id){
+  var el=_spElements.filter(function(x){return x.id===id})[0];if(!el)return;
+  spModal('编辑画像要素 · '+id,spElemFormBody(el),
+    '<button class="btn btn-ghost" data-sp-close>取消</button><button class="btn btn-primary" onclick="window._spElemSave(\''+id+'\')">保存</button>');
+};
+window._spElemSave=function(id){
+  var g=function(x){var el=document.getElementById(x);return el?String(el.value||'').trim():''};
+  var name=g('spf_name');
+  if(!name){toast('请填写要素名称');return;}
+  var rec={dim:g('spf_dim'),name:name,src:g('spf_src'),fkey:g('spf_fkey'),on:true};
+  if(id){
+    var el=_spElements.filter(function(x){return x.id===id})[0];
+    if(el){el.dim=rec.dim;el.name=rec.name;el.src=rec.src;el.fkey=rec.fkey;}
+    toast('要素 '+id+' 已更新');
+  }else{
+    var n=1;_spElements.forEach(function(x){var m=/\d+$/.exec(x.id);if(m)n=Math.max(n,parseInt(m[0],10)+1)});
+    var nid='PE'+String(n).padStart(2,'0');
+    _spElements.push({id:nid,dim:rec.dim,name:rec.name,src:rec.src,fkey:rec.fkey,on:true});
+    toast('新增要素 '+nid+' 成功');
+  }
+  document.querySelectorAll('[data-sp-close]').forEach(function(b){b.click()});
   spRefresh();
-  toast('预警 '+id+' 已更新为「'+_spWarnStatus[id]+'」');
+};
+window._spElemView=function(id){
+  var el=_spElements.filter(function(x){return x.id===id})[0];if(!el)return;
+  var fn=spFieldFn(el.fkey);
+  var ok=tumorEvents.filter(fn),miss=tumorEvents.filter(function(e){return !fn(e)});
+  var cov=Math.round(ok.length/tumorEvents.length*100);
+  var body='<div class="sp-kv-grid" style="grid-template-columns:repeat(2,1fr)">'+
+    spKv('编号',el.id)+spKv('维度',el.dim)+spKv('数据来源',el.src)+spKv('覆盖判定',el.name)+
+    spKv('覆盖率',cov+'%（'+ok.length+'/'+tumorEvents.length+'）')+spKv('状态',el.on?'已启用':'已停用')+
+    '</div>'+
+    '<div style="margin-top:14px"><div style="font-weight:700;margin-bottom:8px">缺失该要素的患者（'+miss.length+' 例）</div>'+
+    (miss.length?'<div class="sp-table-wrap"><table class="data-table"><thead><tr><th>姓名</th><th>医院</th><th>地区</th><th>操作</th></tr></thead><tbody>'+
+      miss.map(function(e){return '<tr><td>'+esc(e.patient)+'</td><td>'+esc(e.hospital)+'</td><td>'+esc(e.city)+'</td><td><button class="btn btn-ghost btn-xs" onclick="window._spGoPatient(\''+e.id+'\')">打开画像</button></td></tr>'}).join('')+
+      '</tbody></table></div>':'<div style="color:var(--color-success-fg);font-size:13px">全部患者均已覆盖</div>')+'</div>';
+  spModal('画像要素明细 · '+el.id,body,'<button class="btn btn-ghost" data-sp-close>关闭</button>');
+};
+/* ---- 映射规则 CRUD ---- */
+window._spRuleFilterSet=function(){
+  var g=function(id){var el=document.getElementById(id);return el?String(el.value||'').trim():''};
+  _spRuleFilter={q:g('spRuleQ'),dim:g('spRuleDim')};spRefresh();
+};
+window._spRuleReset=function(){_spRuleFilter={q:'',dim:''};spRefresh();};
+window._spToggleRule=function(id){
+  var r=_spMapRules.filter(function(x){return x.id===id})[0];if(!r)return;
+  r.on=!r.on;spRefresh();toast('映射规则 '+id+' 已'+(r.on?'启用':'停用'));
+};
+function spRuleFormBody(r){
+  var dimOpts=SP_DIMS.concat(['指标汇总']).map(function(d){return '<option'+(r&&r.dim===d?' selected':'')+'>'+esc(d)+'</option>'}).join('');
+  var logics=SP_RULE_TEMPLATES.slice();
+  if(r&&logics.indexOf(r.logic)<0)logics.push(r.logic);
+  var lOpts=logics.map(function(t){return '<option'+(r&&r.logic===t?' selected':'')+'>'+esc(t)+'</option>'}).join('');
+  return '<div class="sp-form-grid">'+
+    '<div class="sp-form-row"><label>维度</label><select id="spf_rdim">'+dimOpts+'</select></div>'+
+    '<div class="sp-form-row"><label>映射逻辑</label><select id="spf_rlogic">'+lOpts+'</select></div>'+
+    '<div class="sp-form-row"><label>输入要素</label><input id="spf_rin" placeholder="如：TNM + 临床分期" value="'+(r?esc(r.input):'')+'"></div>'+
+    '<div class="sp-form-row"><label>画像结论</label><input id="spf_rout" placeholder="如：早期/晚期分层" value="'+(r?esc(r.out):'')+'"></div>'+
+  '</div>';
+}
+window._spRuleAdd=function(){
+  spModal('新增映射规则',spRuleFormBody(null),
+    '<button class="btn btn-ghost" data-sp-close>取消</button><button class="btn btn-primary" onclick="window._spRuleSave()">保存</button>');
+};
+window._spRuleEdit=function(id){
+  var r=_spMapRules.filter(function(x){return x.id===id})[0];if(!r)return;
+  spModal('编辑映射规则 · '+id,spRuleFormBody(r),
+    '<button class="btn btn-ghost" data-sp-close>取消</button><button class="btn btn-primary" onclick="window._spRuleSave(\''+id+'\')">保存</button>');
+};
+window._spRuleSave=function(id){
+  var g=function(x){var el=document.getElementById(x);return el?String(el.value||'').trim():''};
+  var input=g('spf_rin'),out=g('spf_rout');
+  if(!input||!out){toast('请填写输入要素与画像结论');return;}
+  if(id){
+    var r=_spMapRules.filter(function(x){return x.id===id})[0];
+    if(r){r.dim=g('spf_rdim');r.input=input;r.out=out;r.logic=g('spf_rlogic');}
+    toast('规则 '+id+' 已更新');
+  }else{
+    var n=1;_spMapRules.forEach(function(x){var m=/\d+$/.exec(x.id);if(m)n=Math.max(n,parseInt(m[0],10)+1)});
+    var nid='MR'+String(n).padStart(2,'0');
+    _spMapRules.push({id:nid,dim:g('spf_rdim'),input:input,out:out,logic:g('spf_rlogic'),on:true});
+    toast('新增规则 '+nid+' 成功');
+  }
+  document.querySelectorAll('[data-sp-close]').forEach(function(b){b.click()});
+  spRefresh();
+};
+window._spRuleView=function(id){
+  var r=_spMapRules.filter(function(x){return x.id===id})[0];if(!r)return;
+  var body='<div class="sp-kv-grid" style="grid-template-columns:1fr">'+
+    spKv('规则号',r.id)+spKv('维度',r.dim)+spKv('输入要素',r.input)+spKv('画像结论',r.out)+spKv('映射逻辑',r.logic)+spKv('状态',r.on?'已启用':'已停用')+
+    '</div>';
+  spModal('映射规则明细 · '+r.id,body,'<button class="btn btn-ghost" data-sp-close>关闭</button>');
+};
+/* ---- NLP 提取 ---- */
+window._spNlpSet=function(id,st){
+  var n=_spNlp.filter(function(x){return x.id===id})[0];if(!n)return;
+  n.st=st;spRefresh();toast('提取结果 '+id+' 已'+st);
+};
+/* ---- 校验与报告 ---- */
+window._spCheckView=function(id){
+  var c=SP_CHECKS.filter(function(x){return x.id===id})[0];if(!c)return;
+  var res=c.run();
+  var body='<div class="sp-kv-grid" style="grid-template-columns:repeat(2,1fr)">'+
+    spKv('校验项',c.name)+spKv('执行时间',_spCheckTime)+spKv('异常数',res.bad.length+' 例')+spKv('结论',res.detail)+
+    '</div>'+
+    (res.bad.length?'<div style="margin-top:14px"><div style="font-weight:700;margin-bottom:8px">异常患者</div>'+
+      '<div class="sp-table-wrap"><table class="data-table"><thead><tr><th>姓名</th><th>医院</th><th>地区</th><th>操作</th></tr></thead><tbody>'+
+      res.bad.map(function(e){return '<tr><td>'+esc(e.patient)+'</td><td>'+esc(e.hospital)+'</td><td>'+esc(e.city)+'</td><td><button class="btn btn-ghost btn-xs" onclick="window._spGoPatient(\''+e.id+'\')">打开画像</button></td></tr>'}).join('')+
+      '</tbody></table></div>':'');
+  spModal('校验明细 · '+id+' '+c.name,body,'<button class="btn btn-ghost" data-sp-close>关闭</button>');
+};
+window._spGoPatient=function(pid){
+  document.querySelectorAll('[data-sp-close]').forEach(function(b){b.click()});
+  _wbDetail=pid;
+  if(typeof navigateTo==='function')navigateTo('sp-patients');
+  else{_spSub='workbench';spRefresh();}
+};
+function spDownload(name,text){
+  var blob=new Blob(['\ufeff'+text],{type:'text/plain;charset=utf-8'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href)},4000);
+}
+/* ---- 版本与归档 ---- */
+window._spVerView=function(v){
+  var ver=SP_VERSIONS.filter(function(x){return x.v===v})[0];if(!ver)return;
+  var body='<div class="sp-kv-grid" style="grid-template-columns:repeat(2,1fr)">'+
+    spKv('版本号',ver.v)+spKv('更新时间',ver.time)+spKv('更新人',ver.by)+spKv('变更摘要',ver.desc)+
+    '</div>'+
+    '<div style="margin-top:14px"><div style="font-weight:700;margin-bottom:8px">变更明细</div><ul style="margin:0;padding-left:20px">'+
+    (ver.changes||[]).map(function(c){return '<li style="font-size:13px;color:var(--color-text-body);padding:3px 0">'+esc(c)+'</li>'}).join('')+'</ul></div>';
+  spModal('画像版本 · '+ver.v,body,'<button class="btn btn-ghost" data-sp-close>关闭</button>');
+};
+window._spArcView=function(id){
+  var a=SP_ARCHIVES.filter(function(x){return x.id===id})[0];if(!a)return;
+  var s=a.stats||{};
+  var body='<div class="sp-kv-grid" style="grid-template-columns:repeat(2,1fr)">'+
+    spKv('归档编号',a.id)+spKv('归档范围',a.range)+spKv('画像数',a.events+' 例')+spKv('说明',a.note)+
+    spKv('覆盖地市',(s.cities||11)+' 个')+spKv('覆盖病种',(s.sites||7)+' 种')+
+    spKv('随访覆盖率',(s.fuRate!=null?s.fuRate+'%':'—'))+spKv('早期占比',(s.earlyRate!=null?s.earlyRate+'%':'—'))+
+    spKv('归档质量分',(s.score!=null?s.score+'%':'—'))+
+    '</div>';
+  spModal('画像归档 · '+a.id,body,'<button class="btn btn-ghost" data-sp-close>关闭</button><button class="btn btn-primary" onclick="window._spArcDownload(\''+id+'\')">下载归档包</button>');
+};
+window._spArcDownload=function(id){
+  var a=SP_ARCHIVES.filter(function(x){return x.id===id})[0];if(!a)return;
+  var s=a.stats||{};
+  spDownload(id+'.txt','江西省肿瘤专科画像归档\n归档编号：'+a.id+'\n归档范围：'+a.range+'\n画像数：'+a.events+' 例\n覆盖地市：'+(s.cities||11)+' 个\n覆盖病种：'+(s.sites||7)+' 种\n随访覆盖率：'+(s.fuRate!=null?s.fuRate+'%':'—')+'\n早期占比：'+(s.earlyRate!=null?s.earlyRate+'%':'—')+'\n归档质量分：'+(s.score!=null?s.score+'%':'—')+'\n—— 江西省肿瘤防治中心');
+  toast('归档包 '+id+' 已下载');
 };
 window._spDoArchive=function(){
+  var scopeSel='<select id="spf_arcScope"><option>全省 · 2026-09</option><option>南昌市</option><option>赣州市</option><option>九江市</option></select>';
+  spModal('执行画像归档','<div class="sp-form-grid"><div class="sp-form-row"><label>归档范围</label>'+scopeSel+'</div></div><div style="margin-top:10px;font-size:13px;color:var(--color-text-muted)">归档将按当前数据实时计算统计量并封存快照。</div>',
+    '<button class="btn btn-ghost" data-sp-close>取消</button><button class="btn btn-primary" onclick="window._spArchiveConfirm()">确认归档</button>');
+};
+window._spArchiveConfirm=function(){
+  var el=document.getElementById('spf_arcScope');
+  var scope=el?el.value:'全省 · 2026-09';
+  var list=scope.indexOf('全省')>=0?tumorEvents:tumorEvents.filter(function(e){return e.city===scope});
+  var a=spAgg(list);
   var ym='2026-09';
-  SP_ARCHIVES.unshift({id:'AR-'+ym,range:ym+' 全省月度归档',events:tumorEvents.length,note:'刚刚执行 · 实时画像封存'});
+  SP_ARCHIVES.unshift({id:'AR-'+ym+'-'+scope.slice(0,2),range:scope+' 实时归档',events:a.total,note:'刚刚执行 · 实时画像封存',stats:{cities:scope.indexOf('全省')>=0?11:1,sites:7,fuRate:a.fuRate,earlyRate:a.earlyRate,score:Math.round((a.fuRate*0.4+a.earlyRate*0.3+95*0.3)*10)/10}});
+  document.querySelectorAll('[data-sp-close]').forEach(function(b){b.click()});
   spRefresh();
-  toast('画像归档完成：'+SP_ARCHIVES.length+' 份归档快照');
+  toast('画像归档完成：共 '+SP_ARCHIVES.length+' 份归档快照');
 };
 
 /* ---- 主入口：app.html 传入 sub = workbench / overview / config ---- */
