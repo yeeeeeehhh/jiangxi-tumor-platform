@@ -362,7 +362,7 @@
     return '<div class="form-grid">' +
       '<div class="form-group"><label>最后接触日期 ' + req + '</label>' +
       '<input type="date" id="' + p + 'LastContact" data-required="最后接触日期" value="' + dateVal(v.lastContact) + '"></div>' +
-      '<div class="form-group"><label>最后接触状态 ' + req + '</label>' + sel('Status', '最后接触状态', statusOpts, v.status).replace('<select ', '<select onchange="if(typeof toggleFollowupFormFields===\'function\')toggleFollowupFormFields()" ') + '</div>' +
+      '<div class="form-group"><label>最后接触状态 ' + req + '</label>' + sel('Status', '最后接触状态', statusOpts, v.status).replace('<select ', '<select onchange="if(typeof toggleFollowupFormFields===\'function\')toggleFollowupFormFields(\'' + p + '\')" ') + '</div>' +
       '<div class="form-group" data-field="lostReason"><label>失访原因</label>' + sel('LostReason', '失访原因', lostReasonOpts, v.lostReason) + '</div>' +
       '<div class="form-group" data-field="deathPlace"><label>死亡地点 ' + req + '</label>' + sel('Place', '死亡地点', placeOpts, v.place) + '</div>' +
       '<div class="form-group" data-field="deathCause"><label>根本死因 ' + req + '</label>' + sel('Cause', '根本死因', causeOpts, v.cause) + '</div>' +
@@ -386,27 +386,35 @@
       '</section>';
   };
 
-  /** 根据"最后接触状态"动态显隐死亡字段组和失访原因字段（需求§7.2/F-03.02.04） */
-  window.toggleFollowupFormFields = function () {
-    var statusEl = document.getElementById('fuRptStatus');
+  /** 根据"最后接触状态"动态显隐死亡字段组和失访原因字段（需求§7.2/F-03.02.04）
+   *  prefix 可省略；省略时先按 fuRpt 找，再按当前表单里任意 *Status 自动识别前缀
+   *  （报告卡录入第三步用的是 cardFu 前缀，报卡页面没有 fuRptStatus）。 */
+  window.toggleFollowupFormFields = function (prefix) {
+    var p = prefix || 'fuRpt';
+    var statusEl = document.getElementById(p + 'Status');
+    if (!statusEl) {
+      statusEl = document.querySelector('.entry-form-panel select[id$="Status"], #entry-followup select[id$="Status"]');
+      if (statusEl) p = String(statusEl.id).replace(/Status$/, '');
+    }
     if (!statusEl) return;
+    var scope = statusEl.closest('section') || document;
     var status = statusEl.value || '';
     var deathFields = ['deathPlace', 'deathCause', 'deathIcd', 'deathDate'];
     deathFields.forEach(function (key) {
-      var el = document.querySelector('[data-field="' + key + '"]');
+      var el = scope.querySelector('[data-field="' + key + '"]');
       if (el) el.style.display = (status === '死亡') ? '' : 'none';
     });
-    var lostEl = document.querySelector('[data-field="lostReason"]');
+    var lostEl = scope.querySelector('[data-field="lostReason"]');
     if (lostEl) lostEl.style.display = (status === '失访') ? '' : 'none';
     /* 非死亡时自动清空死亡相关值 */
     if (status !== '死亡') {
-      ['fuRptPlace', 'fuRptCause', 'fuRptCauseIcd', 'fuRptDeathDate'].forEach(function (id) {
-        var el = document.getElementById(id);
+      ['Place', 'Cause', 'CauseIcd', 'DeathDate'].forEach(function (suffix) {
+        var el = document.getElementById(p + suffix);
         if (el) { if (el.tagName === 'SELECT') el.selectedIndex = 0; else el.value = ''; }
       });
     }
     if (status !== '失访') {
-      var lr = document.getElementById('fuRptLostReason');
+      var lr = document.getElementById(p + 'LostReason');
       if (lr) lr.selectedIndex = 0;
     }
   };
@@ -500,14 +508,14 @@
       var delBtn = (i === 0 && events.length > 1)
         ? '<button class="btn btn-danger btn-xs" onclick="followupDeleteLatestEvent(\'' + esc(r.id) + '\',\'' + esc(e.id) + '\')">删除</button>'
         : '<span style="color:#94a3b8">—</span>';
-      return '<tr><td>' + (i + 1) + '</td>' +
-        '<td>' + cell(e.lastContact || e.date) + '</td>' +
-        '<td>' + contactBadge(e.status) + '</td>' +
-        '<td>' + cell(e.place) + '</td>' +
-        '<td>' + cell(e.cause) + '</td>' +
-        '<td>' + cell(e.causeIcd) + '</td>' +
-        '<td>' + cell(e.deathDate) + '</td>' +
-        '<td>' + cell(e.doctor) + '</td>' +
+      return '<tr><td class="num">' + (i + 1) + '</td>' +
+        '<td class="code">' + cell(e.lastContact || e.date) + '</td>' +
+        '<td class="code">' + contactBadge(e.status) + '</td>' +
+        '<td class="txt">' + cell(e.place) + '</td>' +
+        '<td class="txt">' + cell(e.cause) + '</td>' +
+        '<td class="txt">' + cell(e.causeIcd) + '</td>' +
+        '<td class="code">' + cell(e.deathDate) + '</td>' +
+        '<td class="txt">' + cell(e.doctor) + '</td>' +
         '<td class="sticky-col" style="white-space:nowrap">' + delBtn + '</td></tr>';
     }).join('') || '<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:16px">暂无随访记录</td></tr>';
     var actions =
@@ -523,7 +531,7 @@
       (events.length > 1 ? '· 仅最新一条可删除' : '') + '</div>' +
       '<div class="table-wrap" style="border:1px solid #e2e8f0;border-radius:6px;overflow:auto">' +
       '<table class="data-table" style="margin:0;min-width:1080px"><thead><tr>' +
-      '<th>序号</th><th>最后接触日期</th><th>最后接触状态</th><th>死亡地点</th><th>根本死因</th><th>死因ICD10编码</th><th>死亡日期</th><th>死亡报告医师</th><th class="sticky-col">操作</th>' +
+      '<th class="num">序号</th><th class="code">最后接触日期</th><th class="code">最后接触状态</th><th class="txt">死亡地点</th><th class="txt">根本死因</th><th class="txt">死因ICD10编码</th><th class="code">死亡日期</th><th class="txt">死亡报告医师</th><th class="sticky-col">操作</th>' +
       '</tr></thead><tbody>' + eventRows + '</tbody></table></div>' +
       '</div></div></div>';
     var box = document.getElementById('pageContainer');
@@ -1288,21 +1296,21 @@
     var rows = rowsData.map(function (r) {
       var uploadDate = r.uploadDate || r.reportDate || '-';
       return '<tr>' +
-        '<td><a href="javascript:void(0)" style="color:var(--primary)" onclick="followupDetail(\'' + esc(r.id) + '\')">' + esc(r.id) + '</a></td>' +
-        '<td>' + esc(r.name) + '</td>' +
-        '<td>' + esc(r.idNo || '-') + '</td>' +
-        '<td>' + esc(r.sex) + '</td>' +
-        '<td>' + ageOf(r.birth) + '</td>' +
-        '<td>' + esc(r.birth || '-') + '</td>' +
-        '<td>' + esc(r.site || '-') + '</td>' +
-        '<td>' + esc(r.icd10 || '-') + '</td>' +
-        '<td>' + esc(r.diagDate || '-') + '</td>' +
-        '<td>' + contactBadge(r.status) + '</td>' +
-        '<td>' + esc(r.lastContact || '-') + '</td>' +
-        '<td>' + esc(r.unit || '-') + '</td>' +
-        '<td>' + esc(r.cardType || '-') + '</td>' +
-        '<td>' + esc(r.source || '报卡录入') + '</td>' +
-        '<td>' + esc(uploadDate) + '</td>' +
+        '<td class="txt"><a href="javascript:void(0)" style="color:var(--primary)" onclick="followupDetail(\'' + esc(r.id) + '\')">' + esc(r.id) + '</a></td>' +
+        '<td class="txt">' + esc(r.name) + '</td>' +
+        '<td class="txt">' + esc(r.idNo || '-') + '</td>' +
+        '<td class="code">' + esc(r.sex) + '</td>' +
+        '<td class="num">' + ageOf(r.birth) + '</td>' +
+        '<td class="code">' + esc(r.birth || '-') + '</td>' +
+        '<td class="txt">' + esc(r.site || '-') + '</td>' +
+        '<td class="txt">' + esc(r.icd10 || '-') + '</td>' +
+        '<td class="code">' + esc(r.diagDate || '-') + '</td>' +
+        '<td class="code">' + contactBadge(r.status) + '</td>' +
+        '<td class="code">' + esc(r.lastContact || '-') + '</td>' +
+        '<td class="txt">' + esc(r.unit || '-') + '</td>' +
+        '<td class="code">' + esc(r.cardType || '-') + '</td>' +
+        '<td class="txt">' + esc(r.source || '报卡录入') + '</td>' +
+        '<td class="code">' + esc(uploadDate) + '</td>' +
         '<td class="sticky-col" style="white-space:nowrap">' +
         '<button class="btn btn-ghost btn-xs" onclick="followupDetail(\'' + esc(r.id) + '\')">查看</button> ' +
         '<button class="btn btn-primary btn-xs" onclick="followupAddRecord(\'' + esc(r.id) + '\')">添加</button>' +
@@ -1330,8 +1338,8 @@
       '<div style="margin-bottom:8px;color:#667085;font-size:13px">共 ' + rowsData.length + ' 条 · 死亡 ' +
       rowsData.filter(function (x) { return x.status === '死亡'; }).length + ' 条</div>' +
       '<div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:12px"><div class="table-wrap"><table class="data-table" style="margin:0;min-width:2000px"><thead><tr>' +
-      '<th>报告卡编号</th><th>姓名</th><th>身份证号码</th><th>性别</th><th>年龄</th><th>出生日期</th><th>发病部位</th><th>ICD10</th>' +
-      '<th>确诊日期</th><th>最后接触状态</th><th>最后接触时间</th><th>报告单位</th><th>报卡类型</th><th>来源类型</th><th>上传日期</th>' +
+      '<th class="txt">报告卡编号</th><th class="txt">姓名</th><th class="txt">身份证号码</th><th class="code">性别</th><th class="num">年龄</th><th class="code">出生日期</th><th class="txt">发病部位</th><th class="txt">ICD10</th>' +
+      '<th class="code">确诊日期</th><th class="code">最后接触状态</th><th class="code">最后接触时间</th><th class="txt">报告单位</th><th class="code">报卡类型</th><th class="txt">来源类型</th><th class="code">上传日期</th>' +
       '<th class="sticky-col" style="width:200px">操作</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div></div>' +
       '<div class="void-pagination"><div class="void-pagination-info">共' + rowsData.length + '条记录，第1/1页</div>' +

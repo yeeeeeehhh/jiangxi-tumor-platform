@@ -89,6 +89,7 @@
     icdConsistMin: 95,
     followCompleteMin: 80
   };
+  window.QC_THRESH = QC_THRESH;   /* 质控五层体系引用同一口径 */
   /* 各部位粗率相对近三年均值的偏离幅度（mock）：正值=高于基线，负值=低于基线；null=不参与率值预警 */
   var RATE_DEV = {
     'C50 乳腺': { inc: 0.23, mor: 0.08 },
@@ -1024,8 +1025,8 @@
         totalMid = '<td class="num sticky-inc">' + num(pooled.count) + '</td>';
       }
 
-      return '<div class="da-table-wrap"><table class="data-table"><thead><tr>' +
-        '<th class="sticky">ICD 部位</th>' + headMid + ageHead() +
+      return '<div class="da-table-wrap"><table class="data-table tbl-auto"><thead><tr>' +
+        '<th class="sticky txt">ICD 部位</th>' + headMid + ageHead() +
         '</tr></thead><tbody>' + rows +
         '<tr class="total"><td class="sticky">合计</td>' + totalMid + ageCells(pooledGetSlice()) +
         '</tr></tbody></table></div>';
@@ -1111,7 +1112,7 @@
         { label: '峰值月', value: months[peakIdx], sub: num(monthTotals[peakIdx]) + ' 张' },
         { label: '零报对象', value: String(zeroCount), sub: '当前样本' }
       ]) +
-      '<div class="da-table-wrap compact"><table class="data-table"><thead><tr><th class="idx">序号</th>' +
+      '<div class="da-table-wrap compact"><table class="data-table" style="min-width:620px"><thead><tr><th class="idx">序号</th>' +
       headers.map(function (h, i) { return '<th' + (i === 0 ? ' class="sticky"' : '') + '>' + h + '</th>'; }).join('') +
       '<th class="num">合计</th>' +
       months.map(function (m) { return '<th class="num">' + m + '</th>'; }).join('') +
@@ -1359,7 +1360,7 @@
     return filter +
       overBanner +
       (list.length
-        ? '<div class="da-table-wrap"><table class="data-table"><thead>' + groupHeader + subHeader + '</thead><tbody>' + rows + '</tbody></table></div>'
+        ? '<div class="da-table-wrap"><table class="data-table tbl-auto"><thead>' + groupHeader + subHeader + '</thead><tbody>' + rows + '</tbody></table></div>'
         : emptyResult('当前筛选下无数据'));
   }
 
@@ -1502,7 +1503,7 @@
       hBar('行合计对比', rowBars) +
       '</div>' +
       '<div class="da-meta"><span>纵/横不可为空且不可相同</span><span>合计 ' + num(grand) + '</span></div>' +
-      '<div class="da-table-wrap"><table class="data-table"><thead><tr><th class="sticky">行 \\ 列</th>' +
+      '<div class="da-table-wrap"><table class="data-table" style="min-width:620px"><thead><tr><th class="sticky">行 \\ 列</th>' +
       data.cols.map(function (c) { return '<th class="num">' + c + '</th>'; }).join('') +
       '<th class="num">行合计</th></tr></thead><tbody>' + rows +
       '<tr class="total"><td class="sticky">列合计</td>' + colTotals.map(function (v) { return '<td class="num">' + v + '</td>'; }).join('') +
@@ -1586,8 +1587,8 @@
     var rows = list.map(function (r, i) {
       var checked = state.fileSelectedIds.indexOf(r.id) >= 0;
       return '<tr><td class="idx"><input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="DA.toggleSelect(' + r.id + ',this.checked)"></td>' +
-        '<td><strong>' + htmlEsc(r.fileName) + '</strong></td><td>' + htmlEsc(r.org) + '</td><td class="num">' + r.pages +
-        '</td><td>' + htmlEsc(r.uploadTime) + '</td><td>' + htmlEsc(r.remark || '-') + '</td><td>' +
+        '<td class="txt"><strong>' + htmlEsc(r.fileName) + '</strong></td><td class="txt">' + htmlEsc(r.org) + '</td><td class="num">' + r.pages +
+        '</td><td class="code">' + htmlEsc(r.uploadTime) + '</td><td class="txt">' + htmlEsc(r.remark || '-') + '</td><td class="ops">' +
         '<button class="btn btn-ghost btn-xs" onclick="DA.previewFile(' + r.id + ')">预览</button> ' +
         '<button class="btn btn-outline btn-xs" onclick="DA.downloadFile(' + r.id + ')">下载</button> ' +
         '<button class="btn btn-danger btn-xs" onclick="DA.deleteFile(' + r.id + ')">删除</button></td></tr>';
@@ -1602,7 +1603,7 @@
 
     return pageShell(PAGES['report-files'], filter +
       (list.length
-        ? '<div class="da-table-wrap"><table class="data-table da-files-table"><thead><tr><th class="idx"><input type="checkbox" ' + (allChecked ? 'checked' : '') + ' onchange="DA.toggleSelectAll(this.checked)"></th><th>文件名称</th><th>隶属机构</th><th class="num">页数</th><th>上传时间</th><th>备注</th><th>操作</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+        ? '<div class="da-table-wrap"><table class="data-table da-files-table"><thead><tr><th class="idx"><input type="checkbox" ' + (allChecked ? 'checked' : '') + ' onchange="DA.toggleSelectAll(this.checked)"></th><th class="txt">文件名称</th><th class="txt">隶属机构</th><th class="num">页数</th><th class="code">上传时间</th><th class="txt">备注</th><th class="ops">操作</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
         : emptyResult('未找到匹配报表')));
   }
 
@@ -2040,12 +2041,17 @@
   });
 
   var analysisMenu = (typeof menuData !== 'undefined') ? menuData.find(function (m) { return m.id === 'analysis'; }) : null;
+  /* 注意：本模块在加载时会把「数据统计」的子菜单整体覆盖成下面这份清单（早于任何后续模块执行），
+     因此 app.html 的 menuData 里写了什么都会被这里冲掉——改菜单必须改这里，否则不生效。
+     清单需与 app.html 保持一致，且必须带上 registry-ops
+     （登记运营监测，2026-09-29 从「预警监测」迁来，实现见 registry-ops.js）。
+     2026-09-29 按评审意见去掉「业务监测 / 报表」两个分组标题，改为平铺。 */
   var analysisChildren = [
     { id: 'analysis-stats', label: '统计分析' },
     { id: 'analysis-progress', label: '报卡工作量' },
     { id: 'analysis-quality', label: '报卡质量监测' },
-    { id: 'report-files', label: '报表文件库' },
-    { id: 'data-report', label: '数据上报' }
+    { id: 'registry-ops', label: '登记运营监测' },
+    { id: 'report-files', label: '报表文件库' }
   ];
   if (analysisMenu) {
     analysisMenu.label = '数据统计';
@@ -2054,6 +2060,8 @@
 
   if (typeof roleMenuTree !== 'undefined') {
     var reportGroup = roleMenuTree.find(function (g) { return g.group === '统计报表'; });
-    if (reportGroup) reportGroup.children = analysisChildren.slice();
+    /* 角色菜单树只收有 id 的可点击项；若日后恢复 {type:'section'} 分组标题，此处要滤掉 */
+    if (reportGroup) reportGroup.children = analysisChildren.filter(function (c) { return !!c.id; })
+      .map(function (c) { return { id: c.id, label: c.label }; });
   }
 })();

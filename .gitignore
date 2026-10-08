@@ -7,6 +7,14 @@
 /.dsh-vision-router/
 /.dsh-vision-toolkit/
 /.joycode/
+/.workbuddy/
+/.zcode/
+/.trae-html-share-packages/
+
+# ==== 垃圾/临时产物 ====
+/ck_s1.py*
+/t.png
+*.removed_*
 
 # ==== 调试、探针、截图、补丁脚本等临时文件（下划线前缀一律排除）====
 /_*

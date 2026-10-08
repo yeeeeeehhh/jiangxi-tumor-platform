@@ -81,7 +81,7 @@ return match;
 var cats=[];
 surveyData.forEach(function(s){if(cats.indexOf(s.category)<0)cats.push(s.category)});
 
-var rows=filtered.map(function(s){
+var rows = filtered.map(function(s){
 var ops=[];
 if(s.status==='draft')ops.push(_surveyBtn('发布','surveyPublish('+s.id+')','link'));
 if(s.status==='published'){ops.push(_surveyBtn('结束','surveyClose('+s.id+')','link'));ops.push(_surveyBtn('链接','surveyCopyLink('+s.id+')','link'))}
@@ -91,16 +91,16 @@ if(s.status==='published')ops.push(_surveyBtn('填写','surveyFill('+s.id+')','l
 ops.push(_surveyBtn('删除','surveyDelete('+s.id+')','link danger'));
 
 return '<tr>'+
-'<td><input type="checkbox" style="width:14px;height:14px"></td>'+
-'<td><a href="javascript:void(0)" onclick="surveyEdit('+s.id+')" style="color:#2563eb;font-weight:600">'+s.title+'</a></td>'+
-'<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+s.desc+'</td>'+
-'<td>'+_surveyCatTag(s.category)+'</td>'+
-'<td>'+s.questions+'</td>'+
-'<td>'+s.responses+'</td>'+
-'<td>'+_surveyStatusBadge(s.status)+'</td>'+
-'<td>'+s.createTime+'</td>'+
-'<td>'+(s.publishTime||'<span style="color:#cbd5e1">-</span>')+'</td>'+
-'<td>'+(s.deadline||'<span style="color:#cbd5e1">-</span>')+'</td>'+
+'<td class="num"><input type="checkbox" style="width:14px;height:14px"></td>'+
+'<td class="txt"><a href="javascript:void(0)" onclick="surveyEdit('+s.id+')" style="color:#2563eb;font-weight:600">'+s.title+'</a></td>'+
+'<td class="txt" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+s.desc+'</td>'+
+'<td class="txt">'+_surveyCatTag(s.category)+'</td>'+
+'<td class="num">'+s.questions+'</td>'+
+'<td class="num">'+s.responses+'</td>'+
+'<td class="code">'+_surveyStatusBadge(s.status)+'</td>'+
+'<td class="code">'+s.createTime+'</td>'+
+'<td class="code">'+(s.publishTime||'<span style="color:#cbd5e1">-</span>')+'</td>'+
+'<td class="code">'+(s.deadline||'<span style="color:#cbd5e1">-</span>')+'</td>'+
 '<td><div class="row-actions">'+ops.join('')+'</div></td>'+
 '</tr>';
 }).join('');
@@ -118,9 +118,9 @@ _surveyBtn('导出Excel','toast("导出中...")','export')+
 '<div class="form-group"><label>分类</label><select onchange="surveyState.filters.category=this.value;surveyQuery()"><option value="">全部</option>'+cats.map(function(c){return '<option value="'+c+'" '+(surveyState.filters.category===c?'selected':'')+'>'+c+'</option>'}).join('')+'</select></div>'+
 '<div class="filter-actions">'+_surveyBtn('查询','surveyQuery()')+_surveyBtn('重置','surveyReset()','ghost')+'</div>'+
 '</div>'+
-'<div class="data-table-wrapper"><table class="data-table"><thead><tr>'+
+'<div class="data-table-wrapper"><table class="data-table" style="min-width:1232px"><thead><tr>'+
 '<th style="width:36px"><input type="checkbox" style="width:14px;height:14px" onclick="surveyToggleAll(this)"></th>'+
-'<th>问卷标题</th><th>描述</th><th>分类</th><th>题目数</th><th>答卷数</th><th>状态</th><th>创建时间</th><th>发布时间</th><th>截止时间</th><th style="width:260px">操作</th>'+
+'<th class="txt">问卷标题</th><th class="txt">描述</th><th class="txt">分类</th><th class="num">题目数</th><th class="num">答卷数</th><th class="code">状态</th><th class="code">创建时间</th><th class="code">发布时间</th><th class="code">截止时间</th><th style="width:260px">操作</th>'+
 '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
 '<div class="void-pagination"><span class="void-pagination-info">共 '+filtered.length+' 条记录</span></div>'+
 '</div></div>';
@@ -445,7 +445,7 @@ if(!allResp.length)return '<div class="panel"><div class="panel-body"><div class
 var surveyOpts=surveys.map(function(s){return '<option value="'+s.id+'">'+s.title+'</option>'}).join('');
 
 var rows=allResp.map(function(r){
-return '<tr><td>'+r.id+'</td><td><a href="javascript:void(0)" onclick="surveyViewResponse('+r.id+')" style="color:#2563eb">'+r.surveyTitle+'</a></td><td>'+r.respondent+'</td><td>'+r.submitTime+'</td><td>'+(r.ip||'-')+'</td><td><span class="badge badge-success">已完成</span></td><td><div class="row-actions">'+_surveyBtn('查看','surveyViewResponse('+r.id+')','link')+_surveyBtn('删除','toast("答卷已删除")','link danger')+'</div></td></tr>';
+return '<tr><td class="num">'+r.id+'</td><td class="txt"><a href="javascript:void(0)" onclick="surveyViewResponse('+r.id+')" style="color:#2563eb">'+r.surveyTitle+'</a></td><td class="txt">'+r.respondent+'</td><td class="code">'+r.submitTime+'</td><td class="txt">'+(r.ip||'-')+'</td><td class="code"><span class="badge badge-success">已完成</span></td><td><div class="row-actions">'+_surveyBtn('查看','surveyViewResponse('+r.id+')','link')+_surveyBtn('删除','toast("答卷已删除")','link danger')+'</div></td></tr>';
 }).join('');
 
 return '<div class="page-toolbar"><div class="page-toolbar-title"><span class="icon">\u25CF</span>答卷管理</div><div class="toolbar-actions">'+_surveyBtn('导出Excel','toast("导出中...")','export')+'</div></div>'+
@@ -456,7 +456,7 @@ return '<div class="page-toolbar"><div class="page-toolbar-title"><span class="i
 '<div class="form-group search-group"><label>检索</label><input type="text" placeholder="搜索答卷人/问卷标题"></div>'+
 '<div class="filter-actions">'+_surveyBtn('查询','toast("查询完成")')+_surveyBtn('重置','toast("已重置")','ghost')+'</div>'+
 '</div>'+
-'<div class="data-table-wrapper"><table class="data-table"><thead><tr><th>序号</th><th>问卷标题</th><th>填写人</th><th>提交时间</th><th>IP地址</th><th>状态</th><th style="width:140px">操作</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+'<div class="data-table-wrapper"><table class="data-table" style="min-width:784px"><thead><tr><th class="num">序号</th><th class="txt">问卷标题</th><th class="txt">填写人</th><th class="code">提交时间</th><th class="txt">IP地址</th><th class="code">状态</th><th style="width:140px">操作</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
 '<div class="void-pagination"><span class="void-pagination-info">共 '+allResp.length+' 份答卷</span><div class="void-pagination-controls"><button disabled>首页</button><button disabled>\u2039</button><input type="text" value="1" readonly><button disabled>\u203A</button><button disabled>尾页</button></div></div>'+
 '</div></div>';
 }
@@ -486,12 +486,12 @@ else{ansHtml=ans}
 if(s.responses>5){var ri=respId%3;if(q.type==='single'||q.type==='dropdown')ansHtml=q.options?q.options[ri%q.options.length]:'-';else if(q.type==='rating')ansHtml=(ri+3)+'分';else if(q.type==='multiple')ansHtml=q.options?q.options.slice(0,ri+1).join('、'):'-';else ansHtml='（用户填写内容）'}
 else{ansHtml='<span style="color:#cbd5e1">未填写</span>'}
 }
-return '<tr><td style="width:40px;text-align:center;color:#2563eb;font-weight:600">'+(i+1)+'</td><td style="font-weight:600">'+q.title+'</td><td>'+ansHtml+'</td></tr>';
+return '<tr><td class="code" style="width:40px;color:#2563eb;font-weight:600">'+(i+1)+'</td><td style="font-weight:600">'+q.title+'</td><td>'+ansHtml+'</td></tr>';
 }).join('');
 var modal=document.createElement('div');modal.className='news-confirm-modal';modal.style.zIndex='10001';
 modal.innerHTML='<div class="news-confirm-box" style="max-width:680px;max-height:85vh;overflow-y:auto"><div class="news-confirm-title">答卷详情 - '+resp.surveyTitle+'</div><div style="padding:20px">'+
 '<div style="display:flex;gap:24px;margin-bottom:16px;padding:12px;background:#f8fafc;border-radius:6px;font-size:13px"><span><strong>填写人：</strong>'+resp.respondent+'</span><span><strong>提交时间：</strong>'+resp.submitTime+'</span><span><strong>IP：</strong>'+(resp.ip||'-')+'</span></div>'+
-'<table class="data-table"><thead><tr><th style="width:40px">序号</th><th>题目</th><th>回答</th></tr></thead><tbody>'+qHtml+'</tbody></table>'+
+'<table class="data-table" style="min-width:620px"><thead><tr><th style="width:40px">序号</th><th class="txt">题目</th><th class="txt">回答</th></tr></thead><tbody>'+qHtml+'</tbody></table>'+
 '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">'+_surveyBtn('关闭','this.closest(\'.news-confirm-modal\').remove()','ghost')+'</div>'+
 '</div></div>';
 document.body.appendChild(modal);

@@ -1440,7 +1440,7 @@
       var refN = count(DB.messages, function (m) { return m.content.indexOf('《' + e.title + '》') >= 0; });
       return '<tr><td>' + esc(e.id) + (e.top ? '<div>' + tone('置顶', 'info') + '</div>' : '') + '</td>' +
         '<td class="clip" title="' + esc(e.summary) + '"><a href="javascript:void(0)" style="color:var(--primary);font-weight:600" data-hc="viewEdu" data-arg="' + esc(e.id) + '">' + esc(e.title) + '</a>' +
-        '<div style="font-size:11px;color:#94a3b8;margin-top:2px">' + chips(e.tags) + '</div></td>' +
+        '<span class="td-sub">' + chips(e.tags) + '</span></td>' +
         '<td>' + esc(e.type) + '</td><td>' + esc(e.cat) + '</td><td>' + esc(e.topic) + '</td>' +
         '<td>' + tone(e.source, e.source.indexOf('AI') >= 0 ? 'info' : 'neutral') + '</td>' +
         '<td>' + e.views.toLocaleString('zh-CN') + ' / ' + e.likes + '</td>' +

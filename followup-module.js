@@ -226,15 +226,15 @@
       }).join('') +
         '<div class="dup-stat-card danger"><div class="dup-stat-label">合计</div><div class="dup-stat-value">' + auditData.length + '</div></div>';
       var rows = auditData.map(function (t) {
-        return '<tr><td>' + qualityTaskBadge(t.type) + '</td><td><a href="javascript:void(0)" style="color:var(--primary)">' + t.id +
-          '</a></td><td>' + t.desc + '</td><td>' + t.source + '</td><td>' + t.time + '</td><td>' +
+        return '<tr><td class="code">' + qualityTaskBadge(t.type) + '</td><td class="txt"><a href="javascript:void(0)" style="color:var(--primary)">' + t.id +
+          '</a></td><td class="txt">' + t.desc + '</td><td class="txt">' + t.source + '</td><td class="code">' + t.time + '</td><td class="ops">' +
           '<button class="btn btn-primary btn-xs" onclick="toast(\'处理任务：' + t.id + '\')">处理</button> ' +
           '<button class="btn btn-ghost btn-xs" onclick="toast(\'任务已退回\')">退回</button></td></tr>';
       }).join('');
       return toolbar +
         '<div class="cards" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:14px">' + stats + '</div>' +
         '<div class="panel"><div class="panel-body">' +
-        '<div class="table-wrap"><table class="data-table"><thead><tr><th>任务类型</th><th>业务编号</th><th>任务说明</th><th>来源</th><th>时间</th><th style="width:160px">操作</th></tr></thead><tbody>' +
+        '<div class="table-wrap"><table class="data-table" style="min-width:672px"><thead><tr><th class="code">任务类型</th><th class="txt">业务编号</th><th class="txt">任务说明</th><th class="txt">来源</th><th class="code">时间</th><th style="width:160px">操作</th></tr></thead><tbody>' +
         rows + '</tbody></table></div></div></div>';
     }
 
@@ -248,10 +248,10 @@
       '<div class="dup-stat-card warning"><div class="dup-stat-label">死亡核实</div><div class="dup-stat-value">' + deathV + '</div></div>';
 
     var rows = fuTodos.map(function (t) {
-      return '<tr><td>' + typeBadge(t.type) + '</td><td><a href="javascript:void(0)" style="color:var(--primary)">' + t.id +
-        '</a></td><td>' + t.patient + '</td><td>' + t.diag + '</td><td>' + (t.channel === '被动' ? badge('被动', 'success') : badge('主动', 'info')) +
-        '</td><td>' + t.method + '</td><td>' + t.unit + '</td><td>' + t.assignee + '</td><td>' + t.nextDate +
-        '</td><td>' + statusBadge(t.status) + '</td><td>' +
+      return '<tr><td class="code">' + typeBadge(t.type) + '</td><td class="txt"><a href="javascript:void(0)" style="color:var(--primary)">' + t.id +
+        '</a></td><td class="txt">' + t.patient + '</td><td class="txt">' + t.diag + '</td><td class="code">' + (t.channel === '被动' ? badge('被动', 'success') : badge('主动', 'info')) +
+        '</td><td class="code">' + t.method + '</td><td class="txt">' + t.unit + '</td><td class="txt">' + t.assignee + '</td><td class="code">' + t.nextDate +
+        '</td><td class="code">' + statusBadge(t.status) + '</td><td class="ops">' +
         '<button class="btn btn-primary btn-xs" onclick="openExecuteModal(\'' + t.tid + '\',true)">处理</button> ' +
         '<button class="btn btn-ghost btn-xs" onclick="fuReturnTask(\'' + t.tid + '\',true)">退回</button></td></tr>';
     }).join('') || '<tr><td colspan="11" style="text-align:center;color:#94a3b8;padding:28px">暂无随访待办</td></tr>';
@@ -259,8 +259,8 @@
     return toolbar +
       '<div class="cards" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:14px">' + statsFu + '</div>' +
       '<div class="panel"><div class="panel-body">' +
-      '<div class="table-wrap"><table class="data-table"><thead><tr>' +
-      '<th>类型</th><th>登记编号</th><th>姓名</th><th>部位</th><th>渠道</th><th>方式</th><th>单位</th><th>上报员</th><th>应访日期</th><th>状态</th><th style="width:140px">操作</th>' +
+      '<div class="table-wrap"><table class="data-table" style="min-width:1232px"><thead><tr>' +
+      '<th class="code">类型</th><th class="txt">登记编号</th><th class="txt">姓名</th><th class="txt">部位</th><th class="code">渠道</th><th class="code">方式</th><th class="txt">单位</th><th class="txt">上报员</th><th class="code">应访日期</th><th class="code">状态</th><th style="width:140px">操作</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
       '<div class="void-pagination"><div class="void-pagination-info">共 ' + fuTodos.length + ' 条待办</div></div>' +
       '</div></div>';
@@ -314,10 +314,10 @@
       return '<tr>' +
         '<td style="width:40px"><input type="checkbox" class="fu-plan-check" data-tid="' + t.tid + '" ' + (checked ? 'checked' : '') +
         ' onchange="fuPlanToggleOne(\'' + t.tid + '\',this.checked)"></td>' +
-        '<td>' + typeBadge(t.type) + '</td><td><a href="javascript:void(0)" style="color:var(--primary)" onclick="typeof openReportCardFromBiz===\'function\'?openReportCardFromBiz(\'' + t.id + '\'):toast(\'' + t.id + '\')">' + t.id +
-        '</a></td><td>' + t.patient + '</td><td>' + t.diag + '</td><td>' + t.nextDate + '</td><td>' +
-        (t.channel === '被动' ? badge('被动', 'success') : badge('主动', 'info')) + '</td><td>' + t.method +
-        '</td><td>' + t.unit + '</td><td>' + t.assignee + '</td><td>' + statusBadge(t.status) + '</td><td>' + ops + '</td></tr>';
+        '<td class="code">' + typeBadge(t.type) + '</td><td class="txt"><a href="javascript:void(0)" style="color:var(--primary)" onclick="typeof openReportCardFromBiz===\'function\'?openReportCardFromBiz(\'' + t.id + '\'):toast(\'' + t.id + '\')">' + t.id +
+        '</a></td><td class="txt">' + t.patient + '</td><td class="txt">' + t.diag + '</td><td class="code">' + t.nextDate + '</td><td class="code">' +
+        (t.channel === '被动' ? badge('被动', 'success') : badge('主动', 'info')) + '</td><td class="code">' + t.method +
+        '</td><td class="txt">' + t.unit + '</td><td class="txt">' + t.assignee + '</td><td class="code">' + statusBadge(t.status) + '</td><td>' + ops + '</td></tr>';
     }).join('') || '<tr><td colspan="12" style="text-align:center;color:#94a3b8;padding:28px">无匹配任务</td></tr>';
 
     var selCount = selected.length;
@@ -343,9 +343,9 @@
       '</div>' + batchBar +
       '<div style="margin-bottom:8px;color:#667085;font-size:13px">共 ' + list.length + ' 条任务' +
       (selCount ? ' · 已选 ' + selCount + ' 条' : '') + '</div>' +
-      '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+      '<div class="table-wrap"><table class="data-table" style="min-width:1344px"><thead><tr>' +
       '<th style="width:40px"><input type="checkbox" ' + (allChecked ? 'checked' : '') + ' onchange="fuPlanToggleAll(this.checked)" title="全选"></th>' +
-      '<th>类型</th><th>登记编号</th><th>姓名</th><th>部位</th><th>应访日期</th><th>渠道</th><th>方式</th><th>单位</th><th>上报员</th><th>状态</th><th style="width:140px">操作</th>' +
+      '<th class="code">类型</th><th class="txt">登记编号</th><th class="txt">姓名</th><th class="txt">部位</th><th class="code">应访日期</th><th class="code">渠道</th><th class="code">方式</th><th class="txt">单位</th><th class="txt">上报员</th><th class="code">状态</th><th style="width:140px">操作</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
       '<div class="void-pagination"><div class="void-pagination-info">共' + list.length + '条记录，第1/1页</div>' +
       '<div class="void-pagination-controls"><button onclick="toast(\'已是第一页\')">‹</button><input type="text" value="1" readonly><button onclick="toast(\'已是最后一页\')">›</button></div></div>' +
@@ -468,11 +468,11 @@
       return '<option value="' + s + '"' + (st.status === s ? ' selected' : '') + '>' + (s || '全部结局') + '</option>';
     }).join('');
     var rows = rowsData.map(function (r, i) {
-      return '<tr><td>' + (i + 1) + '</td><td><a href="javascript:void(0)" style="color:var(--primary)" onclick="followupDetail(\'' + r.id + '\')">' + r.id +
-        '</a></td><td>' + r.name + '</td><td>' + r.sex + '</td><td>' + r.diagDate + '</td><td>' + r.site + '</td><td>' + r.lastContact +
-        '</td><td>' + outcomeBadge(r.status) + '</td><td>' + ((r.event && r.event !== '无') ? r.event : '-') + '</td><td>' + r.deathDate +
-        '</td><td>' + (r.source || '-') + '</td><td>' + r.doctor + '</td><td>' + r.unit +
-        '</td><td><button class="btn btn-ghost btn-xs" onclick="followupDetail(\'' + r.id + '\')">查看</button> ' +
+      return '<tr><td class="num">' + (i + 1) + '</td><td class="txt"><a href="javascript:void(0)" style="color:var(--primary)" onclick="followupDetail(\'' + r.id + '\')">' + r.id +
+        '</a></td><td class="txt">' + r.name + '</td><td class="code">' + r.sex + '</td><td class="code">' + r.diagDate + '</td><td class="txt">' + r.site + '</td><td class="code">' + r.lastContact +
+        '</td><td class="code">' + outcomeBadge(r.status) + '</td><td class="code">' + ((r.event && r.event !== '无') ? r.event : '-') + '</td><td class="code">' + r.deathDate +
+        '</td><td class="txt">' + (r.source || '-') + '</td><td class="txt">' + r.doctor + '</td><td class="txt">' + r.unit +
+        '</td><td class="ops"><button class="btn btn-ghost btn-xs" onclick="followupDetail(\'' + r.id + '\')">查看</button> ' +
         '<button class="btn btn-primary btn-xs" onclick="followupAddRecord(\'' + r.id + '\')">添加</button></td></tr>';
     }).join('') || '<tr><td colspan="14" style="text-align:center;color:#94a3b8;padding:28px">无记录</td></tr>';
 
@@ -491,7 +491,7 @@
       '</div>' +
       '<div style="margin-bottom:8px;color:#667085;font-size:13px">共 ' + rowsData.length + ' 条记录</div>' +
       '<div class="table-wrap"><table class="data-table" style="min-width:1180px"><thead><tr>' +
-      '<th>序号</th><th>登记编号</th><th>姓名</th><th>性别</th><th>诊断日期</th><th>部位</th><th>最后接触</th><th>结局</th><th>事件</th><th>死亡日期</th><th>来源</th><th>医师</th><th>单位</th><th>操作</th>' +
+      '<th class="num">序号</th><th class="txt">登记编号</th><th class="txt">姓名</th><th class="code">性别</th><th class="code">诊断日期</th><th class="txt">部位</th><th class="code">最后接触</th><th class="code">结局</th><th class="code">事件</th><th class="code">死亡日期</th><th class="txt">来源</th><th class="txt">医师</th><th class="txt">单位</th><th class="ops">操作</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
       '<div class="void-pagination"><div class="void-pagination-info">共' + rowsData.length + '条记录，第1/1页</div>' +
       '<div class="void-pagination-controls"><button onclick="toast(\'已是第一页\')">‹</button><input type="text" value="1" readonly><button onclick="toast(\'已是最后一页\')">›</button></div></div>' +
@@ -506,11 +506,11 @@
     var methodOpts = METHODS.map(function (m) { return '<option>' + m + '</option>'; }).join('');
     var checkRows = candidates.map(function (r, i) {
       return '<tr><td><input type="checkbox" class="batch-followup-check" data-id="' + r.id + '" ' + (i < 3 ? 'checked' : '') +
-        ' onchange="followupBatchUpdateCount()"></td><td>' + r.id + '</td><td>' + r.name + '</td><td>' + r.site +
-        '</td><td>' + r.lastContact + '</td><td>' + outcomeBadge(r.status) + '</td>' +
-        '<td><select id="batchType_' + i + '">' + typeOpts + '</select></td>' +
-        '<td><select id="batchMethod_' + i + '">' + methodOpts + '</select></td>' +
-        '<td><input type="date" id="batchDate_' + i + '" value="2026-07-30" style="width:140px"></td></tr>';
+        ' onchange="followupBatchUpdateCount()"></td><td class="txt">' + r.id + '</td><td class="txt">' + r.name + '</td><td class="txt">' + r.site +
+        '</td><td class="code">' + r.lastContact + '</td><td class="code">' + outcomeBadge(r.status) + '</td>' +
+        '<td class="code"><select id="batchType_' + i + '">' + typeOpts + '</select></td>' +
+        '<td class="code"><select id="batchMethod_' + i + '">' + methodOpts + '</select></td>' +
+        '<td class="code"><input type="date" id="batchDate_' + i + '" value="2026-07-30" style="width:140px"></td></tr>';
     }).join('');
 
     return '<div class="page-toolbar"><div class="toolbar-actions">' +
@@ -522,9 +522,9 @@
       '<button class="btn btn-ghost btn-sm" onclick="document.querySelectorAll(\'.batch-followup-check\').forEach(function(c){c.checked=false});followupBatchUpdateCount()">取消</button>' +
       '<button class="btn btn-primary btn-sm" onclick="followupBatchExecute()">确认派发</button>' +
       '</div></div>' +
-      '<div class="table-wrap"><table class="data-table"><thead><tr>' +
+      '<div class="table-wrap"><table class="data-table" style="min-width:1008px"><thead><tr>' +
       '<th style="width:36px"><input type="checkbox" onclick="document.querySelectorAll(\'.batch-followup-check\').forEach(function(c){c.checked=this.checked}.bind(this));followupBatchUpdateCount()"></th>' +
-      '<th>登记编号</th><th>姓名</th><th>部位</th><th>最后接触</th><th>结局</th><th>任务类型</th><th>方式</th><th>应访日期</th>' +
+      '<th class="txt">登记编号</th><th class="txt">姓名</th><th class="txt">部位</th><th class="code">最后接触</th><th class="code">结局</th><th class="code">任务类型</th><th class="code">方式</th><th class="code">应访日期</th>' +
       '</tr></thead><tbody>' + checkRows + '</tbody></table></div></div></div>';
   };
 
@@ -641,28 +641,28 @@
         : '<button class="btn btn-ghost btn-xs" onclick="openFollowupTaskHistory(\'' + task.tid + '\')">查看记录</button> ';
       var lcStatus = task.lastContactStatus ? outcomeBadge(task.lastContactStatus) : '<span style="color:#94a3b8">—</span>';
       return '<tr>' +
-        '<td style="font-size:12px"><a href="javascript:void(0)" style="color:var(--primary)" onclick="typeof openReportCardFromBiz===\'function\'?openReportCardFromBiz(\'' + followupTaskEsc(task.id) + '\'):toast(\'报卡详情：' + followupTaskEsc(task.reportCardNo || task.id) + '\')">' + followupTaskEsc(task.reportCardNo || task.id) + '</a></td>' +
-        '<td>' + typeBadge(task.type) + '</td>' +
-        '<td>' + followupTaskStatusBadge(task.status) + '</td>' +
-        '<td>' + followupTaskEsc(task.lastFollowup) + '</td>' +
-        '<td>' + lcStatus + '</td>' +
-        '<td><span class="fu-task-patient">' + followupTaskEsc(task.name) + '</span></td>' +
-        '<td>' + followupTaskEsc(task.sex) + '</td>' +
-        '<td>' + followupTaskEsc(task.birth) + '</td>' +
-        '<td>' + followupTaskEsc(task.idNo) + '</td>' +
+        '<td class="txt" style="font-size:12px"><a href="javascript:void(0)" style="color:var(--primary)" onclick="typeof openReportCardFromBiz===\'function\'?openReportCardFromBiz(\'' + followupTaskEsc(task.id) + '\'):toast(\'报卡详情：' + followupTaskEsc(task.reportCardNo || task.id) + '\')">' + followupTaskEsc(task.reportCardNo || task.id) + '</a></td>' +
+        '<td class="code">' + typeBadge(task.type) + '</td>' +
+        '<td class="code">' + followupTaskStatusBadge(task.status) + '</td>' +
+        '<td class="code">' + followupTaskEsc(task.lastFollowup) + '</td>' +
+        '<td class="code">' + lcStatus + '</td>' +
+        '<td class="txt"><span class="fu-task-patient">' + followupTaskEsc(task.name) + '</span></td>' +
+        '<td class="code">' + followupTaskEsc(task.sex) + '</td>' +
+        '<td class="code">' + followupTaskEsc(task.birth) + '</td>' +
+        '<td class="txt">' + followupTaskEsc(task.idNo) + '</td>' +
         '<td class="fu-task-address" title="' + followupTaskEsc(task.address) + '">' + followupTaskEsc(task.address) + '</td>' +
-        '<td>' + followupTaskEsc(task.phone) + '</td>' +
-        '<td>' + followupTaskEsc(task.diagnosis) + '</td>' +
-        '<td>' + followupTaskEsc(task.icd10) + '</td>' +
-        '<td>' + followupTaskEsc(task.diagDate) + '</td>' +
-        '<td>' + followupTaskEsc(task.dueDate) + '</td>' +
-        '<td>' + followupTaskEsc(task.region) + '</td>' +
-        '<td><button class="btn btn-ghost btn-xs" onclick="openFollowupTaskHistory(\'' + task.tid + '\')">随访历史</button> ' + actionBtn + '</td>' +
+        '<td class="txt">' + followupTaskEsc(task.phone) + '</td>' +
+        '<td class="txt">' + followupTaskEsc(task.diagnosis) + '</td>' +
+        '<td class="txt">' + followupTaskEsc(task.icd10) + '</td>' +
+        '<td class="code">' + followupTaskEsc(task.diagDate) + '</td>' +
+        '<td class="code">' + followupTaskEsc(task.dueDate) + '</td>' +
+        '<td class="txt">' + followupTaskEsc(task.region) + '</td>' +
+        '<td class="ops"><button class="btn btn-ghost btn-xs" onclick="openFollowupTaskHistory(\'' + task.tid + '\')">随访历史</button> ' + actionBtn + '</td>' +
         '</tr>';
     }).join('') || '<tr><td colspan="17" style="text-align:center;color:#94a3b8;padding:36px">' + (state.status === 'open' ? '暂无待随访任务' : '暂无匹配的待随访任务') + '</td></tr>';
     var keyword = followupTaskEsc(state.keyword || '');
     return '<div class="fu-task-stats"><div class="fu-task-stat"><div class="fu-task-stat-label">应随访数</div><div class="fu-task-stat-value">' + allForStats.length + '</div><div class="fu-task-stat-sub">当前筛选范围</div></div><div class="fu-task-stat success"><div class="fu-task-stat-label">已完成数</div><div class="fu-task-stat-value">' + completed + '</div><div class="fu-task-stat-sub">已完成本年度任务</div></div><div class="fu-task-stat warning"><div class="fu-task-stat-label">剩余数</div><div class="fu-task-stat-value">' + remaining + '</div><div class="fu-task-stat-sub">待完成 + 逾期</div></div><div class="fu-task-stat danger"><div class="fu-task-stat-label">逾期数</div><div class="fu-task-stat-value">' + overdue + '</div><div class="fu-task-stat-sub">超过应访截止日期</div></div><div class="fu-task-stat"><div class="fu-task-stat-label">完成率</div><div class="fu-task-stat-value">' + rate + '%</div><div class="fu-task-progress"><span style="width:' + rate + '%"></span></div></div></div>' +
-      '<div class="panel"><div class="panel-body"><div class="filter-toolbar"><div class="form-group"><label>随访年度</label><select onchange="followupTaskState.year=this.value;followupTaskState.page=1;renderPage(\'followup-tasks\')">' + options(years, state.year, '全部年度') + '</select></div><div class="form-group"><label>任务类型</label><select onchange="followupTaskState.type=this.value;followupTaskState.page=1;renderPage(\'followup-tasks\')">' + options(['初访', '年度随访'], state.type, '全部类型') + '</select></div><div class="form-group region-filter" style="min-width:200px"><label>行政区划</label>' + (typeof renderRegionCascader === 'function' ? renderRegionCascader() : '<input>') + '</div><div class="form-group"><label>登记处</label><select onchange="followupTaskState.region=this.value;followupTaskState.page=1;renderPage(\'followup-tasks\')">' + options(regions, state.region, '全部登记处') + '</select></div><div class="form-group"><label>应访截止</label><select onchange="followupTaskState.deadline=this.value;followupTaskState.page=1;renderPage(\'followup-tasks\')"><option value="">全部日期</option><option value="overdue"' + (state.deadline === 'overdue' ? ' selected' : '') + '>已逾期</option><option value="near"' + (state.deadline === 'near' ? ' selected' : '') + '>未来7天</option><option value="month"' + (state.deadline === 'month' ? ' selected' : '') + '>本月截止</option></select></div><div class="form-group search-group"><label>关键字</label><input value="' + keyword + '" placeholder="姓名 / 身份证号 / 诊断" onkeydown="if(event.key===\'Enter\'){followupTaskState.keyword=this.value.trim();followupTaskState.page=1;renderPage(\'followup-tasks\')}"></div><div class="filter-actions"><button class="btn btn-ghost btn-sm" onclick="resetFollowupTaskFilters()">重置</button><button class="btn btn-outline btn-sm" onclick="exportFollowupTasks()">导出 Excel</button></div></div><div style="margin:4px 0 10px;color:#667085;font-size:13px">共 ' + list.length + ' 条，其中逾期 ' + list.filter(function(t){return t.status==='逾期'}).length + ' 条 · 当前账号仅展示本登记处管辖范围</div><div class="table-wrap"><table class="data-table fu-task-table" style="min-width:2200px"><thead><tr><th>报告卡编号</th><th>任务类型</th><th>状态</th><th>末次随访日期</th><th>末次随访状态</th><th>姓名</th><th>性别</th><th>出生日期</th><th>身份证号</th><th>常住地址</th><th>联系电话</th><th>诊断名称</th><th>ICD-10</th><th>发病日期</th><th>应访截止</th><th>所属登记处</th><th>操作</th></tr></thead><tbody>' + rows + '</tbody></table></div><div class="void-pagination"><div class="void-pagination-info">共' + list.length + '条记录</div><div class="void-pagination-controls"><button onclick="toast(\'已是第一页\')">‹</button><input type="text" value="1" readonly><button onclick="toast(\'已是最后一页\')">›</button></div></div></div></div>';
+      '<div class="panel"><div class="panel-body"><div class="filter-toolbar"><div class="form-group"><label>随访年度</label><select onchange="followupTaskState.year=this.value;followupTaskState.page=1;renderPage(\'followup-tasks\')">' + options(years, state.year, '全部年度') + '</select></div><div class="form-group"><label>任务类型</label><select onchange="followupTaskState.type=this.value;followupTaskState.page=1;renderPage(\'followup-tasks\')">' + options(['初访', '年度随访'], state.type, '全部类型') + '</select></div><div class="form-group region-filter" style="min-width:200px"><label>行政区划</label>' + (typeof renderRegionCascader === 'function' ? renderRegionCascader() : '<input>') + '</div><div class="form-group"><label>登记处</label><select onchange="followupTaskState.region=this.value;followupTaskState.page=1;renderPage(\'followup-tasks\')">' + options(regions, state.region, '全部登记处') + '</select></div><div class="form-group"><label>应访截止</label><select onchange="followupTaskState.deadline=this.value;followupTaskState.page=1;renderPage(\'followup-tasks\')"><option value="">全部日期</option><option value="overdue"' + (state.deadline === 'overdue' ? ' selected' : '') + '>已逾期</option><option value="near"' + (state.deadline === 'near' ? ' selected' : '') + '>未来7天</option><option value="month"' + (state.deadline === 'month' ? ' selected' : '') + '>本月截止</option></select></div><div class="form-group search-group"><label>关键字</label><input value="' + keyword + '" placeholder="姓名 / 身份证号 / 诊断" onkeydown="if(event.key===\'Enter\'){followupTaskState.keyword=this.value.trim();followupTaskState.page=1;renderPage(\'followup-tasks\')}"></div><div class="filter-actions"><button class="btn btn-ghost btn-sm" onclick="resetFollowupTaskFilters()">重置</button><button class="btn btn-outline btn-sm" onclick="exportFollowupTasks()">导出 Excel</button></div></div><div style="margin:4px 0 10px;color:#667085;font-size:13px">共 ' + list.length + ' 条，其中逾期 ' + list.filter(function(t){return t.status==='逾期'}).length + ' 条 · 当前账号仅展示本登记处管辖范围</div><div class="table-wrap"><table class="data-table fu-task-table" style="min-width:2200px"><thead><tr><th class="txt">报告卡编号</th><th class="code">任务类型</th><th class="code">状态</th><th class="code">末次随访日期</th><th class="code">末次随访状态</th><th class="txt">姓名</th><th class="code">性别</th><th class="code">出生日期</th><th class="txt">身份证号</th><th class="txt">常住地址</th><th class="txt">联系电话</th><th class="txt">诊断名称</th><th class="txt">ICD-10</th><th class="code">发病日期</th><th class="code">应访截止</th><th class="txt">所属登记处</th><th class="ops">操作</th></tr></thead><tbody>' + rows + '</tbody></table></div><div class="void-pagination"><div class="void-pagination-info">共' + list.length + '条记录</div><div class="void-pagination-controls"><button onclick="toast(\'已是第一页\')">‹</button><input type="text" value="1" readonly><button onclick="toast(\'已是最后一页\')">›</button></div></div></div></div>';
   };
 
   window.resetFollowupTaskFilters = function () {
@@ -820,7 +820,7 @@
     var rows = list.map(function (r) {
       var off = r.status !== '启用';
       return '<tr>' +
-        '<td>' + fcEsc(r.cancer) + '</td>' +
+        '<td class="txt">' + fcEsc(r.cancer) + '</td>' +
         '<td>' + fcEsc(r.icd) + '</td>' +
         '<td><span class="fc-int"><input type="number" min="1" max="60" value="' + (r.interval == null ? '' : r.interval) + '"' +
           (off ? ' disabled' : '') + ' onchange="fcSetInterval(\'' + r.id + '\',this.value)"><span>月</span></span></td>' +
@@ -839,7 +839,7 @@
       '<div style="margin-bottom:8px;color:#667085;font-size:13px">共 ' + list.length + ' 个癌种 · 启用 ' +
       list.filter(function (r) { return r.status === '启用'; }).length + ' 个</div>' +
       '<div class="table-wrap"><table class="data-table fc-table"><thead><tr>' +
-      '<th>癌种</th><th style="width:96px">ICD-10</th><th style="width:150px">随访间隔期</th>' +
+      '<th class="txt">癌种</th><th style="width:96px">ICD-10</th><th style="width:150px">随访间隔期</th>' +
       '<th style="width:88px">状态</th><th style="width:118px">操作</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
       '<div class="void-pagination"><div class="void-pagination-info">共' + list.length + '条记录，第1/1页</div>' +

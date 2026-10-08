@@ -550,14 +550,14 @@
         '</td><td class="num">' + (x.mi == null ? '—' : x.mi.toFixed(2)) + '</td>';
     }
 
-    var table = '<div class="table-wrap" style="max-height:440px;overflow:auto"><table class="data-table"><thead>' +
+    var table = '<div class="table-wrap" style="max-height:440px;overflow:auto"><table class="data-table" style="min-width:1456px"><thead>' +
       '<tr><th rowspan="2">对象</th><th class="num" colspan="4">发病</th><th class="num" colspan="4">死亡</th><th class="num" rowspan="2">M/I</th><th rowspan="2">操作</th></tr>' +
       '<tr><th class="num">发病数</th><th class="num">粗率</th><th class="num">中标率</th><th class="num">世标率</th>' +
       '<th class="num">死亡数</th><th class="num">粗率</th><th class="num">中标率</th><th class="num">世标率</th></tr>' +
       '</thead><tbody>' +
       rows.map(function (r) {
         return '<tr><td>' + htmlEsc(r.name) + '</td>' + epiCells(r.x) +
-          '<td><button class="btn btn-ghost btn-xs" onclick="STATS.drillDown(\'' + r.kind + '\',\'' + r.id + '\')">下钻</button></td></tr>';
+          '<td class="ops"><button class="btn btn-ghost btn-xs" onclick="STATS.drillDown(\'' + r.kind + '\',\'' + r.id + '\')">下钻</button></td></tr>';
       }).join('') +
       '<tr class="total"><td><strong>合计</strong></td>' + epiCells(totalRow.x) + '<td>—</td></tr>' +
       '</tbody></table></div>';
@@ -760,9 +760,9 @@ function renderStats() {
       return '<span style="margin-right:12px;font-size:12px;color:' + colors[i] + '">● ' + htmlEsc(c.name) + '</span>';
     }).join('');
 
-    var table = '<div class="table-wrap"><table class="data-table"><thead><tr><th>分组</th><th class="num">例数</th><th class="num">删失</th><th class="num">' + state.survYears + '年观察生存率</th><th class="num">95%CI</th><th class="num">相对生存率</th></tr></thead><tbody>' +
+    var table = '<div class="table-wrap"><table class="data-table" style="min-width:672px"><thead><tr><th class="txt">分组</th><th class="num">例数</th><th class="num">删失</th><th class="num">' + state.survYears + '年观察生存率</th><th class="num">95%CI</th><th class="num">相对生存率</th></tr></thead><tbody>' +
       curves.map(function (c) {
-        return '<tr><td>' + htmlEsc(c.name) + '</td><td class="num">' + c.n + '</td><td class="num">' + c.censor +
+        return '<tr><td class="txt">' + htmlEsc(c.name) + '</td><td class="num">' + c.n + '</td><td class="num">' + c.censor +
           '</td><td class="num">' + c.ratePct.toFixed(1) + '%</td><td class="num">' + c.ciLo.toFixed(1) + '% ~ ' + c.ciHi.toFixed(1) + '%</td>' +
           '<td class="num">' + (c.relPct == null ? '—' : c.relPct.toFixed(1) + '%') + '</td></tr>';
       }).join('') + '</tbody></table></div>';
@@ -804,7 +804,7 @@ function renderStats() {
       '<div class="st-modal-h"><span>下钻明细 · ' + htmlEsc(title) + '（' + state.year + '）</span><span class="cd-close" onclick="STATS.closeModal()">×</span></div>' +
       '<div class="st-modal-b"><div style="margin-bottom:8px;font-size:13px">发病 ' + fmtNum(b.inc) + ' · 死亡 ' + fmtNum(b.death) +
       ' · 粗发病率 ' + rateCell(b.crudeInc, b.missing) + '</div>' +
-      '<div class="table-wrap"><table class="data-table"><thead><tr><th>登记编号</th><th>姓名</th><th>性别</th><th>年龄</th><th>癌种</th><th>确诊日期</th></tr></thead><tbody>' +
+      '<div class="table-wrap"><table class="data-table" style="min-width:672px"><thead><tr><th class="txt">登记编号</th><th class="txt">姓名</th><th class="code">性别</th><th class="num">年龄</th><th class="txt">癌种</th><th class="code">确诊日期</th></tr></thead><tbody>' +
       rows + '</tbody></table></div></div>' +
       '<div class="st-modal-f"><button class="btn btn-ghost btn-sm" onclick="STATS.closeModal()">关闭</button></div></div></div>');
   }

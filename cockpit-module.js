@@ -6,6 +6,9 @@
  * 地图底图：jx-geo.js（江西省 11 设区市行政边界，DataV.GeoAtlas 抽稀）。
  * 交互完整度：年度 / 数据域 / 地图指标三档筛选 → 地图点选聚焦地市 → 全页面联动 →
  *   地市详情弹窗（雷达 / 分期构成 / 县区分组）→ 大屏模式（Esc 退出）→ 跳转业务模块。
+ * 质控阈值：与 warning-module.js B 层同源（MV 66 / DCO 15），本模块不再另立一套。
+ * 登记运营看板已独立为 registry-ops.js（菜单：数据统计 ▸ 业务监测 ▸ 登记运营看板），
+ *   复用本模块导出的 window.CKData（地市基线 + 派生口径），两页不再共用 mount / 导出 / 大屏态。
  */
 (function () {
   'use strict';
@@ -22,7 +25,9 @@
   var YEARS = [];
   for (var y = CUR_YEAR - 5; y <= CUR_YEAR; y++) YEARS.push(y);
 
-  var QC = { mvMin: 70, dcoMax: 5, ubMax: 5, miMin: 0.55, miMax: 0.85 };
+  /* 登记质控阈值：与 warning-module.js 的 B 层规则同源（mvMin 66 / dcoMax 15），
+     不再在本模块另立 70 / 5 一套——否则同一 MV% 在预警记录与预警总览会得出相反结论。 */
+  var QC = { mvMin: 66, dcoMax: 15, ubMax: 5, miMin: 0.55, miMax: 0.85 };
 
   // pop：常住人口（万人）；crude：粗发病率基线（1/10 万，2026 年口径）；asrK：中标率/粗率系数
   var META = {
@@ -582,6 +587,187 @@
       '</div></section>';
   }
 
+  /* ==================== 6.A 领导核心大卡（结局 / 流向） ==================== */
+  function headStrip() {
+    function lamp(v, t, dir) {
+      if (dir === 'down') return v <= t ? 'good' : (v <= t * 1.08 ? 'warn' : 'bad');
+      return v >= t ? 'good' : (v >= t * 0.92 ? 'warn' : 'bad');
+    }
+    function cn(code) { return META[code] ? META[code].n : code; }
+    function rec(code) { return build(code, ST.year); }
+    var r = cur(), v = view(r);
+    var outR = 12.0 + (hash('o' + ST.year) % 30) / 10;
+    var inR = 5.8 + (hash('i' + ST.year) % 20) / 10;
+    var inNet = inR - outR;
+    var sut = 41.8 + (hash('s' + ST.year) % 22) / 10 - 1.0;
+    var early = 23.4 + (hash('e' + ST.year) % 30) / 10 - 1.5;
+    var stdD = r.asrD || v.asr || 0;
+    var crudeD = r.crudeD || v.rate || 0;
+    var mi = (r.mi !== undefined && r.mi !== null) ? r.mi : 0.68;
+    var cards = [
+      { k: '跨省流出率', v: outR.toFixed(1) + '<em>%</em>', sub: '常住人口跨省就医比例', lamp: lamp(outR, 12.0, 'down'), dt: '国家中枢 · 上报' },
+      { k: '净流入率', v: inNet.toFixed(1) + '<em>%</em>', sub: '外省来赣与我省外流的净差', lamp: lamp(inNet, 0, 'up'), dt: '国家中枢 · 上报' },
+      { k: '5 年相对生存率', v: sut.toFixed(1) + '<em>%</em>', sub: '生存分析 · Kaplan-Meier', lamp: lamp(sut, 43.7, 'up'), dt: '国家 · 43.7%' },
+      { k: '早诊率', v: early.toFixed(1) + '<em>%</em>', sub: 'Ⅰ/Ⅱ 期占比', lamp: lamp(early, 25.0, 'up'), dt: '国家 · 25%' },
+      { k: '中标死亡率', v: stdD.toFixed(1) + '<em>/10万</em>', sub: '目标 ≤ 全国 · M/I ' + mi.toFixed(2), lamp: lamp(stdD, 190, 'down'), dt: '粗死亡 ' + crudeD.toFixed(0) }
+    ];
+    return '<section class="ck-dkstrip">' + cards.map(function (c) {
+      return '<div class="ck-dkcard lamp-' + c.lamp + '">' +
+        '<div class="ck-dk-l">' + c.k + '</div>' +
+        '<div class="ck-dk-v">' + c.v + '</div>' +
+        '<div class="ck-dk-s">' + c.sub + '</div>' +
+        '<div class="ck-dk-t">' + c.dt + '</div>' +
+        '</div>';
+    }).join('') + '</section>';
+  }
+
+  /* ==================== 6.B 六维达标概览 ==================== */
+  function dimStrip() {
+    function rate(arr) {
+      var t = arr ? arr.reduce(function (a, b) { return a + b[1]; }, 0) : 0;
+      var o = arr ? arr.reduce(function (a, b) { return a + b[2]; }, 0) : 0;
+      return t ? Math.round(o / t * 100) : 0;
+    }
+    function cn(code) { return META[code] ? META[code].n : code; }
+    function rec(code) { return build(code, ST.year); }
+    var r = cur(), v = view(r);
+    var stdD = (r && r.asrD) ? r.asrD : ((v && v.asr) ? v.asr : 190);
+    var crudeD = (r && r.crudeD) ? r.crudeD : ((v && v.rate) ? v.rate : 225);
+    var mi = (r && r.mi !== undefined && r.mi !== null) ? r.mi : 0.68;
+    var fu = (r && r.fu !== undefined && r.fu !== null) ? r.fu : 85;
+    var dims = [
+      {
+        h: '预防控制', items: [
+          ['HPV 疫苗覆盖率', 92.0, 90, 'up'],
+          ['重点癌症筛查覆盖', 76.5, 70, 'up'],
+          ['高危人群建档率', 63.2, 60, 'up'],
+          ['健康教育覆盖率', 88.0, 85, 'up'],
+          ['随访依从性达标率', 91.4, 85, 'up']
+        ]
+      },
+      {
+        h: '早期发现', items: [
+          ['早诊率', 23.4, 25, 'up'],
+          ['I 期比例', 19.3, 25, 'up'],
+          ['II 期比例', 28.7, 30, 'up'],
+          ['机会性筛查参与率', 41.6, 45, 'up'],
+          ['高危人群评估率', 79.0, 75, 'up']
+        ]
+      },
+      {
+        h: '规范诊疗', items: [
+          ['MDT 会诊率', 31.2, 35, 'up'],
+          ['临床路径入径率', 74.5, 70, 'up'],
+          ['指南依从率', 82.1, 80, 'up'],
+          ['术前评估完整率', 95.3, 90, 'up'],
+          ['病理报告规范率', 96.8, 95, 'up']
+        ]
+      },
+      {
+        h: '结局生存', items: [
+          ['5 年相对生存率', 41.8, 43.7, 'up'],
+          ['70 岁下癌症早死率', 32.5, 35, 'down'],
+          ['中标死亡率', stdD, 190, 'down'],
+          ['III 期占比', 30.4, 30, 'down'],
+          ['M/I 比', mi, 0.68, 'down', 'ratio']
+        ]
+      },
+      {
+        h: '随访管理', items: [
+          ['随访完成率', fu, 85, 'up'],
+          ['主动随访率', 76.3, 75, 'up'],
+          ['失访率', 8.6, 10, 'down'],
+          ['复发检出及时率', 91.2, 88, 'up'],
+          ['晚期进展通报率', 88.9, 85, 'up']
+        ]
+      },
+      {
+        h: '就医流向', items: [
+          ['省内就诊率', 88.0, 90, 'up'],
+          ['跨省流出率', 12.0, 12, 'down'],
+          ['净流入率', -4.2, 0, 'up'],
+          ['县域就诊率', 61.5, 65, 'up'],
+          ['本市就诊率', 78.0, 80, 'up']
+        ]
+      }
+    ];
+    return '<section class="ck-dimstrip">' + dims.map(function (d) {
+      var okN = 0;
+      var body = d.items.map(function (it) {
+        var name = it[0], val = it[1], tgt = it[2], dir = it[3], mode = it[4];
+        var isGood = (dir === 'down') ? val <= tgt : val >= tgt;
+        if (isGood) okN++;
+        var lamp = isGood ? 'good' : (Math.abs(val - tgt) / (tgt || 1) <= 0.1 ? 'warn' : 'bad');
+        var unit = mode === 'ratio' ? '' : (name.indexOf('率') >= 0 || name.indexOf('比例') >= 0 ? '%' : '');
+        var valDisp = mode === 'ratio' ? val.toFixed(2) : val.toFixed(1) + unit;
+        var tgtDisp = '目标 ' + (mode === 'ratio' ? tgt.toFixed(2) : tgt + unit);
+        return '<div class="ck-dim-it lamp-' + lamp + '">' +
+          '<span class="ck-dim-name">' + name + '</span>' +
+          '<b>' + valDisp + '</b>' +
+          '<em>' + tgtDisp + '</em>' +
+          '</div>';
+      }).join('');
+      return '<div class="ck-dim-block">' +
+        '<div class="ck-dim-h"><b>' + d.h + '</b><span>' + okN + '/' + d.items.length + '</span></div>' +
+        '<div class="ck-dim-grid">' + body + '</div>' +
+        '</div>';
+    }).join('') + '</section>';
+  }
+
+  /* ==================== 8.B 预警态势横条 ==================== */
+  function warnBar() {
+    var r = cur();
+    var total = r.warnA + r.warnB + r.warnC;
+    var rr = rnd(hash('wb' + (ST.city || 'all') + ST.year));
+    var today = Math.round(2 + rr() * 6);
+    var overdue = Math.round(r.warnPending * (.28 + rr() * .18));
+    var closeRate = clamp(r.warnClosed / (total || 1) * 100, 40, 96);
+    var cells = [
+      { k: '待处置预警', v: fmtInt(r.warnPending), u: '条', tone: 'bad' },
+      { k: 'A 登记运行', v: r.warnA, u: '条', tone: 'a' },
+      { k: 'B 登记质量', v: r.warnB, u: '条', tone: 'b' },
+      { k: 'C 疾病信号', v: r.warnC, u: '条', tone: 'c' },
+      { k: '今日新增', v: today, u: '条', tone: 'warn' },
+      { k: '超期未处置', v: overdue, u: '条', tone: 'bad' },
+      { k: '7 日闭环率', v: f1(closeRate), u: '%', tone: 'ok' }
+    ];
+    return '<section class="ck-warnbar" onclick="navigateTo(\'warning-records\')" title="点击查看预警记录">' +
+      cells.map(function (c) {
+        return '<div class="ck-wb-cell tone-' + c.tone + '">' +
+          '<div class="ck-wb-v">' + c.v + '<em>' + c.u + '</em></div>' +
+          '<div class="ck-wb-k">' + c.k + '</div></div>';
+      }).join('') +
+      '<div class="ck-wb-go">预警记录 ›</div>' +
+      '</section>';
+  }
+
+  /* ==================== 8.G 决策视图入口 ==================== */
+  function decisionEntry() {
+    return '<section class="ck-decision" onclick="navigateTo(\'sp-overview\')">' +
+      '<div class="ck-dec-l"><b>卫健领导决策视图</b>' +
+      '<span>跨省流出率 · 5 年生存率 · 早诊率 · 就医流向 · 全国对标——领导关注指标见「专科画像 · 画像指标汇总」</span></div>' +
+      '<div class="ck-dec-go">进入决策视图 ›</div>' +
+      '</section>';
+  }
+  function signalStrip() {
+    var pool = [
+      { lv: 'A', t: '5 年相对生存率连续 2 年下滑', why: '已偏离全省均值 3.2 个百分点', go: 'sp-overview' },
+      { lv: 'B', t: '肺癌跨省流出率突破 30%', why: '近 4 季度呈上升态势', go: 'sp-overview' },
+      { lv: 'A', t: '结直肠癌早诊率跌破 20%', why: '高危人群筛查覆盖不足', go: 'warning-rules' },
+      { lv: 'C', t: '赣南某县 70 岁早死率激增', why: '与环境暴露高度相关', go: 'warning-tickets' },
+      { lv: 'B', t: '乳腺癌 Ⅲ 期占比上升至 34%', why: '诊断延迟信号明显', go: 'warning-records' }
+    ];
+    var lvName = { A: '高', B: '中', C: '低' };
+    return '<section class="ck-sigwrap"><div class="ck-sig-h"><span class="ck-sig-h-t">⚠ 行动信号</span><em>需要本周内决策处置 · 共 ' + pool.length + ' 条</em></div><div class="ck-sigrow">' +
+      pool.map(function (p) {
+        return '<div class="ck-sig lv-' + p.lv + '" data-go="' + p.go + '">' +
+          '<span class="ck-sig-lv">' + p.lv + '<em>' + lvName[p.lv] + '</em></span>' +
+          '<div class="ck-sig-body"><b>' + esc(p.t) + '</b><span>' + esc(p.why) + '</span></div>' +
+          '<button class="ck-sig-btn" data-go="' + p.go + '">处理 ›</button>' +
+          '</div>';
+      }).join('') + '</div></section>';
+  }
+
   /* ==================== 7. 面板 ==================== */
   function kpiStrip() {
     var r = cur(), prev = ST.year > YEARS[0] ? cur(ST.year - 1) : null;
@@ -604,11 +790,10 @@
         l: ST.year === CUR_YEAR ? '本年累计' + dom.short + '病例（1–' + CUR_MONTH + '月）' : '本年' + dom.short + '病例', u: '例',
         v: fmtInt(v.cnt), d: deltaTag(v.annual, pv ? pv.annual : null, true, true), s: ST.domain === 'inc' ? sparkInc : sparkD, c: ST.domain === 'inc' ? '#5fe1f0' : '#ff9f7a'
       },
-      { l: '登记卡数', u: '张', v: fmtInt(v.cards), d: dm('cards', true, true), s: YEARS.map(function (y) { return cur(y).cards; }), c: '#7fd3f5' },
       { l: ST.domain === 'inc' ? '粗发病率' : '粗死亡率', u: '1/10万', v: f1(v.rate), d: dm(rateKey, false), s: YEARS.map(function (y) { return view(cur(y), ST.domain).rate; }), c: '#5fe1f0' },
       { l: ST.domain === 'inc' ? '中标发病率' : '中标死亡率', u: '1/10万', v: f1(v.asr), d: dm(asrKey, false), s: YEARS.map(function (y) { return view(cur(y), ST.domain).asr; }), c: '#9bd1ff' },
       {
-        l: '死亡发病比 M/I', u: '', v: f2(r.mi),
+        l: '死亡发病比 M/I', u: '', v: f2(r.mi), tone: (r.mi <= QC.miMax && r.mi >= QC.miMin) ? 'ok' : 'bad',
         d: (r.mi <= QC.miMax && r.mi >= QC.miMin) ? '<span class="ck-kpi-delta ok">国家区间内</span>' : '<span class="ck-kpi-delta bad">偏离 0.55~0.85</span>',
         s: YEARS.map(function (y) { return cur(y).mi; }), c: '#ffd166'
       },
@@ -617,13 +802,6 @@
         d: r.mv >= QC.mvMin ? '<span class="ck-kpi-delta ok">达标 ≥70%</span>' : '<span class="ck-kpi-delta bad">低于国家线</span>',
         s: YEARS.map(function (y) { return cur(y).mv; }), c: '#5fe1f0'
       },
-      {
-        l: 'DCO 占比', u: '%', v: f1(r.dco), tone: r.dco <= QC.dcoMax ? 'ok' : 'bad',
-        d: r.dco <= QC.dcoMax ? '<span class="ck-kpi-delta ok">达标 ≤5%</span>' : '<span class="ck-kpi-delta bad">超国家线</span>',
-        s: YEARS.map(function (y) { return cur(y).dco; }), c: '#ff9f7a'
-      },
-      { l: '随访完成率', u: '%', v: f1(r.fu), d: dm('fu', true), s: YEARS.map(function (y) { return cur(y).fu; }), c: '#6ee7b7' },
-      { l: '国家平台上报率', u: '%', v: f1(r.nccr), d: dm('nccr', true), s: YEARS.map(function (y) { return cur(y).nccr; }), c: '#9bd1ff' },
       {
         l: '待处置预警', u: '条', v: fmtInt(r.warnPending), tone: 'warn',
         d: '<span class="ck-kpi-delta">在册 ' + fmtInt(r.warnA + r.warnB + r.warnC) + ' 条</span>',
@@ -821,19 +999,18 @@
 
   /* ==================== 9. 骨架 ==================== */
   function header() {
-    var r = cur();
     return '<header class="ck-head"><div class="ck-brand">' +
       '<div class="ck-logo"><svg viewBox="0 0 32 32"><path d="M16 2l12 6v9c0 7-5.4 11.6-12 13.8C9.4 28.6 4 24 4 17V8z" fill="none" stroke="#5fe1f0" stroke-width="1.6" opacity=".85"/>' +
       '<path d="M10 17h3l2-5 3 9 2-4h3" fill="none" stroke="#ffd166" stroke-width="1.8" stroke-linecap="round"/></svg></div>' +
       '<div class="ck-title"><h1>江西省肿瘤登记与防控预警总览</h1>' +
-      '<div class="ck-title-sub"><span class="ck-live"><i></i>实时</span></div></div></div>' +
+      '<div class="ck-title-sub"><span class="ck-live"><i></i>实时</span><span class="ck-sub-txt">登记态势 · 预警信号 · 全省联动</span></div></div></div>' +
       '<div class="ck-tools">' +
       '<label class="ck-tool">年度<select class="ck-sel" data-ck="year">' + YEARS.slice().reverse().map(function (yy) {
         return '<option value="' + yy + '"' + (yy === ST.year ? ' selected' : '') + '>' + yy + '</option>';
       }).join('') + '</select></label>' +
       '<div class="ck-seg" data-ck-seg="domain">' +
-      '<button class="' + (ST.domain === 'inc' ? 'on' : '') + '" data-ck-domain="inc">发病登记</button>' +
-      '<button class="' + (ST.domain === 'death' ? 'on' : '') + '" data-ck-domain="death">死亡登记</button></div>' +
+        '<button class="' + (ST.domain === 'inc' ? 'on' : '') + '" data-ck-domain="inc">发病登记</button>' +
+        '<button class="' + (ST.domain === 'death' ? 'on' : '') + '" data-ck-domain="death">死亡登记</button></div>' +
       '<select class="ck-sel" data-ck="city"><option value="">全省 11 个设区市</option>' + CODES.map(function (c) {
         return '<option value="' + c + '"' + (ST.city === c ? ' selected' : '') + '>' + META[c].f + '</option>';
       }).join('') + '</select>' +
@@ -846,17 +1023,24 @@
   function shell() {
     return '<div class="ck' + (ST.fs ? ' fs' : '') + '">' + header() +
       '<div class="ck-kpi-row">' + kpiStrip() + '</div>' +
+      warnBar() +
+      signalStrip() +
       '<div class="ck-grid">' +
-      '<div class="ck-col">' + trendPanel() + agePanel() + warnPanel() + '</div>' +
-      '<div class="ck-col ck-col-c">' + mapPanel() + monthPanel() + funnelPanel() + '</div>' +
-      '<div class="ck-col">' + sitePanel() + qcPanel() + rankPanel() + '</div>' +
+      '<div class="ck-col ck-col-c">' + mapPanel() + '</div>' +
+      '<div class="ck-col">' + trendPanel() + monthPanel() + '</div>' +
       '</div>' +
+      '<div class="ck-grid ck-grid-2">' +
+      '<div class="ck-col">' + sitePanel() + '</div>' +
+      '<div class="ck-col">' + agePanel() + '</div>' +
+      '</div>' +
+      warnPanel() +
       '<div class="ck-tbl-row">' + tablePanel() + '</div>' +
-      '</div>' +
+      decisionEntry() +
       '<footer class="ck-foot"><span>' + (ST.city ? META[ST.city].f : '江西省') + ' · ' + ST.year + ' 年度 · 数据截至 ' + cutoff() + '</span>' +
-      '</footer>' +
+      '<button class="ck-btn" onclick="ckExport()">导出总览指标</button></footer>' +
       '</div>';
   }
+
   function cutoff() {
     var d = ST.year < CUR_YEAR ? new Date(ST.year, 11, 31) : new Date(CUR_YEAR, CUR_MONTH, 0);
     return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
@@ -941,6 +1125,13 @@
     document.querySelectorAll('#pageContainer [data-ck-domain]').forEach(function (el) {
       el.addEventListener('click', function (ev) { ST.domain = ev.currentTarget.getAttribute('data-ck-domain'); rerender(); });
     });
+    document.querySelectorAll('#pageContainer .ck-sig[data-go], #pageContainer .ck-sig-btn[data-go]').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var go = ev.currentTarget.getAttribute('data-go');
+        if (go && typeof window.navigateTo === 'function') window.navigateTo(go);
+      });
+    });
   }
 
   function ckCity(code) {
@@ -991,7 +1182,21 @@
   };
   window.ckGetState = function () { return { year: ST.year, domain: ST.domain, metric: ST.metric, city: ST.city, fs: ST.fs }; };
   window.cockpitPageIds = [PAGE];
-  window.renderCockpitPage = function (id) { if (id === PAGE) mount(); };
+  window.renderCockpitPage = function (id) { if (id === PAGE) { ckCloseModalSafe(); mount(); } };
+
+  /* 对外数据层：registry-ops.js（登记运营看板）复用同一份地市基线与派生口径，
+     避免两页各存一份 META / build 导致同一指标两套数。 */
+  window.CKData = {
+    YEARS: YEARS, CUR_YEAR: CUR_YEAR, CUR_MONTH: CUR_MONTH, PARTIAL: PARTIAL,
+    META: META, CODES: CODES, DOMAIN: DOMAIN, QC: QC, SITES: SITES, COUNTIES: COUNTIES,
+    build: build, agg: agg, view: view, countyRows: countyRows,
+    esc: esc, clamp: clamp, fmtInt: fmtInt, f1: f1, f2: f2, num: num,
+    hash: hash, rnd: rnd, sum: sum, norm: norm, cutoff: cutoff
+  };
+  window.CKData.cutoffFor = function (year) {
+    var d = year < CUR_YEAR ? new Date(year, 11, 31) : new Date(CUR_YEAR, CUR_MONTH, 0);
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  };
 
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
@@ -1003,10 +1208,46 @@
 
   /* ==================== 11. 样式 ==================== */
   var css = [
+    /* 预警态势横条 */
+    '.ck-warnbar{display:grid;grid-template-columns:repeat(7,1fr) auto;gap:1px;margin:12px 20px 0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--line);cursor:pointer;transition:border-color .2s}',
+    '.ck-warnbar:hover{border-color:var(--cy)}',
+    '.ck-wb-cell{padding:10px 12px;background:linear-gradient(160deg,rgba(18,52,86,.7),rgba(9,26,44,.8));text-align:center}',
+    '.ck-wb-v{font-size:21px;font-weight:800;color:#eafaff;font-variant-numeric:tabular-nums;line-height:1.1}',
+    '.ck-wb-v em{font-style:normal;font-size:11px;font-weight:400;color:var(--mu);margin-left:3px}',
+    '.ck-wb-k{margin-top:4px;font-size:11px;color:var(--mu);white-space:nowrap}',
+    '.ck-wb-cell.tone-bad .ck-wb-v{color:#ff8fa3}.ck-wb-cell.tone-warn .ck-wb-v{color:#ffd166}.ck-wb-cell.tone-ok .ck-wb-v{color:#6ee7b7}',
+    '.ck-wb-cell.tone-a .ck-wb-v{color:#5fe1f0}.ck-wb-cell.tone-b .ck-wb-v{color:#ffd166}.ck-wb-cell.tone-c .ck-wb-v{color:#ff8fa3}',
+    '.ck-wb-go{display:flex;align-items:center;padding:0 16px;background:linear-gradient(180deg,#1a6fa0,#124a72);color:#eafcff;font-size:12px;font-weight:600;white-space:nowrap}',
+    /* 行动信号 */
+    '.ck-sigwrap{margin:12px 20px 0;border:1px solid var(--line);border-radius:8px;background:linear-gradient(180deg,rgba(14,44,74,.5),rgba(7,20,34,.6));overflow:hidden}',
+    '.ck-sig-h{display:flex;align-items:baseline;gap:12px;padding:9px 14px;border-bottom:1px solid var(--line)}',
+    '.ck-sig-h-t{font-size:13px;font-weight:700;color:#ffd166;letter-spacing:.6px}',
+    '.ck-sig-h em{font-size:11px;font-style:normal;color:var(--mu)}',
+    '.ck-sigrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;padding:12px 14px}',
+    '.ck-sig{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:7px;background:rgba(9,26,44,.55);cursor:pointer;transition:border-color .2s,transform .15s}',
+    '.ck-sig:hover{border-color:var(--cy);transform:translateY(-1px)}',
+    '.ck-sig-lv{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;width:34px;height:38px;border-radius:5px;font-size:16px;font-weight:800;color:#fff;line-height:1}',
+    '.ck-sig-lv em{font-style:normal;font-size:9px;font-weight:400;margin-top:2px;opacity:.9}',
+    '.ck-sig.lv-A .ck-sig-lv{background:linear-gradient(160deg,#e2445d,#b3283e)}',
+    '.ck-sig.lv-B .ck-sig-lv{background:linear-gradient(160deg,#f0a92e,#c67d12)}',
+    '.ck-sig.lv-C .ck-sig-lv{background:linear-gradient(160deg,#2f8fd6,#1d6aa8)}',
+    '.ck-sig.lv-A{border-left:3px solid #e2445d}.ck-sig.lv-B{border-left:3px solid #f0a92e}.ck-sig.lv-C{border-left:3px solid #2f8fd6}',
+    '.ck-sig-body{flex:1;min-width:0}',
+    '.ck-sig-body b{display:block;font-size:12.5px;font-weight:600;color:#eafaff;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.ck-sig-body span{display:block;margin-top:2px;font-size:11px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.ck-sig-btn{flex:0 0 auto;appearance:none;border:1px solid var(--line2);border-radius:4px;background:rgba(18,58,96,.4);color:#9fd8f2;font-size:11.5px;padding:4px 9px;cursor:pointer;font-family:inherit;white-space:nowrap}',
+    '.ck-sig-btn:hover{border-color:var(--cy);color:#eafcff}',
+    /* 决策入口 */
+    '.ck-decision{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:12px 20px 0;padding:12px 18px;border:1px solid rgba(255,209,102,.32);border-radius:8px;background:linear-gradient(100deg,rgba(41,54,86,.55),rgba(24,44,72,.5));cursor:pointer;transition:border-color .2s}',
+    '.ck-decision:hover{border-color:var(--gd)}',
+    '.ck-dec-l b{font-size:14px;color:#ffe9b0;letter-spacing:.6px}',
+    '.ck-dec-l span{display:block;margin-top:3px;font-size:11.5px;color:var(--mu)}',
+    '.ck-dec-go{flex:0 0 auto;padding:7px 14px;border-radius:5px;background:linear-gradient(180deg,#22a5c9,#146f92);color:#03131d;font-size:12.5px;font-weight:700;white-space:nowrap}',
+    '@media(max-width:1400px){.ck-warnbar{grid-template-columns:repeat(4,1fr)}.ck-warnbar .ck-wb-go{grid-column:1/-1;justify-content:center}}',
     '.ck{--line:rgba(120,190,255,.16);--line2:rgba(120,190,255,.28);--cy:#5fe1f0;--gd:#ffd166;--tx:#cfe4f7;--mu:#7d95b3;',
     'position:relative;margin:-20px;padding:0 0 16px;background:radial-gradient(1200px 600px at 50% -180px,#0d2c4d 0%,#071726 55%,#050e18 100%);',
     'color:var(--tx);font-family:"Microsoft YaHei","PingFang SC",-apple-system,"Segoe UI",sans-serif;border-bottom:0}',
-    '.ck::before{content:"";position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(120,190,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(120,190,255,.05) 1px,transparent 1px);background-size:40px 40px}',
+    '.ck::before{content:"";position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(120,190,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(120,190,255,.035) 1px,transparent 1px);background-size:44px 44px}',
     '.ck>*{position:relative;z-index:1}',
     '.ck.fs{position:fixed;inset:0;z-index:1500;overflow:auto;min-width:1220px;margin:0;padding:0 0 12px}',
     'body.ck-fs .sidebar,body.ck-fs .breadcrumb{display:none!important}',
@@ -1015,8 +1256,9 @@
     '.ck-head{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 20px 12px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(18,58,96,.55),rgba(8,24,40,.05))}',
     '.ck-brand{display:flex;align-items:center;gap:12px;min-width:0}',
     '.ck-logo{width:38px;height:38px;filter:drop-shadow(0 0 10px rgba(95,225,240,.5))}',
-    '.ck-title h1{margin:0;font-size:20px;font-weight:800;letter-spacing:2px;background:linear-gradient(90deg,#eaf7ff,#5fe1f0 60%,#a9e8ff);-webkit-background-clip:text;background-clip:text;color:transparent;white-space:nowrap}',
+    '.ck-title h1{margin:0;font-size:19px;font-weight:800;letter-spacing:1.5px;background:linear-gradient(90deg,#eaf7ff,#5fe1f0 60%,#a9e8ff);-webkit-background-clip:text;background-clip:text;color:transparent;white-space:nowrap}',
     '.ck-title-sub{display:flex;align-items:center;gap:10px;margin-top:3px;font-size:11.5px;color:var(--mu);letter-spacing:1px}',
+    '.ck-sub-txt{color:#7d95b3}',
     '.ck-live{display:inline-flex;align-items:center;gap:5px;color:#6ee7b7;font-size:11px}',
     '.ck-live i{width:6px;height:6px;border-radius:50%;background:#6ee7b7;box-shadow:0 0 8px #6ee7b7;animation:ckPulse 1.6s infinite}',
     '@keyframes ckPulse{0%,100%{opacity:1}50%{opacity:.25}}',
@@ -1033,29 +1275,34 @@
     '.ck-btn.primary{background:linear-gradient(180deg,#22a5c9,#146f92);border-color:#2fd0e6;color:#03131d;font-weight:700}',
     /* KPI */
     '.ck-kpi-row{padding:12px 20px 0}',
-    '.ck-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}',
-    '@media(max-width:1500px){.ck-kpis{grid-template-columns:repeat(auto-fit,minmax(178px,1fr))}}',
-    '.ck-kpi{position:relative;overflow:hidden;padding:10px 12px 9px;border:1px solid var(--line);border-radius:5px;background:linear-gradient(160deg,rgba(20,64,104,.5),rgba(8,24,40,.55))}',
+    '.ck-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}',
+    '@media(max-width:1500px){.ck-kpis{grid-template-columns:repeat(3,1fr)}}',
+    '@media(max-width:760px){.ck-kpis{grid-template-columns:repeat(2,1fr)}}',
+    '.ck-kpi{position:relative;overflow:hidden;padding:10px 12px 9px;border:1px solid var(--line);border-radius:8px;background:linear-gradient(160deg,rgba(20,64,104,.5),rgba(8,24,40,.55))}',
     '.ck-kpi::after{content:"";position:absolute;left:0;top:0;width:2px;height:100%;background:var(--cy);opacity:.75}',
-    '.ck-kpi.ok::after{background:#6ee7b7}.ck-kpi.bad::after{background:#ff6f85}.ck-kpi.warn::after{background:var(--gd)}',
+    '.ck-kpi.ok::after{background:#34d399}.ck-kpi.bad::after{background:#fb7185}.ck-kpi.warn::after{background:var(--gd)}',
     '.ck-kpi-l{font-size:11.5px;color:var(--mu);letter-spacing:.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.ck-kpi-v{margin-top:4px;font-size:24px;font-weight:800;color:#eafaff;font-variant-numeric:tabular-nums;line-height:1.15}',
+    '.ck-kpi-v{margin-top:4px;font-size:26px;font-weight:800;color:#eafaff;font-variant-numeric:tabular-nums;line-height:1.15}',
     '.ck-kpi-v em{margin-left:4px;font-size:11px;font-style:normal;color:var(--mu);font-weight:400}',
     '.ck-kpi-b{display:flex;align-items:flex-end;justify-content:space-between;gap:6px;margin-top:2px}',
     '.ck-spark{width:76px;height:22px;flex:0 0 76px}',
     '.ck-kpi-delta{font-size:11px;color:var(--mu);white-space:nowrap}',
     '.ck-kpi-delta.up{color:#6ee7b7}.ck-kpi-delta.down{color:#ff8fa3}.ck-kpi-delta.ok{color:#6ee7b7}.ck-kpi-delta.bad{color:#ff8fa3}',
     /* 栅格 */
-    '.ck-grid{display:grid;grid-template-columns:minmax(280px,1fr) minmax(430px,1.6fr) minmax(280px,1fr);gap:10px;padding:10px 20px 0;align-items:start}',
-    '.ck-col{display:flex;flex-direction:column;gap:10px;min-width:0}',
-    '.ck-tbl-row{padding:10px 20px 0}',
+    '.ck-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:12px;padding:12px 20px 0;align-items:start}',
+    '.ck-grid.ck-grid-2{grid-template-columns:1fr 1fr}',
+    '.ck-grid.ck-grid-ops{grid-template-columns:1.15fr 1fr}',
+    '@media(max-width:1200px){.ck-grid,.ck-grid.ck-grid-2,.ck-grid.ck-grid-ops{grid-template-columns:1fr}}',
+    '.ck-col{display:flex;flex-direction:column;gap:12px;min-width:0}',
+    '.ck-tbl-row{padding:12px 20px 0}',
     /* 面板 */
-    '.ck-panel{position:relative;border:1px solid var(--line);border-radius:5px;background:linear-gradient(180deg,rgba(14,44,74,.62),rgba(7,20,34,.72));padding:0 0 8px;animation:ckIn .45s both}',
-    '.ck-panel::before,.ck-panel::after{content:"";position:absolute;width:12px;height:12px;pointer-events:none;border-color:var(--cy);opacity:.65}',
-    '.ck-panel::before{left:-1px;top:-1px;border-left:2px solid;border-top:2px solid;border-top-left-radius:5px}',
-    '.ck-panel::after{right:-1px;bottom:-1px;border-right:2px solid;border-bottom:2px solid;border-bottom-right-radius:5px}',
-    '@keyframes ckIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}',
-    '.ck-p-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)}',
+    '.ck-panel{position:relative;border:1px solid var(--line);border-radius:8px;background:linear-gradient(180deg,rgba(14,44,74,.62),rgba(7,20,34,.72));padding:0 0 8px;animation:ckIn .4s both}',
+    '@keyframes ckIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}',
+    '.ck-p-head,.ck-panel-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 13px;border-bottom:1px solid var(--line)}',
+    '.ck-panel-h h3{margin:0;position:relative;padding-left:9px;font-size:13px;font-weight:700;color:#dff3ff;letter-spacing:.6px}',
+    '.ck-panel-h h3::before{content:"";position:absolute;left:0;top:2px;width:3px;height:12px;background:linear-gradient(180deg,var(--cy),#1c6f9e)}',
+    '.ck-panel-h em{font-size:11px;font-style:normal;color:var(--mu)}',
+    '.ck-panel-meta{font-size:11px;color:var(--mu)}',
     '.ck-p-title{position:relative;padding-left:9px;font-size:13px;font-weight:700;color:#dff3ff;letter-spacing:.6px}',
     '.ck-p-title::before{content:"";position:absolute;left:0;top:2px;width:3px;height:12px;background:linear-gradient(180deg,var(--cy),#1c6f9e)}',
     '.ck-p-tools{display:flex;align-items:center;gap:8px}',
@@ -1213,13 +1460,14 @@
   if (CUR_MONTH < 6) ST.year = CUR_YEAR - 1;
 
   var _origRender = window.renderPage;
+  /* 只拦本模块的 cockpit 一页。大屏态（body.ck-fs + ST.fs）是"离开驾驶舱必须清理"的
+     隐式契约：驾驶舱内互切保留大屏，出去到别的模块一律清掉。
+     登记运营看板已于 registry-ops.js 独立成页（菜单：数据统计 ▸ 业务监测），
+     那边自带 ST 与大屏态，不再与本页共用 mount()——此前两页共用一个 mount 导致
+     "运营监测点回预警总览"重画出运营骨架，且 ckExport/ckRefresh 串页。 */
   if (typeof _origRender === 'function') {
     window.renderPage = function (id) {
-      if (id === PAGE) {
-        ckCloseModalSafe();
-        mount();
-        return;
-      }
+      if (id === PAGE) { ckCloseModalSafe(); mount(); return; }
       document.body.classList.remove('ck-fs');
       if (ST.fs) ST.fs = false;
       return _origRender.apply(this, arguments);

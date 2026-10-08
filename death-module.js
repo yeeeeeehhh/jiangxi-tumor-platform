@@ -1,5 +1,5 @@
 /**
- * 死亡信息（随访与死亡信息管理二级菜单）— 共用随访主表：
+ * 死亡信息（随访与死亡管理二级菜单）— 共用随访主表：
  *   死亡信息列表 = 死亡结局列表 + 外部死因匹配（同一页切换）
  *   死因登记 = 外部死因录入/上传通道
  */
@@ -197,13 +197,13 @@
       return '<tr>' +
         '<td><input type="checkbox" ' + (r.checked ? 'checked' : '') +
         ' onchange="deathRegToggle(' + r.id + ',this.checked)"></td>' +
-        '<td>' + valBadge(r.validation) + '</td>' +
-        '<td>' + badge(r.exist === '存在' ? '已存在' : '不存在', r.exist === '存在' ? 'success' : 'muted') + '</td>' +
-        '<td>' + esc(r.name) + '</td><td>' + esc(r.idNo) + '</td><td>' + esc(r.sex) + '</td>' +
-        '<td>' + esc(r.birth) + '</td><td>' + esc(r.lastContact || r.deathDate || '-') + '</td><td>' + esc(r.deathDate) + '</td>' +
-        '<td>' + esc(r.cause) + '</td><td>' + esc(r.causeIcd || '-') + '</td><td>' + esc(r.place) + '</td>' +
-        '<td>' + esc(r.unit) + '</td><td>' + esc(r.uploadTime) + '</td>' +
-        '<td style="max-width:180px;color:#b91c1c;font-size:12px">' + esc(r.error || '-') + '</td>' +
+        '<td class="code">' + valBadge(r.validation) + '</td>' +
+        '<td class="code">' + badge(r.exist === '存在' ? '已存在' : '不存在', r.exist === '存在' ? 'success' : 'muted') + '</td>' +
+        '<td class="txt">' + esc(r.name) + '</td><td class="txt">' + esc(r.idNo) + '</td><td class="code">' + esc(r.sex) + '</td>' +
+        '<td class="code">' + esc(r.birth) + '</td><td class="code">' + esc(r.lastContact || r.deathDate || '-') + '</td><td class="code">' + esc(r.deathDate) + '</td>' +
+        '<td class="txt">' + esc(r.cause) + '</td><td class="txt">' + esc(r.causeIcd || '-') + '</td><td class="txt">' + esc(r.place) + '</td>' +
+        '<td class="txt">' + esc(r.unit) + '</td><td class="code">' + esc(r.uploadTime) + '</td>' +
+        '<td class="txt" style="max-width:180px;color:#b91c1c;font-size:12px">' + esc(r.error || '-') + '</td>' +
         '<td class="sticky-col"><button class="btn btn-ghost btn-xs" onclick="deathRegEditRow(' + r.id + ')">编辑</button> ' +
         '<button class="btn btn-danger btn-xs" onclick="deathRegDeleteOne(' + r.id + ')">删除</button></td></tr>';
     }).join('') || '<tr><td colspan="16" style="text-align:center;padding:36px;color:#98a2b3">暂无临时数据，请从死亡信息列表点击「批量登记」上传　' +
@@ -212,8 +212,8 @@
     return '<div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:12px">' +
       '<div class="table-wrap"><table class="data-table" style="margin:0;min-width:1680px"><thead><tr>' +
       '<th style="width:36px"><input type="checkbox" onchange="deathRegToggleAll(this.checked)"></th>' +
-      '<th>校验状态</th><th>存在状态</th><th>姓名</th><th>身份证号</th><th>性别</th><th>出生日期</th>' +
-      '<th>最后接触日期</th><th>死亡日期</th><th>根本死因</th><th>死因ICD</th><th>死亡地点</th><th>报告单位</th><th>上传时间</th><th>错误说明</th>' +
+      '<th class="code">校验状态</th><th class="code">存在状态</th><th class="txt">姓名</th><th class="txt">身份证号</th><th class="code">性别</th><th class="code">出生日期</th>' +
+      '<th class="code">最后接触日期</th><th class="code">死亡日期</th><th class="txt">根本死因</th><th class="txt">死因ICD</th><th class="txt">死亡地点</th><th class="txt">报告单位</th><th class="code">上传时间</th><th class="txt">错误说明</th>' +
       '<th class="sticky-col" style="width:140px">操作</th></tr></thead><tbody>' + body + '</tbody></table></div></div>';
   }
 
@@ -675,14 +675,14 @@
       : '';
 
     var tableRows = rows.map(function (r, i) {
-      return '<tr><td>' + (i + 1) + '</td>' +
-        '<td>' + checkBadge(r.checkStatus) + '</td>' +
-        '<td><a href="javascript:void(0)" style="color:var(--primary)" onclick="deathInfoDetail(\'' + esc(r.id) + '\')">' + esc(r.id) + '</a></td>' +
-        '<td>' + esc(r.name) + '</td><td>' + esc(r.sex) + '</td><td>' + ageOf(r.birth) + '</td>' +
-        '<td>' + esc(r.diagDate) + '</td><td>' + esc(r.icd10 || '-') + '</td>' +
-        '<td>' + esc(r.lastContact) + '</td><td>' + contactBadge('死亡') + '</td>' +
-        '<td>' + esc(r.deathDate) + '</td><td>' + esc(r.cause) + '</td><td>' + esc(r.causeIcd || '-') + '</td>' +
-        '<td>' + esc(r.place || '-') + '</td><td>' + esc(surMonths(r.diagDate, r.deathDate)) + '</td>' +
+      return '<tr><td class="num">' + (i + 1) + '</td>' +
+        '<td class="code">' + checkBadge(r.checkStatus) + '</td>' +
+        '<td class="txt"><a href="javascript:void(0)" style="color:var(--primary)" onclick="deathInfoDetail(\'' + esc(r.id) + '\')">' + esc(r.id) + '</a></td>' +
+        '<td class="txt">' + esc(r.name) + '</td><td class="code">' + esc(r.sex) + '</td><td class="num">' + ageOf(r.birth) + '</td>' +
+        '<td class="code">' + esc(r.diagDate) + '</td><td class="txt">' + esc(r.icd10 || '-') + '</td>' +
+        '<td class="code">' + esc(r.lastContact) + '</td><td class="code">' + contactBadge('死亡') + '</td>' +
+        '<td class="code">' + esc(r.deathDate) + '</td><td class="txt">' + esc(r.cause) + '</td><td class="txt">' + esc(r.causeIcd || '-') + '</td>' +
+        '<td class="txt">' + esc(r.place || '-') + '</td><td class="num">' + esc(surMonths(r.diagDate, r.deathDate)) + '</td>' +
         '<td class="sticky-col" style="white-space:nowrap">' +
         '<button class="btn btn-ghost btn-xs" onclick="followupDetail(\'' + esc(r.id) + '\')">操作</button>' +
         '</td></tr>';
@@ -716,8 +716,8 @@
       '<div style="margin-bottom:8px;color:#667085;font-size:13px">共 ' + rows.length + ' 条（随访结局=死亡 · 主表子集，非死因临时表）</div>' +
       '<div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:12px">' +
       '<div class="table-wrap"><table class="data-table" style="margin:0;min-width:1500px"><thead><tr>' +
-      '<th>序号</th><th>校验状态</th><th>报告卡编号</th><th>姓名</th><th>性别</th><th>年龄</th><th>诊断日期</th><th>ICD10</th>' +
-      '<th>最后接触</th><th>结局</th><th>死亡日期</th><th>根本死因</th><th>死因ICD</th><th>死亡地点</th><th>生存月数</th>' +
+      '<th class="num">序号</th><th class="code">校验状态</th><th class="txt">报告卡编号</th><th class="txt">姓名</th><th class="code">性别</th><th class="num">年龄</th><th class="code">诊断日期</th><th class="txt">ICD10</th>' +
+      '<th class="code">最后接触</th><th class="code">结局</th><th class="code">死亡日期</th><th class="txt">根本死因</th><th class="txt">死因ICD</th><th class="txt">死亡地点</th><th class="num">生存月数</th>' +
       '<th class="sticky-col" style="width:220px">操作</th></tr></thead><tbody>' + tableRows + '</tbody></table></div></div>' +
       pager(rows.length) +
       '</div></div>';
@@ -755,17 +755,17 @@
     });
 
     var tableRows = rows.map(function (r, i) {
-      return '<tr><td>' + (i + 1) + '</td>' +
-        '<td><a href="javascript:void(0)" style="color:var(--primary)" onclick="deathCauseDetail(\'' + esc(r.mid) + '\')">' + esc(r.mid) + '</a></td>' +
-        '<td>' + badge(r.existStatus === '存在' ? '库内存在' : '库内不存在', r.existStatus === '存在' ? 'success' : 'muted') + '</td>' +
-        '<td>' + matchBadge(r.matchStatus) + '</td>' +
-        '<td>' + esc(r.name) + '</td><td>' + esc(r.idNo) + '</td><td>' + esc(r.sex) + '</td>' +
-        '<td>' + esc(r.deathDate) + '</td><td>' + esc(r.cause) + '</td><td>' + esc(r.causeIcd) + '</td>' +
-        '<td>' + esc(r.place) + '</td><td>' + esc(r.sourceType) + '</td>' +
-        '<td>' + (r.linkedCardId
+      return '<tr><td class="num">' + (i + 1) + '</td>' +
+        '<td class="txt"><a href="javascript:void(0)" style="color:var(--primary)" onclick="deathCauseDetail(\'' + esc(r.mid) + '\')">' + esc(r.mid) + '</a></td>' +
+        '<td class="code">' + badge(r.existStatus === '存在' ? '库内存在' : '库内不存在', r.existStatus === '存在' ? 'success' : 'muted') + '</td>' +
+        '<td class="code">' + matchBadge(r.matchStatus) + '</td>' +
+        '<td class="txt">' + esc(r.name) + '</td><td class="txt">' + esc(r.idNo) + '</td><td class="code">' + esc(r.sex) + '</td>' +
+        '<td class="code">' + esc(r.deathDate) + '</td><td class="txt">' + esc(r.cause) + '</td><td class="txt">' + esc(r.causeIcd) + '</td>' +
+        '<td class="txt">' + esc(r.place) + '</td><td class="txt">' + esc(r.sourceType) + '</td>' +
+        '<td class="txt">' + (r.linkedCardId
           ? '<a href="javascript:void(0)" style="color:var(--primary)" onclick="openReportCardFromBiz(\'' + esc(r.linkedCardId) + '\')">' + esc(r.linkedCardId) + '</a>'
           : '-') + '</td>' +
-        '<td>' + esc(r.importTime.slice(0, 10)) + '</td>' +
+        '<td class="code">' + esc(r.importTime.slice(0, 10)) + '</td>' +
         '<td class="sticky-col" style="white-space:nowrap">' +
         (r.matchStatus === '未匹配'
           ? '<button class="btn btn-primary btn-xs" onclick="deathCauseMatchOne(\'' + esc(r.mid) + '\')">匹配回写</button> '
@@ -798,8 +798,8 @@
       '</div>' +
       '<div style="margin-bottom:8px;color:#667085;font-size:13px">共 ' + rows.length + ' 条外部死因</div>' +
       '<div class="table-wrap"><table class="data-table" style="margin:0;min-width:1300px"><thead><tr>' +
-      '<th>序号</th><th>死因编号</th><th>存在状态</th><th>匹配状态</th><th>姓名</th><th>身份证号</th><th>性别</th>' +
-      '<th>死亡日期</th><th>根本死因</th><th>死因ICD</th><th>死亡地点</th><th>来源类型</th><th>关联报告卡</th><th>导入日期</th>' +
+      '<th class="num">序号</th><th class="txt">死因编号</th><th class="code">存在状态</th><th class="code">匹配状态</th><th class="txt">姓名</th><th class="txt">身份证号</th><th class="code">性别</th>' +
+      '<th class="code">死亡日期</th><th class="txt">根本死因</th><th class="txt">死因ICD</th><th class="txt">死亡地点</th><th class="txt">来源类型</th><th class="txt">关联报告卡</th><th class="code">导入日期</th>' +
       '<th class="sticky-col" style="width:180px">操作</th></tr></thead><tbody>' + tableRows + '</tbody></table></div></div></div>';
   };
 

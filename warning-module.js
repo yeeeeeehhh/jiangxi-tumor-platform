@@ -26,6 +26,10 @@
 #pageContainer .wa-kpi-value.danger{color:#b42335}
 #pageContainer .wa-kpi-value.warn{color:#b54708}
 #pageContainer .wa-kpi-meta{margin-top:6px;font-size:11px;color:#94a3b8}
+#pageContainer .wa-kpi-click{cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s}
+#pageContainer .wa-kpi-click:hover{border-color:var(--primary);box-shadow:0 2px 8px rgba(36,71,101,.12);transform:translateY(-1px)}
+#pageContainer .wa-kpi-hint{margin-top:6px;font-size:11px;color:var(--primary);font-weight:600;opacity:0;transition:opacity .15s}
+#pageContainer .wa-kpi-click:hover .wa-kpi-hint{opacity:1}
 #pageContainer .wa-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.85fr);gap:14px;align-items:start;margin-bottom:14px}
 #pageContainer .wa-card{background:#fff;border:1px solid var(--border);border-radius:8px;overflow:hidden}
 #pageContainer .wa-card-head{min-height:46px;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 15px;border-bottom:1px solid var(--border)}
@@ -51,8 +55,14 @@
 #pageContainer .wa-table-wrap{overflow:auto;border:1px solid var(--border);border-radius:7px;background:#fff}
 #pageContainer .wa-table{width:100%;min-width:1180px;border-collapse:collapse}
 #pageContainer .wa-table.compact{min-width:900px}
-#pageContainer .wa-table th{position:sticky;top:0;z-index:1;height:38px;padding:0 11px;background:#f8fafc;border-bottom:1px solid var(--border);color:#5b6673;font-size:12px;text-align:left;white-space:nowrap}
-#pageContainer .wa-table td{height:48px;padding:7px 11px;border-bottom:1px solid var(--border);color:#334155;font-size:13px;vertical-align:middle}
+#pageContainer .wa-table th{position:sticky;top:0;z-index:1;height:38px;padding:0 11px;background:#f8fafc;border-bottom:1px solid var(--border);color:#5b6673;font-size:12px;text-align:left;white-space:nowrap;vertical-align:middle}
+#pageContainer .wa-table td{height:auto;min-height:48px;padding:7px 11px;border-bottom:1px solid var(--border);color:#334155;font-size:13px;vertical-align:middle}
+#pageContainer .wa-table th.num,#pageContainer .wa-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+#pageContainer .wa-table th.txt,#pageContainer .wa-table td.txt{text-align:left}
+#pageContainer .wa-table th.code,#pageContainer .wa-table td.code{text-align:center}
+#pageContainer .wa-table th.ops,#pageContainer .wa-table td.ops{text-align:center;white-space:nowrap}
+#pageContainer .wa-table td.ops .btn{margin-right:6px}
+#pageContainer .wa-table td.ops .btn:last-child{margin-right:0}
 #pageContainer .wa-table td.wa-nowrap{white-space:nowrap}
 #pageContainer .wa-table td.wa-nowrap .wa-target{white-space:normal}
 #pageContainer .wa-table .badge{white-space:nowrap}
@@ -187,7 +197,7 @@
     page: 'warning-records',
     record: { type: 'ALL', severity: 'ALL', status: 'ALL', keyword: '', dateFrom: '' },
     ticket: { type: 'ALL', severity: 'ALL', status: 'ALL', keyword: '', sort: 'overdue' },
-    rule: { type: 'ALL', keyword: '' }
+    rule: { type: 'ALL', keyword: '', enabledOnly: false }
   };
 
   let seq = 1000;
@@ -1064,8 +1074,21 @@
   function waHeader(title, subtitle, actions) {
     return '<div class="wa-head"><div><div class="wa-title">' + esc(title) + '</div><div class="wa-sub">' + subtitle + '</div></div><div class="wa-actions">' + actions.join('') + '</div></div>';
   }
-  function waKpi(label, value, meta, tone) {
-    return '<div class="wa-kpi"><div class="wa-kpi-label">' + esc(label) + '</div><div class="wa-kpi-value ' + (tone || '') + '">' + value + '</div><div class="wa-kpi-meta">' + esc(meta) + '</div></div>';
+  function waKpi(label, value, meta, tone, drill) {
+    const clickable = drill ? ' wa-kpi-click' : '';
+    const hint = drill ? '<div class="wa-kpi-hint">查看明细 →</div>' : '';
+    const click = drill ? ' onclick="waKpiDrill(\'' + drill.group + "','" + drill.key + "','" + drill.value + "')\"" : '';
+    return '<div class="wa-kpi' + clickable + '"' + click + '><div class="wa-kpi-label">' + esc(label) + '</div><div class="wa-kpi-value ' + (tone || '') + '">' + value + '</div><div class="wa-kpi-meta">' + esc(meta) + '</div>' + hint + '</div>';
+  }
+  /* KPI 钻取：设筛选条件后重渲染当前页，并滚动到表格区 */
+  function waKpiDrill(group, key, value) {
+    if (group === '_nav') { closeWarningModals(); if (window.navigateTo) navigateTo(value); return; }
+    state[group][key] = value;
+    renderPage(state.page);
+    setTimeout(function () {
+      const tbl = document.querySelector('#pageContainer .wa-table-wrap');
+      if (tbl) tbl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
   }
   function waModal(title, body, foot, narrow) {
     const mask = document.createElement('div');
@@ -1176,11 +1199,17 @@
     const layerNote = activeMeta
       ? '<div class="wa-callout info" style="margin-bottom:12px"><strong>' + activeMeta.code + ' · ' + esc(activeMeta.label) + '</strong>（' + esc(activeMeta.window) + '）<br>' + esc(activeMeta.desc) + '<br>预警对象：' + esc(activeMeta.object) + ' · 数据来源：' + esc(activeMeta.source) + ' · 首办责任方：' + esc(activeMeta.firstOwner) + ' · 归口复核：' + esc(activeMeta.finalOwner) + '</div>'
       : '';
+    const recKpis = [
+      waKpi('本周期触发', warnings.length, '全部层级合计'),
+      waKpi('在办', warnings.filter(function (w) { return w.status !== 'CLOSED'; }).length, '待处理 · 处理中 · 已反馈 · 已升级', '', { group: 'record', key: 'status', value: 'PENDING' }),
+      waKpi('已闭环', warnings.filter(function (w) { return w.status === 'CLOSED'; }).length, '已确认关闭'),
+      waKpi('紧急级', warnings.filter(function (w) { return w.severity === 'URGENT'; }).length, '需优先处置', warnings.some(function (w) { return w.severity === 'URGENT'; }) ? 'danger' : '', { group: 'record', key: 'severity', value: 'URGENT' })
+    ].join('');
     return '<div class="wa-page">' + waHeader('预警记录', '命中规则后自动生成；同一规则、对象、周期不重复建单，记录保留触发时的阈值与判定依据快照。', [
       '<button class="btn btn-outline btn-sm" onclick="runAllEngines()">重跑三层</button>',
       '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'warning-tickets\')">处置工单</button>'
-    ]) + '<div class="wa-tabs">' + layerTabs(state.record.type, 'waSetRecordType') + '</div>' + layerNote + filter +
-      '<div class="wa-table-wrap"><table class="wa-table"><thead><tr><th>预警ID / 周期</th><th>层级 / 规则</th><th>预警对象</th><th>实际值 / 阈值 / 判定依据</th><th>级别</th><th>状态</th><th>触发时间</th><th>操作</th></tr></thead><tbody>' + (rows || '<tr><td colspan="8"><div class="wa-empty">暂无符合条件的预警记录</div></td></tr>') + '</tbody></table></div></div>';
+    ]) + '<div class="wa-kpis">' + recKpis + '</div><div class="wa-tabs">' + layerTabs(state.record.type, 'waSetRecordType') + '</div>' + layerNote + filter +
+      '<div class="wa-table-wrap"><table class="wa-table"><thead><tr><th class="code">预警ID / 周期</th><th class="txt">层级 / 规则</th><th class="txt">预警对象</th><th class="code">实际值 / 阈值 / 判定依据</th><th class="code">级别</th><th class="code">状态</th><th class="code">触发时间</th><th class="ops">操作</th></tr></thead><tbody>' + (rows || '<tr><td colspan="8"><div class="wa-empty">暂无符合条件的预警记录</div></td></tr>') + '</tbody></table></div></div>';
   }
   function waResetRecordFilter() {
     state.record = { type: state.record.type, severity: 'ALL', status: 'ALL', keyword: '', dateFrom: '' };
@@ -1193,11 +1222,11 @@
     tickets.forEach(function (t) { if (counts[t.status] !== undefined) counts[t.status]++; });
     const overdue = overdueTicketCount();
     const kpis = [
-      waKpi('待接收', counts.PENDING, '首办责任方尚未确认'),
-      waKpi('处理中', counts.PROCESSING, '已接收，核实/研判中'),
-      waKpi('已反馈', counts.FEEDBACK, '等待归口复核'),
-      waKpi('已升级', counts.ESCALATED, '超时或多次退回仲裁', counts.ESCALATED ? 'danger' : ''),
-      waKpi('超时未闭环', overdue, '按分层 SLA 判定', overdue ? 'danger' : '')
+      waKpi('待接收', counts.PENDING, '首办责任方尚未确认', '', { group: 'ticket', key: 'status', value: 'PENDING' }),
+      waKpi('处理中', counts.PROCESSING, '已接收，核实/研判中', '', { group: 'ticket', key: 'status', value: 'PROCESSING' }),
+      waKpi('已反馈', counts.FEEDBACK, '等待归口复核', '', { group: 'ticket', key: 'status', value: 'FEEDBACK' }),
+      waKpi('已升级', counts.ESCALATED, '超时或多次退回仲裁', counts.ESCALATED ? 'danger' : '', { group: 'ticket', key: 'status', value: 'ESCALATED' }),
+      waKpi('超时未闭环', overdue, '按分层 SLA 判定', overdue ? 'danger' : '', { group: 'ticket', key: 'sort', value: 'overdue' })
     ].join('');
     const rows = filteredTickets().map(function (ticket) {
       const warning = findWarning(ticket.warningId) || {};
@@ -1227,12 +1256,16 @@
       '待接收 → 处理中 → 已反馈 → 已关闭；SLA 按层级设定（A 最快 24 小时，B 最长 10 个工作日，C 最长 20 个工作日），超时自动升级。C 层结案必须附专家组论证记录。', [
       '<button class="btn btn-outline btn-sm" onclick="scanOverdue()">扫描超时</button>'
     ]) + '<div class="wa-kpis">' + kpis + '</div><div class="wa-tabs">' + layerTabs(state.ticket.type, 'waSetTicketType') + '</div>' + filter +
-      '<div class="wa-table-wrap"><table class="wa-table"><thead><tr><th>工单 / 预警</th><th>层级 / 对象</th><th>当前责任方</th><th>级别 / 时限</th><th>响应截止</th><th>状态</th><th>结论口径</th><th>操作</th></tr></thead><tbody>' + (rows || '<tr><td colspan="8"><div class="wa-empty">暂无符合条件的工单</div></td></tr>') + '</tbody></table></div></div>';
+      '<div class="wa-table-wrap"><table class="wa-table"><thead><tr><th class="txt">工单 / 预警</th><th class="txt">层级 / 对象</th><th class="txt">当前责任方</th><th class="code">级别 / 时限</th><th class="code">响应截止</th><th class="code">状态</th><th class="txt">结论口径</th><th class="ops">操作</th></tr></thead><tbody>' + (rows || '<tr><td colspan="8"><div class="wa-empty">暂无符合条件的工单</div></td></tr>') + '</tbody></table></div></div>';
   }
   function waSetTicketType(value) { state.ticket.type = value; renderPage('warning-tickets'); }
   function waResetTicketFilter() {
     state.ticket = { type: state.ticket.type, severity: 'ALL', status: 'ALL', keyword: '', sort: state.ticket.sort || 'overdue' };
     renderPage('warning-tickets');
+  }
+  function waResetRuleFilter() {
+    state.rule = { type: state.rule.type, keyword: '', enabledOnly: false };
+    renderPage('warning-rules');
   }
 
   /* ==================== 页面：规则配置 ==================== */
@@ -1240,6 +1273,7 @@
     const keyword = state.rule.keyword.trim().toLowerCase();
     const rows = rules.filter(function (rule) {
       return (state.rule.type === 'ALL' || rule.warningType === state.rule.type)
+        && (!state.rule.enabledOnly || rule.isEnabled)
         && (!keyword || [rule.id, rule.ruleName, rule.monitorPoint].join(' ').toLowerCase().includes(keyword));
     }).map(function (rule) {
       const open = warnings.filter(function (item) { return item.ruleId === rule.id && item.status !== 'CLOSED'; }).length;
@@ -1258,11 +1292,12 @@
         '<td class="wa-actions-cell"><button class="btn btn-ghost btn-xs" onclick="openRuleModal(\'' + rule.id + '\')">详情</button> <button class="btn btn-outline btn-xs" onclick="toggleRule(\'' + rule.id + '\')">' + (rule.isEnabled ? '停用' : '启用') + '</button></td>' +
         '</tr>';
     }).join('');
-    const filter = '<div class="wa-filter"><div class="form-group" style="grid-column:span 3"><label>检索</label><input id="waKw-rule" value="' + esc(state.rule.keyword) + '" placeholder="规则ID / 名称 / 监测点" oninput="waOnKeyword(this,\'rule\')"></div><div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="runAllEngines()">重跑三层</button></div></div>';
+    const hasFilter = state.rule.enabledOnly || state.rule.keyword.trim();
+    const filter = '<div class="wa-filter"><div class="form-group" style="grid-column:span 3"><label>检索</label><input id="waKw-rule" value="' + esc(state.rule.keyword) + '" placeholder="规则ID / 名称 / 监测点" oninput="waOnKeyword(this,\'rule\')"></div><div class="filter-actions">' + (hasFilter ? '<button class="btn btn-outline btn-sm" onclick="waResetRuleFilter()">清除筛选</button> ' : '') + '<button class="btn btn-outline btn-sm" onclick="runAllEngines()">重跑三层</button></div></div>';
     const kpis = [
-      waKpi('启用规则', rules.filter(function (r) { return r.isEnabled; }).length + ' / ' + rules.length, 'A ' + rules.filter(function (r) { return r.warningType === 'REGISTRY_OPERATION'; }).length + ' · B ' + rules.filter(function (r) { return r.warningType === 'REGISTRY_QUALITY'; }).length + ' · C ' + rules.filter(function (r) { return r.warningType === 'DISEASE_SIGNAL'; }).length + ' 条'),
-      waKpi('待业务确认', rules.filter(function (r) { return r.confirmation.indexOf('待') === 0; }).length, '上线前需业务方书面确认', rules.some(function (r) { return r.confirmation.indexOf('待') === 0; }) ? 'warn' : ''),
-      waKpi('在办预警', warnings.filter(function (item) { return item.status !== 'CLOSED'; }).length, '覆盖当前所有启用规则'),
+      waKpi('启用规则', rules.filter(function (r) { return r.isEnabled; }).length + ' / ' + rules.length, 'A ' + rules.filter(function (r) { return r.warningType === 'REGISTRY_OPERATION'; }).length + ' · B ' + rules.filter(function (r) { return r.warningType === 'REGISTRY_QUALITY'; }).length + ' · C ' + rules.filter(function (r) { return r.warningType === 'DISEASE_SIGNAL'; }).length + ' 条', '', { group: 'rule', key: 'enabledOnly', value: 'true' }),
+      waKpi('待业务确认', rules.filter(function (r) { return r.confirmation.indexOf('待') === 0; }).length, '上线前需业务方书面确认', rules.some(function (r) { return r.confirmation.indexOf('待') === 0; }) ? 'warn' : '', { group: 'rule', key: 'keyword', value: '待' }),
+      waKpi('在办预警', warnings.filter(function (item) { return item.status !== 'CLOSED'; }).length, '覆盖当前所有启用规则', '', { group: '_nav', key: 'tickets', value: 'warning-tickets' }),
       waKpi('误报 / 已复核', rules.reduce(function (s, r) { return s + r.falsePositiveCount; }, 0) + ' / ' + rules.reduce(function (s, r) { return s + r.reviewedCount; }, 0), '复核闭环后据此调整阈值'),
       waKpi('规则版本', rules.reduce(function (s, r) { return s + r.history.length; }, 0), '修改历史可回溯')
     ].join('');
@@ -1270,7 +1305,7 @@
       '阈值取自《中国肿瘤登记年报》《IARC CI5》与省级考核口径；调整阈值不影响历史预警的快照值。<b>本页只配置聚合指标阈值</b>，单卡字段校验在「审核质控 · 质控规则」维护。', [
       '<button class="btn btn-primary btn-sm" onclick="runAllEngines()">重跑三层规则</button>'
     ]) + '<div class="wa-kpis">' + kpis + '</div><div class="wa-tabs">' + layerTabs(state.rule.type, 'waSetRuleType') + '</div>' + filter +
-      '<div class="wa-table-wrap"><table class="wa-table"><thead><tr><th>规则ID</th><th>规则名称 / 判定依据</th><th>层级 / 窗口</th><th>默认级别 / 范围</th><th>阈值 / 方法</th><th>在办</th><th>复核 / 误报</th><th>状态</th><th>操作</th></tr></thead><tbody>' + (rows || '<tr><td colspan="9"><div class="wa-empty">暂无规则</div></td></tr>') + '</tbody></table></div></div>';
+      '<div class="wa-table-wrap"><table class="wa-table"><thead><tr><th class="txt">规则ID</th><th class="txt">规则名称 / 判定依据</th><th class="txt">层级 / 窗口</th><th class="txt">默认级别 / 范围</th><th class="num">阈值 / 方法</th><th class="num">在办</th><th class="num">复核 / 误报</th><th class="code">状态</th><th class="ops">操作</th></tr></thead><tbody>' + (rows || '<tr><td colspan="9"><div class="wa-empty">暂无规则</div></td></tr>') + '</tbody></table></div></div>';
   }
 
   /* ==================== 工单流转 ==================== */
@@ -1693,7 +1728,7 @@
   const publicApi = {
     rules, warnings, tickets, operationLogs, TYPE_META, SEVERITY_META,
     runAllEngines, runLayerEngine, scanOverdue,
-    waGo, waSetFilter, waOnKeyword, waSetRecordType, waSetRuleType, waSetTicketType, waResetRecordFilter, waResetTicketFilter, waNavigate, closeWarningModals,
+    waGo, waSetFilter, waOnKeyword, waSetRecordType, waSetRuleType, waSetTicketType, waResetRecordFilter, waResetTicketFilter, waResetRuleFilter, waNavigate, closeWarningModals, waKpiDrill,
     showWarningDetail, showTicketDetail, openRuleModal, saveRuleVersion, toggleRule,
     receiveTicket, openFeedbackModal, submitFeedback, openReviewModal, closeTicket, returnTicket,
     findRule, findWarning, findTicket, findTicketByWarning, miJudge, devJudge, createStatsWarning, renderWarningPage

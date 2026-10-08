@@ -5,22 +5,39 @@
 (function () {
   'use strict';
 
-  var OWNED_IDS = [
-    'qc-homepage', 'qc-confirmed', 'qc-pathology', 'qc-tnm', 'qc-course',
-    'qc-mdt', 'qc-remote', 'qc-cohort', 'qc-global'
-  ];
+  /* 规则分组与六大绩效指标一一对应（配与看闭环）。
+   * 旧九分类里 MDT/远程会诊/人群纳管/病案首页格式/报告卡单卡(身份证/电话/报卡时序/MV/DCO)
+   * 等字段级规则，按条线归属移出到登记条线（报告卡质量监测·审核质控 / 预警模块），
+   * 本页只保留「六大绩效判定规则」。 */
+  var OWNED_IDS = ['qc-p1', 'qc-p2', 'qc-p3', 'qc-p4', 'qc-p5', 'qc-p6'];
 
   var CATEGORIES = [
-    { id: 'qc-homepage', label: '病案首页质控' },
-    { id: 'qc-confirmed', label: '确诊病例质控' },
-    { id: 'qc-pathology', label: '病理信息质控' },
-    { id: 'qc-tnm', label: 'TNM分期质控' },
-    { id: 'qc-course', label: '专病病程质控' },
-    { id: 'qc-mdt', label: 'MDT多学科诊疗质控' },
-    { id: 'qc-remote', label: '远程会诊质控' },
-    { id: 'qc-cohort', label: '人群纳管与分组质控' },
-    { id: 'qc-global', label: '全域数据质控与绩效监测' }
+    { id: 'qc-p1', label: '首次治疗前临床分期评估率' },
+    { id: 'qc-p2', label: '首次非手术治疗前病理学诊断率' },
+    { id: 'qc-p3', label: '术后病理 TNM 分期率' },
+    { id: 'qc-p4', label: '围手术期死亡率' },
+    { id: 'qc-p5', label: '首次靶向/免疫治疗前分子病理检测率' },
+    { id: 'qc-p6', label: '术中淋巴结清扫规范率' }
   ];
+
+  /* 各组的达标线口径与对应国考指标（来源：《三级公立医院绩效考核操作手册》肿瘤专业）。
+     适用癌种不在此硬编，统一从 qcSpine 的 L1_IND[].cancers 取，保证与绩效页同源。 */
+  var GROUP_META = {
+    'qc-p1': { line: '≥ 86.4%', ind: 'NQ-01' },
+    'qc-p2': { line: '≥ 91.2%', ind: 'NQ-02' },
+    'qc-p3': { line: '≥ 88.7%', ind: 'NQ-03' },
+    'qc-p4': { line: '≤ 0.42%', ind: 'NQ-04' },
+    'qc-p5': { line: '≥ 79.5%', ind: 'NQ-05' },
+    'qc-p6': { line: '≥ 84.1%', ind: 'NQ-06' }
+  };
+  /* 组 → 适用癌种（读数据脊柱，避免两处口径漂移） */
+  function cancersOfGroup(catId) {
+    var S = window.qcSpine;
+    var meta = GROUP_META[catId] || {};
+    var i = S && S.ind && meta.ind ? S.ind(meta.ind) : null;
+    if (!i) return '—';
+    return i.cancers.map(function (c) { return S.cancer(c).name; }).join('、') + '（' + i.cancers.length + ' 个）';
+  }
 
   /* ==================== 校验模板 & 字段字典 ==================== */
   var TEMPLATES = [
@@ -31,20 +48,18 @@
     { id: 'range', label: '数值范围', needValue: true, valueLabel: '范围（如 0-120）' },
     { id: 'regex', label: '格式正则校验', needValue: true, valueLabel: '正则表达式' },
     { id: 'cross', label: '两字段交叉校验', needValue: true, valueLabel: '关联字段' },
-    { id: 'threshold_gt', label: '阈值超过告警（>）', needValue: true, valueLabel: '阈值' },
-    { id: 'threshold_lt', label: '阈值低于告警（<）', needValue: true, valueLabel: '阈值' }
+    { id: 'time_within', label: '时限内完成（X 小时/日）', needValue: true, valueLabel: '时限（如 8小时 / 48小时）', hasUnit: true },
+    { id: 'threshold_gt', label: '阈值超过告警（>）', needValue: true, valueLabel: '阈值', hasUnit: true },
+    { id: 'threshold_lt', label: '阈值低于告警（<）', needValue: true, valueLabel: '阈值', hasUnit: true }
   ];
 
   var FIELD_MAP = {
-    'qc-homepage': ['主要诊断编码', '身份证号', '出院日期', '入院日期', '手术操作编码', '性别', '年龄', '联系电话'],
-    'qc-confirmed': ['确诊依据', '确诊日期', '报卡日期', 'ICD编码', '诊断名称', '原发部位'],
-    'qc-pathology': ['病理诊断术语', '部位编码', '形态学编码', 'ER', 'PR', 'HER2', 'Ki-67'],
-    'qc-tnm': ['TNM模板版本', 'T分期', 'N分期', 'M分期', 'AJCC版本'],
-    'qc-course': ['首次病程记录时间', '入院时间', '术前小结内容', '手术指征', '拟施术式', '风险评估'],
-    'qc-mdt': ['申请学科列表', 'MDT结论结构', 'TNM分期'],
-    'qc-remote': ['专家职称', '受邀机构', '反馈时间', '会诊排定时间'],
-    'qc-cohort': ['高危标准条件', '干预策略', '分组标识'],
-    'qc-global': ['MV%', 'DCO%', '病案首页合格率']
+    'qc-p1': ['临床分期', '分期评估日期', '首次治疗日期', '诊断日期'],
+    'qc-p2': ['病理诊断', '病理报告日期', '首次治疗日期', '病理诊断术语', '形态学编码', '部位编码'],
+    'qc-p3': ['pTNM分期', 'T分期', 'N分期', 'M分期', 'AJCC版本'],
+    'qc-p4': ['出院去向', '死亡日期', '手术日期', '首次病程记录时间', '入院时间'],
+    'qc-p5': ['分子检测结果', '检测日期', '首次用药日期'],
+    'qc-p6': ['清扫淋巴结数目', '病理检出数', '手术记录']
   };
 
   var SEVERITIES = [
@@ -67,6 +82,14 @@
     if (tpl.needValue && checkValue) desc += '，参数为"' + checkValue + '"';
     if (errorMsg) desc += '。提示：' + errorMsg;
     return desc;
+  }
+
+  /* 每条规则附带对应的国考规则码（用于质控问题中心命中统计），如为空则直接按 rule.id 匹配 */
+  function relForRule(rule) {
+    if (rule.rel) return rule.rel;
+    var match = { 'qc-p1': 'QC-L1-001', 'qc-p2': 'QC-L1-002', 'qc-p3': 'QC-L1-003',
+      'qc-p4': 'QC-L1-004', 'qc-p5': 'QC-L1-005', 'qc-p6': 'QC-L1-006' }[rule.category];
+    return match || rule.id;
   }
 
   /* ==================== 样式 ==================== */
@@ -128,37 +151,58 @@
   function sb(s) { return '<span class="badge badge-' + (TONE[s] || 'info') + '">' + esc(s) + '</span>'; }
 
   /* ==================== 状态 ==================== */
-  var state = { category: 'qc-homepage', filters: {}, page: {} };
+  var state = { category: 'qc-p1', filters: {}, page: {} };
 
-  /* ==================== Mock 规则数据（结构化） ==================== */
+  /* ==================== 规则数据（结构化）====================
+   * 设计原则（对应 附录_全站指标审计.md 第 8 节整改）：
+   *   1. 不再硬编码 hitCount / fixRate（旧版两列纯造，无统计期、无分子分母、
+   *      不可下钻）。命中数改为从质控问题中心 window.qcSpine.problems() 按规则号
+   *      实时统计（statHitOf），带统计期；统计不到就显示"—"，不出假数。
+   *   2. 阈值类规则（threshold_gt/lt）带单位 unit 与依据 basis，默认值统一对齐
+   *      预警引擎 warning-module.js 口径（MV≥66 / DCO≤15），废弃原 QC 的 70 / 5 双标。
+   *   3. 时限类规则（病程 8 小时、会诊 48 小时）改用 time_within 模板承载时限参数，
+   *      不再只写在提示语文本里。 */
   var RULES = [
-    { id: 'R-H01', category: 'qc-homepage', name: '主要诊断编码必填校验', targetField: '主要诊断编码', tplId: 'required', checkValue: '', severity: 'block', errorMsg: '主要诊断 ICD-10 编码不得为空', status: '启用', hitCount: 1248, fixRate: 99.2 },
-    { id: 'R-H02', category: 'qc-homepage', name: '身份证号格式校验', targetField: '身份证号', tplId: 'regex', checkValue: '^\\d{17}[\\dXx]$', severity: 'block', errorMsg: '身份证号码须满足 18 位校验位算法', status: '启用', hitCount: 856, fixRate: 98.7 },
-    { id: 'R-H03', category: 'qc-homepage', name: '出院日期不得早于入院日期', targetField: '出院日期', tplId: 'date_not_before', checkValue: '入院日期', severity: 'block', errorMsg: '出院日期不能早于入院日期', status: '启用', hitCount: 342, fixRate: 97.1 },
-    { id: 'R-H04', category: 'qc-homepage', name: '手术操作编码与诊断匹配', targetField: '手术操作编码', tplId: 'cross', checkValue: '主要诊断编码', severity: 'warn', errorMsg: '手术操作编码应与主要诊断存在合理关联', status: '启用', hitCount: 189, fixRate: 88.4 },
-    { id: 'R-H05', category: 'qc-homepage', name: '年龄与性别交叉校验', targetField: '年龄', tplId: 'cross', checkValue: '性别', severity: 'warn', errorMsg: '年龄与性别不匹配，请核实', status: '启用', hitCount: 67, fixRate: 95.5 },
-    { id: 'R-H06', category: 'qc-homepage', name: '联系电话格式校验', targetField: '联系电话', tplId: 'regex', checkValue: '^1\\d{10}$|^0\\d{2,3}-?\\d{7,8}$', severity: 'log', errorMsg: '联系电话格式不正确', status: '观察', hitCount: 213, fixRate: 72.3 },
-    { id: 'R-C01', category: 'qc-confirmed', name: '确诊依据必填校验', targetField: '确诊依据', tplId: 'required', checkValue: '', severity: 'block', errorMsg: '确诊依据不得为空', status: '启用', hitCount: 42, fixRate: 92.9 },
-    { id: 'R-C02', category: 'qc-confirmed', name: '确诊日期不得晚于报卡日期', targetField: '确诊日期', tplId: 'date_not_after', checkValue: '报卡日期', severity: 'block', errorMsg: '确诊日期不能晚于报卡日期', status: '启用', hitCount: 18, fixRate: 94.4 },
-    { id: 'R-C03', category: 'qc-confirmed', name: 'ICD 编码字典校验', targetField: 'ICD编码', tplId: 'dict', checkValue: 'ICD-10标准字典', severity: 'block', errorMsg: 'ICD 编码不在标准字典范围内', status: '启用', hitCount: 28, fixRate: 71.4 },
-    { id: 'R-C04', category: 'qc-confirmed', name: '多原发癌双重核算', targetField: '原发部位', tplId: 'cross', checkValue: 'ICD编码', severity: 'warn', errorMsg: '疑似重复统计，请人工复核', status: '观察', hitCount: 9, fixRate: 66.7 },
-    { id: 'R-P01', category: 'qc-pathology', name: '病理诊断术语规范', targetField: '病理诊断术语', tplId: 'dict', checkValue: 'ICD-O形态学字典', severity: 'block', errorMsg: '病理诊断须使用 ICD-O 标准术语', status: '启用', hitCount: 258, fixRate: 96.5 },
-    { id: 'R-P02', category: 'qc-pathology', name: '部位编码与形态学编码一致性', targetField: '部位编码', tplId: 'cross', checkValue: '形态学编码', severity: 'block', errorMsg: '部位编码与形态学编码不匹配', status: '启用', hitCount: 34, fixRate: 88.2 },
-    { id: 'R-P03', category: 'qc-pathology', name: '免疫组化 ER 必填', targetField: 'ER', tplId: 'required', checkValue: '', severity: 'warn', errorMsg: '特定癌种须包含 ER 指标', status: '启用', hitCount: 61, fixRate: 79.4 },
-    { id: 'R-T01', category: 'qc-tnm', name: 'TNM 模板适用性校验', targetField: 'TNM模板版本', tplId: 'cross', checkValue: 'AJCC版本', severity: 'block', errorMsg: '所选 TNM 模板与 AJCC 版本不匹配', status: '启用', hitCount: 176, fixRate: 94.3 },
-    { id: 'R-T02', category: 'qc-tnm', name: 'T 分期取值范围校验', targetField: 'T分期', tplId: 'dict', checkValue: 'T0,T1,T2,T3,T4,Tis,Tx', severity: 'block', errorMsg: 'T 分期取值不在合法范围内', status: '启用', hitCount: 89, fixRate: 97.8 },
-    { id: 'R-B01', category: 'qc-course', name: '首次病程记录时限校验', targetField: '首次病程记录时间', tplId: 'date_not_before', checkValue: '入院时间', severity: 'block', errorMsg: '首次病程记录须在入院 8 小时内完成', status: '启用', hitCount: 312, fixRate: 93.6 },
-    { id: 'R-B02', category: 'qc-course', name: '术前小结完整性校验', targetField: '术前小结内容', tplId: 'required', checkValue: '', severity: 'warn', errorMsg: '术前小结缺少核心要素', status: '启用', hitCount: 145, fixRate: 89.0 },
-    { id: 'R-M01', category: 'qc-mdt', name: 'MDT 申请学科覆盖度', targetField: '申请学科列表', tplId: 'required', checkValue: '', severity: 'warn', errorMsg: 'MDT 申请须至少包含外科、内科、影像三大学科', status: '启用', hitCount: 96, fixRate: 85.4 },
-    { id: 'R-M02', category: 'qc-mdt', name: 'MDT 结论结构化校验', targetField: 'MDT结论结构', tplId: 'required', checkValue: '', severity: 'warn', errorMsg: 'MDT 结论须以结构化字段录入', status: '观察', hitCount: 23, fixRate: 69.6 },
-    { id: 'R-R01', category: 'qc-remote', name: '远程会诊专家资质校验', targetField: '专家职称', tplId: 'dict', checkValue: '副主任医师,主任医师', severity: 'block', errorMsg: '受邀专家须具备副主任医师及以上职称', status: '启用', hitCount: 54, fixRate: 98.1 },
-    { id: 'R-R02', category: 'qc-remote', name: '会诊反馈时限监控', targetField: '反馈时间', tplId: 'date_not_before', checkValue: '会诊排定时间', severity: 'warn', errorMsg: '受邀机构须在 48 小时内反馈', status: '启用', hitCount: 37, fixRate: 91.9 },
-    { id: 'R-N01', category: 'qc-cohort', name: '高危人群纳管标准校验', targetField: '高危标准条件', tplId: 'required', checkValue: '', severity: 'block', errorMsg: '纳管对象须满足高危标准条件', status: '启用', hitCount: 218, fixRate: 96.3 },
-    { id: 'R-N02', category: 'qc-cohort', name: '干预策略分配完整性', targetField: '干预策略', tplId: 'required', checkValue: '', severity: 'warn', errorMsg: '已分组人群须绑定干预策略', status: '启用', hitCount: 64, fixRate: 87.5 },
-    { id: 'R-G01', category: 'qc-global', name: 'MV% 阈值监测', targetField: 'MV%', tplId: 'threshold_lt', checkValue: '70', severity: 'warn', errorMsg: '病理诊断占比低于 70%，触发预警', status: '启用', hitCount: 12, fixRate: 100 },
-    { id: 'R-G02', category: 'qc-global', name: 'DCO% 阈值监测', targetField: 'DCO%', tplId: 'threshold_gt', checkValue: '5', severity: 'warn', errorMsg: '仅死亡证明病例占比超过 5%，触发预警', status: '启用', hitCount: 8, fixRate: 100 },
-    { id: 'R-G03', category: 'qc-global', name: '病案首页合格率阈值监测', targetField: '病案首页合格率', tplId: 'threshold_lt', checkValue: '90', severity: 'warn', errorMsg: '病案首页质控合格率低于 90%，触发黄色预警', status: '启用', hitCount: 15, fixRate: 86.7 }
+    /* —— qc-p1 首次治疗前临床分期评估率（QC-L1-001） —— */
+    { id: 'R-P1-01', category: 'qc-p1', rel: 'QC-L1-001', name: '临床分期非空', targetField: '临床分期', tplId: 'required', checkValue: '', severity: 'block', errorMsg: '首次治疗前须完成临床分期评估，字段不得为空', status: '启用', period: '2026年度' },
+    { id: 'R-P1-02', category: 'qc-p1', rel: 'QC-L1-001', name: '分期评估时间不晚于首次治疗', targetField: '分期评估日期', tplId: 'date_not_after', checkValue: '首次治疗日期', severity: 'block', errorMsg: '临床分期须在首次抗肿瘤治疗前完成', status: '启用', period: '2026年度' },
+    /* —— qc-p2 首次非手术治疗前病理学诊断率（QC-L1-002） —— */
+    { id: 'R-P2-01', category: 'qc-p2', rel: 'QC-L1-002', name: '病理诊断非空', targetField: '病理诊断', tplId: 'required', checkValue: '', severity: 'block', errorMsg: '首次非手术治疗前须取得病理学诊断', status: '启用', period: '2026年度' },
+    { id: 'R-P2-02', category: 'qc-p2', rel: 'QC-L1-002', name: '病理报告不晚于首次治疗', targetField: '病理报告日期', tplId: 'date_not_after', checkValue: '首次治疗日期', severity: 'block', errorMsg: '病理报告日期须不晚于首次非手术治疗日期', status: '启用', period: '2026年度' },
+    { id: 'R-P2-03', category: 'qc-p2', rel: 'QC-L1-002', name: '病理诊断术语规范', targetField: '病理诊断术语', tplId: 'dict', checkValue: 'ICD-O形态学字典', severity: 'warn', errorMsg: '病理诊断须使用 ICD-O 标准术语', status: '启用', period: '2026年度' },
+    /* —— qc-p3 术后病理 TNM 分期率（QC-L1-003） —— */
+    { id: 'R-P3-01', category: 'qc-p3', rel: 'QC-L1-003', name: 'pTNM 三项完整', targetField: 'pTNM分期', tplId: 'required', checkValue: '', severity: 'block', errorMsg: '术后病理报告须含 pT、pN、pM 三项分期', status: '启用', period: '2026年度' },
+    { id: 'R-P3-02', category: 'qc-p3', rel: 'QC-L1-003', name: 'T 分期字典校验', targetField: 'T分期', tplId: 'dict', checkValue: 'T0,T1,T2,T3,T4,Tis,Tx', severity: 'block', errorMsg: 'T 分期取值不在合法范围内', status: '启用', period: '2026年度' },
+    /* —— qc-p4 围手术期死亡率（QC-L1-004） —— */
+    { id: 'R-P4-01', category: 'qc-p4', rel: 'QC-L1-004', name: '出院去向非空', targetField: '出院去向', tplId: 'required', checkValue: '', severity: 'block', errorMsg: '围手术期病例须完整记录出院去向，用于判定生存状态', status: '启用', period: '2026年度' },
+    { id: 'R-P4-02', category: 'qc-p4', rel: 'QC-L1-004', name: '死亡日期不早于手术日期', targetField: '死亡日期', tplId: 'date_not_before', checkValue: '手术日期', severity: 'block', errorMsg: '死亡日期不得早于手术日期', status: '启用', period: '2026年度' },
+    { id: 'R-P4-03', category: 'qc-p4', rel: 'QC-L1-004', name: '首次病程记录时限', targetField: '首次病程记录时间', tplId: 'time_within', checkValue: '8', unit: '小时', refField: '入院时间', severity: 'block', errorMsg: '首次病程记录须在入院 8 小时内完成', status: '启用', period: '2026年度' },
+    /* —— qc-p5 首次靶向/免疫治疗前分子病理检测率（QC-L1-005） —— */
+    { id: 'R-P5-01', category: 'qc-p5', rel: 'QC-L1-005', name: '分子检测结果非空', targetField: '分子检测结果', tplId: 'required', checkValue: '', severity: 'block', errorMsg: '首次靶向/免疫治疗前须完成分子病理检测', status: '启用', period: '2026年度' },
+    { id: 'R-P5-02', category: 'qc-p5', rel: 'QC-L1-005', name: '检测日期不晚于首次用药', targetField: '检测日期', tplId: 'date_not_after', checkValue: '首次用药日期', severity: 'block', errorMsg: '分子检测须在首次靶向/免疫治疗用药前完成', status: '启用', period: '2026年度' },
+    /* —— qc-p6 术中淋巴结清扫规范率（QC-L1-006） —— */
+    { id: 'R-P6-01', category: 'qc-p6', rel: 'QC-L1-006', name: '清扫数目非空', targetField: '清扫淋巴结数目', tplId: 'required', checkValue: '', severity: 'block', errorMsg: '清扫淋巴结数目须完整填写', status: '启用', period: '2026年度' },
+    { id: 'R-P6-02', category: 'qc-p6', rel: 'QC-L1-006', name: '清扫数目达标', targetField: '清扫淋巴结数目', tplId: 'range', checkValue: '12-99', severity: 'warn', errorMsg: '清扫淋巴结数目须达到癌种规范要求下限', status: '启用', period: '2026年度' }
   ];
+
+  /* 规则命中数：从质控问题中心（window.qcSpine.problems()）按规则号实时统计。
+   * 取不到脊柱（脚本未加载）或该规则无对应问题时返回 null → 界面显示"—"，
+   * 绝不硬造数字。阈值类聚合规则本身没有"逐条命中"语义，返回 null。 */
+  function statHitOf(rule) {
+    if (rule.tplId === 'threshold_gt' || rule.tplId === 'threshold_lt') return null;
+    var S = window.qcSpine;
+    if (!S || typeof S.problems !== 'function') return null;
+    try {
+      var ps = S.problems();
+      var hit = 0;
+      var rel = relForRule(rule);
+      ps.forEach(function (p) {
+        var code = (p.rule && p.rule.code) || '';
+        if (code === rel) hit++;
+      });
+      return hit;   /* 可能为 0，0 与 null 语义不同：0=统计到但无命中 */
+    } catch (e) { return null; }
+  }
 
   /* 自动补齐 description */
   RULES.forEach(function (r) { r.description = autoDesc(r.category, r.targetField, r.tplId, r.checkValue, r.errorMsg); });
@@ -243,8 +287,7 @@
       if (isEdit) {
         Object.keys(vals).forEach(function (k) { rule[k] = vals[k]; });
       } else {
-        vals.hitCount = 0;
-        vals.fixRate = 0;
+        vals.period = '2026年度';
         RULES.push(vals);
       }
       mask.remove();
@@ -334,15 +377,25 @@
     var list = result.list;
     var rows = list.map(function (r) {
       var switchHtml = '<label class="qcr-switch"><input type="checkbox"' + (r.status === '启用' ? ' checked' : '') + ' onchange="qcrToggle(\'' + r.id + '\')"><i></i></label>';
+      /* 命中数：实时从问题中心统计，取不到显示"—"（不硬造）。阈值类聚合规则无逐条命中。 */
+      var hit = statHitOf(r);
+      var hitCell = (r.tplId === 'threshold_gt' || r.tplId === 'threshold_lt')
+        ? '<span title="聚合指标阈值监测，无逐条命中记录，达标情况见③登记质控总览" style="color:#94a3b8;cursor:help">聚合监测</span>'
+        : (hit == null ? '<span style="color:#cbd5e1">—</span>' : String(hit));
+      /* 校验值：阈值类带单位，时限类带单位与参照字段 */
+      var cv = r.checkValue || '';
+      if ((r.tplId === 'threshold_gt' || r.tplId === 'threshold_lt') && cv) cv = cv + (r.unit || '');
+      else if (r.tplId === 'time_within' && cv) cv = cv + (r.unit || '') + '（自' + (r.refField || '起点') + '）';
+      var basisIcon = r.basis ? ' <span title="' + esc(r.basis) + '" style="cursor:help;color:#94a3b8">ⓘ</span>' : '';
       return '<tr>' +
         '<td><button class="qcr-link" onclick="qcrEdit(\'' + r.id + '\')">' + esc(r.id) + '</button></td>' +
         '<td>' + esc(r.name) + '</td>' +
         '<td>' + esc(r.targetField) + '</td>' +
         '<td>' + esc(getTplLabel(r.tplId)) + '</td>' +
-        '<td>' + esc(r.checkValue || '-') + '</td>' +
+        '<td>' + (cv ? esc(cv) : '-') + basisIcon + '</td>' +
         '<td>' + sb(getSevLabel(r.severity)) + '</td>' +
-        '<td class="num">' + r.hitCount + '</td>' +
-        '<td class="num">' + r.fixRate + '%</td>' +
+        '<td class="num">' + hitCell + '</td>' +
+        '<td>' + esc(r.period || '—') + '</td>' +
         '<td>' + switchHtml + '</td>' +
         '<td><button class="qcr-link" onclick="qcrEdit(\'' + r.id + '\')">编辑</button> <button class="qcr-link" style="color:#dc2626" onclick="qcrDelete(\'' + r.id + '\')">删除</button></td>' +
         '</tr>';
@@ -362,19 +415,31 @@
 
     return renderToolbar(catId) +
       '<div class="qcr-tblwrap"><table class="qcr-tbl"><thead><tr>' +
-      '<th>规则编号</th><th>规则名称</th><th>校验字段</th><th>校验类型</th><th>校验值</th><th>拦截级别</th><th class="num">触发次数</th><th class="num">修复率</th><th>启停</th><th>操作</th>' +
+      '<th>规则编号</th><th>规则名称</th><th>校验字段</th><th>校验类型</th><th>校验值</th><th>拦截级别</th><th class="num">命中数</th><th>统计期</th><th>启停</th><th>操作</th>' +
       '</tr></thead><tbody>' + (rows || '<tr><td colspan="10"><div class="qcr-empty">暂无符合条件的规则</div></td></tr>') + '</tbody></table></div>' + pager;
   }
 
   function renderQCPage(pageId) {
-    if (OWNED_IDS.indexOf(pageId) >= 0 && pageId !== state.category) {
+    /* 'qc-rules' 是菜单三入口之一（规则配置主入口），落到当前/首个规则组；
+       传入具体组 id（qc-p1…qc-p6）时切换分组；旧分类 id 一律回落到当前分组。 */
+    if (pageId === 'qc-rules') {
+      if (OWNED_IDS.indexOf(state.category) < 0) state.category = OWNED_IDS[0];
+    } else if (OWNED_IDS.indexOf(pageId) >= 0) {
       state.category = pageId;
     }
     var catLabel = '';
     CATEGORIES.forEach(function (c) { if (c.id === state.category) catLabel = c.label; });
+    var meta = GROUP_META[state.category] || {};
+    var catTabs = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px">' + CATEGORIES.map(function (c) {
+      var on = c.id === state.category;
+      return '<button class="btn ' + (on ? 'btn-primary' : 'btn-ghost') + ' btn-sm" onclick="qcrSwitchCat(\'' + c.id + '\')">' + esc(c.label) + '</button>';
+    }).join('') + '</div>';
     return '<div class="qcr-page">' +
       '<div class="qcr-main">' +
       '<div class="qcr-head"><div class="qcr-title">质控规则配置 · ' + esc(catLabel) + '</div><div><button class="btn btn-primary btn-sm" onclick="qcrAdd()">新增规则</button></div></div>' +
+      '<div style="font-size:12.5px;color:#64748b;margin:-6px 0 12px">对应绩效指标达标线 <b>' + esc(meta.line || '—') + '</b>（来源：《三级公立医院绩效考核操作手册》肿瘤专业）。<br>' +
+      '<b>适用癌种</b>：' + esc(cancersOfGroup(state.category)) + ' —— 本组规则对该范围内癌种统一生效；达标线作用于指标合计率，分癌种结果作短板定位。命中数取自质控问题中心。</div>' +
+      catTabs +
       renderTable(state.category) +
       '</div></div>';
   }

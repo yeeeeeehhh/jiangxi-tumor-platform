@@ -1,0 +1,932 @@
+[
+  {
+    "id": 900,
+    "title": "胃癌单病种诊疗质控（2026）",
+    "desc": "胃癌单病种诊疗质控表单（2026），来源问卷星 https://www.wjx.top/vm/tEMrJXW.aspx",
+    "category": "单病种质控",
+    "status": "published",
+    "questions": 21,
+    "responses": 0,
+    "source": {
+      "url": "https://www.wjx.top/vm/tEMrJXW.aspx",
+      "code": "tEMrJXW",
+      "images": [
+        "微信图片_20260922170749.png"
+      ]
+    },
+    "qList": [
+      {
+        "type": "text",
+        "title": "医院：",
+        "required": false
+      },
+      {
+        "type": "text",
+        "title": "质控人员：",
+        "required": false
+      },
+      {
+        "type": "text",
+        "title": "姓名:",
+        "required": false,
+        "section": "患者信息"
+      },
+      {
+        "type": "single",
+        "title": "性别：",
+        "required": true,
+        "section": "患者信息",
+        "options": [
+          "男",
+          "女"
+        ]
+      },
+      {
+        "type": "text",
+        "title": "年龄:",
+        "required": false,
+        "section": "患者信息"
+      },
+      {
+        "type": "text",
+        "title": "住院号:",
+        "required": false,
+        "section": "患者信息"
+      },
+      {
+        "type": "multiple",
+        "title": "治疗方式",
+        "required": true,
+        "section": "质控信息",
+        "options": [
+          "手术",
+          "放疗",
+          "内科"
+        ],
+        "typeTip": "【多选题】"
+      },
+      {
+        "type": "single",
+        "title": "首次治疗前TNM分期",
+        "required": true,
+        "section": "质控信息",
+        "options": [
+          "有",
+          "无",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "分期符合规范",
+        "required": true,
+        "section": "质控信息",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "text",
+        "title": "手术方式",
+        "required": false,
+        "section": "外科治疗"
+      },
+      {
+        "type": "single",
+        "title": "Ⅰ-Ⅲ期淋巴结清扫符合规范",
+        "required": true,
+        "section": "外科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "转移性首次治疗行手术治疗符合规范",
+        "required": true,
+        "section": "外科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "术前完成营养评估及干预",
+        "required": true,
+        "section": "外科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "首次非手术治疗前病理学诊断",
+        "required": true,
+        "section": "非手术治疗前病理诊断和分期",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "术后病理TNM分期",
+        "required": true,
+        "section": "非手术治疗前病理诊断和分期",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "放疗记录符合规范",
+        "required": true,
+        "section": "放射治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "靶区勾画符合规范",
+        "required": true,
+        "section": "放射治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "内科治疗方案符合规范",
+        "required": true,
+        "section": "内科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "首次靶向/免疫治疗前分子病理检测",
+        "required": true,
+        "section": "内科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "非手术治疗后疗效评价符合规范",
+        "required": true,
+        "section": "非手术治疗疗效评价",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "结果：达标情况",
+        "required": true,
+        "section": "非手术治疗疗效评价",
+        "options": [
+          "≥90%（2分）",
+          "50%-89%（1分）",
+          "＜50%（0分）",
+          "备注"
+        ]
+      }
+    ]
+  },
+  {
+    "id": 901,
+    "title": "肺癌单病种诊疗质控表",
+    "desc": "肺癌单病种诊疗质控表单（2026），来源问卷星 https://v.wjx.cn/vm/m53sXFU.aspx",
+    "category": "单病种质控",
+    "status": "published",
+    "questions": 22,
+    "responses": 0,
+    "source": {
+      "url": "https://v.wjx.cn/vm/m53sXFU.aspx",
+      "code": "m53sXFU",
+      "images": [
+        "微信图片_20260922170738.png",
+        "微信图片_20260922170753.png"
+      ]
+    },
+    "qList": [
+      {
+        "type": "text",
+        "title": "医院",
+        "required": true
+      },
+      {
+        "type": "text",
+        "title": "质控人员",
+        "required": true
+      },
+      {
+        "type": "text",
+        "title": "姓名",
+        "required": true,
+        "section": "患者信息"
+      },
+      {
+        "type": "single",
+        "title": "性别：",
+        "required": true,
+        "section": "患者信息",
+        "options": [
+          "男",
+          "女"
+        ]
+      },
+      {
+        "type": "text",
+        "title": "年龄",
+        "required": true,
+        "section": "患者信息"
+      },
+      {
+        "type": "text",
+        "title": "住院号",
+        "required": true,
+        "section": "患者信息"
+      },
+      {
+        "type": "multiple",
+        "title": "治疗方式",
+        "required": true,
+        "section": "质控信息",
+        "options": [
+          "手术",
+          "放疗",
+          "内科"
+        ],
+        "typeTip": "【多选题】"
+      },
+      {
+        "type": "single",
+        "title": "首次治疗前TNM分期",
+        "required": true,
+        "section": "质控信息",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "符合规范",
+        "required": true,
+        "section": "质控信息",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "text",
+        "title": "手术方式",
+        "required": true,
+        "section": "外科治疗"
+      },
+      {
+        "type": "single",
+        "title": "淋巴结清扫符合规范",
+        "required": true,
+        "section": "外科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "围手术期死亡",
+        "required": true,
+        "section": "外科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "肿瘤完整切除（R0）",
+        "required": true,
+        "section": "外科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "非手术治疗前病理学诊断",
+        "required": true,
+        "section": "非手术治疗前病理学诊断和分期",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "术后病理TNM分期",
+        "required": true,
+        "section": "非手术治疗前病理学诊断和分期",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "精准放疗",
+        "required": true,
+        "section": "放射治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "靶区勾画符合规范",
+        "required": true,
+        "section": "放射治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "放疗记录符合规范",
+        "required": true,
+        "section": "放射治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "内科治疗方案符合规范",
+        "required": true,
+        "section": "内科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "首次靶向/免疫治疗前分子病理检测",
+        "required": true,
+        "section": "内科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "非手术治疗后疗效评价符合规范",
+        "required": true,
+        "section": "非手术治疗疗效评价",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "结果:达标情况",
+        "required": true,
+        "section": "非手术治疗疗效评价",
+        "options": [
+          "≥90%（2分）",
+          "50-89%（1分）",
+          "＜50%0分",
+          "备注"
+        ]
+      }
+    ]
+  },
+  {
+    "id": 902,
+    "title": "肝癌单病种诊疗质控（2026）",
+    "desc": "肝癌单病种诊疗质控表单（2026），来源问卷星 https://v.wjx.cn/vm/OXntr1n.aspx",
+    "category": "单病种质控",
+    "status": "published",
+    "questions": 22,
+    "responses": 0,
+    "source": {
+      "url": "https://v.wjx.cn/vm/OXntr1n.aspx",
+      "code": "OXntr1n",
+      "images": [
+        "微信图片_20260922170745.jpg"
+      ]
+    },
+    "qList": [
+      {
+        "type": "text",
+        "title": "医院",
+        "required": true
+      },
+      {
+        "type": "text",
+        "title": "质控人员",
+        "required": true
+      },
+      {
+        "type": "text",
+        "title": "姓名",
+        "required": true,
+        "section": "患者信息"
+      },
+      {
+        "type": "single",
+        "title": "性别：",
+        "required": true,
+        "section": "患者信息",
+        "options": [
+          "男",
+          "女"
+        ]
+      },
+      {
+        "type": "text",
+        "title": "年龄",
+        "required": true,
+        "section": "患者信息"
+      },
+      {
+        "type": "text",
+        "title": "住院号",
+        "required": true,
+        "section": "患者信息"
+      },
+      {
+        "type": "multiple",
+        "title": "治疗方式",
+        "required": true,
+        "section": "质控信息",
+        "options": [
+          "手术",
+          "放疗",
+          "内科"
+        ],
+        "typeTip": "【多选题】"
+      },
+      {
+        "type": "single",
+        "title": "首次治疗前肝细胞癌CNLC分期肝内胆管癌TNM分期",
+        "required": true,
+        "section": "质控信息",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "符合规范",
+        "required": true,
+        "section": "质控信息",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "text",
+        "title": "手术方式",
+        "required": true,
+        "section": "外科治疗"
+      },
+      {
+        "type": "single",
+        "title": "淋巴结清扫符合规范（肝内胆管癌）",
+        "required": true,
+        "section": "外科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "微创手术符合规范",
+        "required": true,
+        "section": "外科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "围手术期死亡",
+        "required": true,
+        "section": "外科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "精细TACE治疗",
+        "required": true,
+        "section": "外科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "Ⅱb和Ⅲa期首次治疗TACE治疗符合规范",
+        "required": true,
+        "section": "外科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "首次非手术治疗前病理学诊断（肝内胆管癌）；肝细胞癌临床诊断是否符合规范要求",
+        "required": true,
+        "section": "非手术治疗前病理诊断和分期",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "术后病理TNM分期（肝内胆管癌）",
+        "required": true,
+        "section": "非手术治疗前病理诊断和分期",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "精准放疗符合规范",
+        "required": true,
+        "section": "放射治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "中晚期综合治疗符合规范",
+        "required": true,
+        "section": "内科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "首次治疗方案指南符合规范",
+        "required": true,
+        "section": "内科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "非手术治疗后完成疗效评价",
+        "required": true,
+        "section": "内科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "结果:达标情况",
+        "required": true,
+        "section": "内科治疗",
+        "options": [
+          "≥90%（2分）",
+          "50-89%（1分）",
+          "＜50%0分",
+          "备注"
+        ]
+      }
+    ]
+  },
+  {
+    "id": 903,
+    "title": "结直肠癌单病种诊疗质控（2026）",
+    "desc": "结直肠癌单病种诊疗质控表单（2026），来源问卷星 https://www.wjx.top/vm/twO7MrN.aspx",
+    "category": "单病种质控",
+    "status": "published",
+    "questions": 24,
+    "responses": 0,
+    "source": {
+      "url": "https://www.wjx.top/vm/twO7MrN.aspx",
+      "code": "twO7MrN",
+      "images": [
+        "微信图片_20260922170757.png"
+      ]
+    },
+    "qList": [
+      {
+        "type": "text",
+        "title": "医院",
+        "required": false
+      },
+      {
+        "type": "text",
+        "title": "质控人员",
+        "required": true
+      },
+      {
+        "type": "text",
+        "title": "姓名：",
+        "required": true,
+        "section": "患者信息"
+      },
+      {
+        "type": "single",
+        "title": "性别：",
+        "required": true,
+        "section": "患者信息",
+        "options": [
+          "男",
+          "女"
+        ]
+      },
+      {
+        "type": "text",
+        "title": "年龄：",
+        "required": true,
+        "section": "患者信息"
+      },
+      {
+        "type": "text",
+        "title": "住院号：",
+        "required": true,
+        "section": "患者信息"
+      },
+      {
+        "type": "multiple",
+        "title": "治疗方式",
+        "required": true,
+        "section": "质控信息",
+        "options": [
+          "手术",
+          "放疗",
+          "内科"
+        ],
+        "typeTip": "【多选题】"
+      },
+      {
+        "type": "single",
+        "title": "首次治疗前TNM分期",
+        "required": true,
+        "section": "质控信息",
+        "options": [
+          "有",
+          "无",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "符合规范",
+        "required": true,
+        "section": "质控信息",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "text",
+        "title": "手术方式",
+        "required": false,
+        "section": "外科治疗"
+      },
+      {
+        "type": "single",
+        "title": "淋巴结清扫符合规范",
+        "required": true,
+        "section": "外科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "围手术期死亡",
+        "required": true,
+        "section": "外科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "术后C级吻合口瘘发生",
+        "required": true,
+        "section": "外科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "首次非手术治疗前病理学诊断",
+        "required": true,
+        "section": "非手术治疗前病理诊断和分期",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "multiple",
+        "title": "术后病理TNM分期",
+        "required": true,
+        "section": "非手术治疗前病理诊断和分期",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ],
+        "typeTip": "【最多选择3项】"
+      },
+      {
+        "type": "single",
+        "title": "术后报告完整性",
+        "required": true,
+        "section": "非手术治疗前病理诊断和分期",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "术后报告完整性",
+        "required": true,
+        "section": "放射治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "靶区勾画符合规范",
+        "required": true,
+        "section": "放射治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "内科规范方案符合规范",
+        "required": true,
+        "section": "内科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "multiple",
+        "title": "首次局部进展期结直肠癌新辅助治疗方式",
+        "required": true,
+        "section": "内科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ],
+        "typeTip": "【最多选择3项】"
+      },
+      {
+        "type": "single",
+        "title": "首次局进展期直肠癌患者新辅助治疗规范合理",
+        "required": true,
+        "section": "内科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "首次靶向/免疫治疗前分子病理检测",
+        "required": true,
+        "section": "内科治疗",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "非手术治疗后疗效评价符合规范",
+        "required": true,
+        "section": "非手术治疗疗效评价",
+        "options": [
+          "是",
+          "否",
+          "备注"
+        ]
+      },
+      {
+        "type": "single",
+        "title": "结果：达标情况",
+        "required": true,
+        "section": "非手术治疗疗效评价",
+        "options": [
+          "≥90%（2分）",
+          "50%～89%（1分）",
+          "＜50%（0分）",
+          "备注"
+        ]
+      }
+    ]
+  }
+]
