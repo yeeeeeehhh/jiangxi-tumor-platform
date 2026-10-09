@@ -48,6 +48,44 @@
   /* 比率 → 百分数（0~100） */
   function rate(num, den) { return den > 0 ? num / den * 100 : 0; }
 
+  /* ==================== 0b. 纯函数结果缓存 ====================
+   * 本文件所有数据都由确定性种子推导：同一入参永远得到同一结果。
+   * 而一次页面渲染里这些纯函数会被重复调用几十万遍 ——
+   *   · 每个病例都要算「本机构该癌种的水平」和「区域平均」，
+   *     区域平均又把 18 家机构 × 该癌种全部重算一遍；
+   *   · 病例列表先生成全量做页签计数，再生成全量做分页。
+   * 于是「六大绩效质控」一次点击要 500~600ms，全部浪费在重算上。
+   *
+   * pure() 只省重算，不改变任何一个数字（同键必返回同一对象），
+   * 也不改变判定顺序。调试可用 qcSpine._reset() 整体作废缓存。
+   *
+   * 用法：在文件末尾的「缓存装配」处统一包一层，函数体本身保持原样，
+   * 便于对照口径；调用方一律按普通函数使用。 */
+  function newCache() { return Object.create(null); }
+  function pure(fn, keyOf) {
+    var store = newCache();
+    PURE_STORES.push(store);
+    return function () {
+      var key = keyOf.apply(null, arguments);
+      var v = store[key];
+      if (v === undefined) v = store[key] = fn.apply(null, arguments);
+      return v;
+    };
+  }
+  /* 三主键（指标 × 机构 × 癌种）是绝大多数的缓存键形态 */
+  function k3(a, b, c) { return a + '|' + b + '|' + c; }
+  /* 机构/癌种数组进键：null（=全省/全部癌种）与显式全集要区分开也无妨，
+     它们本来就走同一算法，只是别把数组直接拼成 "[object Object]" */
+  function kList(l) { return l && l.length ? l.join(',') : '*'; }
+  var PURE_STORES = [];
+  function clearPure() {
+    /* 逐键删除而不是换掉对象：pure() 闭包持有的是同一个 store 引用 */
+    for (var i = 0; i < PURE_STORES.length; i++) {
+      var s = PURE_STORES[i];
+      for (var k in s) delete s[k];
+    }
+  }
+
   /* ==================== 1. 区域 / 机构 / 癌种 主数据 ==================== */
 
   /* 江西省 11 个设区市 + 每市抽样区县（与全站区域口径一致） */
@@ -340,6 +378,25 @@
     return Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 86400000);
   }
 
+  /* 病例的诊断日期：从 buildCase 里单独抽出来，供「病例索引」在不构造完整
+     证据链的情况下先算出排序键。两处共用同一个函数，列表顺序与详情日期
+     必然一致。
+     诊疗日期全部落在报告期内。做法是"往前留出余量"而不是"到头截断"：
+     诊断日期限定在 2024-02-01 ~ 2026-05-20 之间，这样
+       · 最长的后续链条（首疗 +34 天 → 手术 +6 天 → 随访 +96 天 ≈ +136 天）
+         也不会越过 2026-09-30；
+       · "分期评估早于诊断"的数据异常场景（最多 −20 天）也不会早于 2024-01-01。
+     若改用截断（min(d, 期末)），所有溢出日期会塌缩成同一天，时间轴就失真了。 */
+  function diagDateOf(key) {
+    var d = dateStr(key + '|dg', 2024, 2026);
+    if (d < '2024-02-01') {
+      d = '2024-02-' + pad(rndInt(key + '|dgl', 1, 28));
+    } else if (d > '2026-05-20') {
+      d = '2026-0' + rndInt(key + '|dgm', 1, 5) + '-' + pad(rndInt(key + '|dgd', 1, 20));
+    }
+    return d;
+  }
+
   /* 单指标在给定机构上的异常率。这是全站唯一的异常率口径：
      abnCount（KPI 上的异常病例数）与 cases（下钻列表里的异常条数）
      都必须由它推导，否则总览数字和下钻明细会对不上。 */
@@ -396,19 +453,42 @@
     return { code: r.code, name: r.name, ver: r.ver, cond: r.cond, field: r.field, kind: kind, hit: kind !== V.OK };
   }
 
-  /* 生成某指标下被质控病例列表。
-     注意：列表同时包含"符合"病例和异常病例 —— 这正是"被质控数据"的含义：
-     说明这个指标到底检查了哪些数据。 */
-  function cases(indId, opt) {
-    opt = opt || {};
-    var orgIds = opt.orgIds && opt.orgIds.length ? opt.orgIds : null;
-    var cancerIds = opt.cancerIds && opt.cancerIds.length ? opt.cancerIds : (ind(indId) ? ind(indId).cancers : []);
-    var want = opt.verdict || 'ALL';
-    var limit = opt.limit || 300;
+  /* 每个「指标×机构×癌种」单元抽样上限 */
+  var PER_CELL = 60;
+
+  /* 一次下钻范围的缓存键：指标 + 机构集合 + 癌种集合。
+     数组顺序不影响范围本身，这里不额外排序（调用方传的都是主数据原序）。 */
+  function scopeKey(indId, orgIds, cancerIds) {
+    return indId + '@' + kList(orgIds) + '@' + kList(cancerIds);
+  }
+
+  /* 病例索引：给定范围内"被质控数据"的骨架 —— 只存键 / 判定 / 诊断日期。
+   * 一屏只显示 20 条，但页签计数与排序口径要看全集，所以全集先以这种
+   * 极轻的形态算出来并缓存（一份范围只算一次）；完整的证据链（buildCase）
+   * 留到真正要显示的那几条上再构造。
+   * 判定与抽样规则和旧实现逐字一致，数字不变。 */
+  var CASE_INDEX = newCache();
+  var CASE_VIEW = newCache();
+  /* 缓存上限：一份「全省 · 全部癌种」的范围约 1.1 万条索引；累计超过
+     CASE_INDEX_MAX 条就整体作废重来。重建一份只要几十毫秒，
+     但不设上限会让页面越用越占内存。 */
+  var CASE_INDEX_MAX = 150000;
+  var CASE_INDEX_N = 0;
+  function resetCaseCache() {
+    CASE_INDEX = Object.create(null);
+    CASE_VIEW = Object.create(null);
+    CASE_INDEX_N = 0;
+  }
+  function caseIndex(indId, orgIds, cancerIds) {
+    var key = scopeKey(indId, orgIds && orgIds.length ? orgIds : null,
+      cancerIds && cancerIds.length ? cancerIds : (ind(indId) ? ind(indId).cancers : null));
+    var hit = CASE_INDEX[key];
+    if (hit) return hit;
+    var ids = cancerIds && cancerIds.length ? cancerIds : (ind(indId) ? ind(indId).cancers : []);
+    var ofs = orgIds && orgIds.length ? orgIds : null;
+    var pool = ORGS.filter(function (o) { return !ofs || ofs.indexOf(o.id) >= 0; });
     var out = [];
-    var pool = ORGS.filter(function (o) { return !orgIds || orgIds.indexOf(o.id) >= 0; });
-    var PER_CELL = 60;   /* 每个「指标×机构×癌种」单元抽样上限 */
-    cancerIds.forEach(function (c) {
+    ids.forEach(function (c) {
       pool.forEach(function (o) {
         var cl = cell(indId, o.id, c);
         if (cl.den <= 0) return;
@@ -416,30 +496,74 @@
            否则总览 KPI 的"异常病例数"与下钻列表条数会互相矛盾。 */
         var take = Math.min(cl.den, PER_CELL);
         for (var s = 0; s < take; s++) {
-          var key = indId + '|' + o.id + '|' + c + '|' + s;
-          var j = judge(indId, o.id, c, s);
-          if (want !== 'ALL' && j.v !== want) continue;
-          out.push(buildCase(indId, o, c, s, j, key));
+          var k = indId + '|' + o.id + '|' + c + '|' + s;
+          out.push({ k: k, o: o.id, c: c, s: s, v: judge(indId, o.id, c, s).v, d: diagDateOf(k) });
         }
       });
     });
-    out.sort(function (a, b) {
-      /* 异常优先，其次按诊断日期倒序 */
+    if (CASE_INDEX_N + out.length > CASE_INDEX_MAX) resetCaseCache();
+    CASE_INDEX_N += out.length;
+    CASE_INDEX[key] = out;
+    return out;
+  }
+
+  /* 按判定态过滤 + 排序后的视图（异常优先，其次诊断日期倒序），同样一份范围只算一次 */
+  function caseView(indId, orgIds, cancerIds, want) {
+    var key = scopeKey(indId, orgIds && orgIds.length ? orgIds : null,
+      cancerIds && cancerIds.length ? cancerIds : (ind(indId) ? ind(indId).cancers : null)) + '#' + want;
+    var hit = CASE_VIEW[key];
+    if (hit) return hit;
+    var idx = caseIndex(indId, orgIds, cancerIds);
+    var rows = want === 'ALL' ? idx.slice() : idx.filter(function (r) { return r.v === want; });
+    rows.sort(function (a, b) {
       var av = a.v === V.OK ? 1 : 0, bv = b.v === V.OK ? 1 : 0;
       if (av !== bv) return av - bv;
-      return a.diagDate < b.diagDate ? 1 : -1;
+      return a.d < b.d ? 1 : -1;
     });
-    return { rows: out.slice(0, limit), total: out.length };
+    CASE_VIEW[key] = rows;
+    return rows;
   }
+
+  /* 生成某指标下被质控病例列表。
+     注意：列表同时包含"符合"病例和异常病例 —— 这正是"被质控数据"的含义：
+     说明这个指标到底检查了哪些数据。
+     limit 只决定"构造多少条完整证据链"，total 始终是该范围内的全部条数。 */
+  function cases(indId, opt) {
+    opt = opt || {};
+    var orgIds = opt.orgIds && opt.orgIds.length ? opt.orgIds : null;
+    var cancerIds = opt.cancerIds && opt.cancerIds.length ? opt.cancerIds : null;
+    var want = opt.verdict || 'ALL';
+    var limit = opt.limit || 300;
+    var view = caseView(indId, orgIds, cancerIds, want);
+    var n = Math.min(limit, view.length);
+    var rows = new Array(n);
+    for (var i = 0; i < n; i++) {
+      var e = view[i];
+      rows[i] = buildCase(indId, org(e.o), e.c, e.s, judge(indId, e.o, e.c, e.s), e.k);
+    }
+    return { rows: rows, total: view.length };
+  }
+
+  /* 按病例键取单条被质控数据。键本身就带着 指标|机构|癌种|序号，
+     不需要像旧实现那样先把整个范围生成一遍再线性找。
+     找不到时退回该范围的第一条，与旧的下钻行为一致。 */
+  function caseByKey(indId, key) {
+    var p = String(key == null ? '' : key).split('|');
+    var view = caseView(indId, p[1] ? [p[1]] : null, p[2] ? [p[2]] : null, 'ALL');
+    if (!view.length) return null;
+    var e = null;
+    for (var i = 0; i < view.length; i++) if (view[i].k === key) { e = view[i]; break; }
+    if (!e) e = view[0];
+    return buildCase(indId, org(e.o), e.c, e.s, judge(indId, e.o, e.c, e.s), e.k);
+  }
+
   /* 各判定态在抽样中的条数 —— 供页面显示"全部/符合/不符合/数据缺失/数据异常"的页签计数，
-     计数与列表同源，保证切页签不会出现空列表。 */
+     计数与列表同源（同一份病例索引），保证切页签不会出现空列表。 */
   function verdictCounts(indId, opt) {
     opt = opt || {};
-    var all = cases(indId, {
-      orgIds: opt.orgIds, cancerIds: opt.cancerIds, verdict: 'ALL', limit: 1000000
-    }).rows;
-    var m = { ALL: all.length, ok: 0, bad: 0, miss: 0, abn: 0 };
-    all.forEach(function (r) { m[r.v] = (m[r.v] || 0) + 1; });
+    var idx = caseIndex(indId, opt.orgIds, opt.cancerIds);
+    var m = { ALL: idx.length, ok: 0, bad: 0, miss: 0, abn: 0 };
+    for (var i = 0; i < idx.length; i++) { var v = idx[i].v; m[v] = (m[v] || 0) + 1; }
     return m;
   }
 
@@ -450,18 +574,8 @@
       ? (rnd01(key + '|sx') < 0.03 ? '男' : '女')
       : (rnd01(key + '|sx') < 0.06 ? '女' : '男');
     var age = rndInt(key + '|age', 34, 82);
-    /* 诊疗日期全部落在报告期内。做法是"往前留出余量"而不是"到头截断"：
-       诊断日期限定在 2024-02-01 ~ 2026-05-20 之间，这样
-         · 最长的后续链条（首疗 +34 天 → 手术 +6 天 → 随访 +96 天 ≈ +136 天）
-           也不会越过 2026-09-30；
-         · "分期评估早于诊断"的数据异常场景（最多 −20 天）也不会早于 2024-01-01。
-       若改用截断（min(d, 期末)），所有溢出日期会塌缩成同一天，时间轴就失真了。 */
-    var diagDate = dateStr(key + '|dg', 2024, 2026);
-    if (diagDate < '2024-02-01') {
-      diagDate = '2024-02-' + pad(rndInt(key + '|dgl', 1, 28));
-    } else if (diagDate > '2026-05-20') {
-      diagDate = '2026-0' + rndInt(key + '|dgm', 1, 5) + '-' + pad(rndInt(key + '|dgd', 1, 20));
-    }
+    /* 诊断日期（区间口径见 diagDateOf：留出余量而不是到头截断） */
+    var diagDate = diagDateOf(key);
     var i = ind(indId);
     var isDown = i.dir === 'down';
     var value = cell(indId, o.id, c).value;
@@ -1520,6 +1634,25 @@
     return { total: base, items: out, top: out[0] };
   }
 
+  /* ==================== 8b. 缓存装配 ====================
+   * 上面这些函数都是"同参数必得同结果"的纯函数，这里统一包一层结果缓存。
+   * 注意：缓存后同一入参返回的是同一个对象引用（各处只读，不改写），
+   * 若将来某个消费方要修改返回值，必须在页面层先复制一份。
+   * 判定口径、抽样规模、数字本身都没动，省的只是重算。 */
+  denOf = pure(denOf, k3);
+  orgLevelOf = pure(orgLevelOf, function (a, b) { return a + '|' + b; });
+  cell = pure(cell, k3);
+  abnRateOf = pure(abnRateOf, function (a, b) { return a + '|' + b; });
+  agg = pure(agg, function (a, b, c) { return a + '@' + kList(b) + '@' + kList(c); });
+  abnCount = pure(abnCount, function (a, b, c) { return a + '@' + (b || '*') + '@' + kList(c); });
+  reasonOf = pure(reasonOf, function (a, b) { return a + '|' + b; });
+  ruleOf = pure(ruleOf, function (a, b) { return a + '|' + b; });
+  /* addDays 在一条病例上会被调用 5~6 次、一次渲染上万次，
+     而它每次都要 new Date + setUTCDate + toISOString，是第二大热点 */
+  addDays = pure(addDays, function (s, n) { return s + '+' + n; });
+  /* 注意：diagDateOf 不包缓存 —— 它的入参是每条病例唯一的 key，
+     包了只有写没有读，白占几万条内存。 */
+
   /* ==================== 9. 筛选 / 选项 ==================== */
 
   function orgOptions() {
@@ -1551,7 +1684,7 @@
     denOf: denOf, orgLevelOf: orgLevelOf, cell: cell, agg: agg, total: total, yoy: yoy,
     byCancer: byCancer, byOrg: byOrg,
     cases: cases, caseCount: caseCount, abnCount: abnCount, abnTypes: abnTypes,
-    abnRateOf: abnRateOf, verdictCounts: verdictCounts,
+    abnRateOf: abnRateOf, verdictCounts: verdictCounts, caseByKey: caseByKey,
     judge: judge, reasonOf: reasonOf, ruleOf: ruleOf,
     trend: trend,
     /* ① 分析派生 */
@@ -1581,7 +1714,11 @@
     tasks: tasks, samplingPlans: samplingPlans, samplingCases: samplingCases,
     loopByOrg: loopByOrg, loopByRegion: loopByRegion, loopByType: loopByType,
     loopTrend: loopTrend, loopKpi: loopKpi,
-    /* 缓存清理（调试用） */
-    _reset: function () { PROBLEM_CACHE = null; }
+    /* 缓存清理（调试用；正常流程不需要，数据是确定性生成的，不存在失效问题） */
+    _reset: function () {
+      PROBLEM_CACHE = null;
+      clearPure();
+      resetCaseCache();
+    }
   };
 })();

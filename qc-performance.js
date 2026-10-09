@@ -91,18 +91,30 @@
       return '<option value="' + S.esc(o.v) + '"' + (String(cur) === String(o.v) ? ' selected' : '') + '>' + S.esc(o.l) + '</option>';
     }).join('');
   }
+  /* 筛选条：五个字段一行排完，不换行。
+     宽度分配按「内容长度」而非等分——年度 96px，设区市 / 医疗机构 / 癌种
+     各按 1 份伸缩，质控指标名称最长给 1.6 份；五项合计 min-width 约 1140px，
+     减去左侧导航后 1600px 视口仍有余量，1600 以下由 flex-shrink 平滑收缩。 */
   function scopeBar() {
     var indOpts = [{ v: '', l: '六项全览' }].concat(S.L1_IND.map(function (i) {
       return { v: i.id, l: i.name };
     }));
-    var i = S.ind(P.ind);
-    var hint = i
-      ? '适用癌种 ' + i.cancers.length + ' 个：' + i.cancers.map(function (c) { return S.esc(S.cancer(c).name); }).join('、')
-      : '六项指标各自适用不同癌种（10 / 9 / 8 / 5 / 4 / 5 个），选定指标后癌种范围随之收敛';
-    return '<div class="qc-filter qc-scope" style="--qc-fcols:2">' +
-      '<div class="fg"><label>质控指标</label><select data-qcp="ind">' + optHtml(indOpts, P.ind) + '</select></div>' +
-      '<div class="fg"><label>癌种</label><select data-qcp="cancer">' + optHtml(cancerOptionsForInd(), P.cancer) + '</select></div>' +
-      '<div class="acts"><span class="qc-scope-hint">' + hint + '</span></div>' +
+    var yearOpts = ['2026', '2025', '2024'].map(function (y) { return { v: y, l: y }; });
+    var orgOpts = [{ v: '', l: '全部机构' }].concat(S.orgOptions());
+    function sel(key, label, list, cur, style, attr) {
+      return '<div class="fg' + (style ? ' ' + style : '') + '"><label>' + S.esc(label) + '</label>' +
+        '<select ' + (attr || 'data-qcp') + '="' + S.esc(key) + '">' + optHtml(list, cur) + '</select></div>';
+    }
+    return '<div class="qc-filter qc-scope">' +
+      sel('year', '统计年度', yearOpts, P.year, 'w-year', 'data-qcf') +
+      sel('city', '设区市', S.cityOptions(), P.city, 'w-mid', 'data-qcf') +
+      sel('org', '医疗机构', orgOpts, P.org, 'w-mid', 'data-qcf') +
+      sel('ind', '质控指标', indOpts, P.ind, 'w-wide') +
+      sel('cancer', '癌种', cancerOptionsForInd(), P.cancer, 'w-mid') +
+      '<div class="acts">' +
+      '<button class="btn btn-ghost btn-sm" data-qc="filter:reset:pf">重置</button>' +
+      '<button class="btn btn-primary btn-sm" data-qc="filter:apply:pf">查询</button>' +
+      '</div>' +
       '</div>';
   }
 
@@ -369,7 +381,11 @@
     }).join('') + '</div>';
 
     var want = P.verdict === 'ALL' ? 'ALL' : P.verdict;
-    var data = S.cases(i.id, { orgIds: ofs, cancerIds: cancerFilter(), verdict: want, limit: 1000000 });
+    /* 只构造当前这一页要显示的 20 条完整病例：
+       旧写法 limit 给了 100 万，一次渲染要先把 1 万多条病例的证据链
+       全构造出来（再在上面对着页签计数又构造一遍），这是本页卡顿的主因。
+       条数与页签计数来自同一份病例索引，显示的数字不变。 */
+    var data = S.cases(i.id, { orgIds: ofs, cancerIds: cancerFilter(), verdict: want, limit: P.page * 20 });
     var pg = U.slice(data.rows, P.page, 20);
     var rows = pg.rows.map(function (r) {
       var vLabel = S.V_LABEL[r.v] || r.v;
@@ -400,10 +416,9 @@
 
   /* 病例证据弹窗 */
   function caseModal(indId, key) {
-    var all = S.cases(indId, { orgIds: [key.split('|')[1]], cancerIds: [key.split('|')[2]], verdict: 'ALL', limit: 100000 }).rows;
-    var r = null;
-    for (var i = 0; i < all.length; i++) if (all[i].key === key) { r = all[i]; break; }
-    if (!r) r = all[0];
+    /* 按键直接定位这一条病例（旧写法是先把该机构该癌种的全部病例
+       构造出来再线性比对） */
+    var r = S.caseByKey(indId, key);
     if (!r) { U.toast('未找到该病例'); return; }
     var rule = r.rule || S.ruleOf(indId, r.v) || {};
     var kvs = [
@@ -427,12 +442,6 @@
 
   /* ==================== 主渲染 ==================== */
   function render(pageId) {
-    var filter = U.filterBar([
-      { key: 'year', label: '统计年度', type: 'select', value: P.year, options: ['2026', '2025', '2024'] },
-      { key: 'city', label: '设区市', type: 'select', value: P.city, options: S.cityOptions() },
-      { key: 'org', label: '医疗机构', type: 'select', value: P.org, options: [{ v: '', l: '全部机构' }].concat(S.orgOptions()) }
-    ], 'pf');
-
     /* 三块内容同页纵向排列，不再用切换栏 */
     var body = (P.ind ? regionSingle() : regionAll()) +
       (P.ind ? orgSingle() : orgAll()) +
@@ -443,7 +452,6 @@
       U.head('六大绩效质控', '国考六项肿瘤专业质控指标的设区市 / 医疗机构考核；六项指标各自适用不同癌种。',
         '', '质控管理',
         '<button class="btn btn-ghost btn-sm" data-qc="pf:toRules">查看判定规则</button>') +
-      filter +
       scopeBar() +
       body +
       '</div>';
@@ -451,6 +459,16 @@
 
   /* ==================== 样式 ==================== */
   var CSS = [
+    /* 筛选条改成 flex 单行：五项字段 + 重置/查询必须挤在同一行，禁止换行。
+       用 flex-basis 按内容长短分配宽度，比 grid 等分更省空间，也更容易
+       在 1400~1600px 之间平滑收缩而不折行。 */
+    '#pageContainer .qc-scope{display:flex;flex-wrap:nowrap;align-items:flex-end;gap:10px;overflow-x:auto}',
+    '#pageContainer .qc-scope .fg{flex:1 1 0;min-width:0}',
+    '#pageContainer .qc-scope .fg.w-year{flex:0 0 92px}',
+    '#pageContainer .qc-scope .fg.w-mid{flex:1.15 1 150px}',
+    '#pageContainer .qc-scope .fg.w-wide{flex:1.9 1 210px}',
+    '#pageContainer .qc-scope .acts{flex:0 0 auto;grid-column:auto;white-space:nowrap}',
+    '#pageContainer .qc-scope select{text-overflow:ellipsis}',
     '#pageContainer .qc-pf-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 10px}',
     '#pageContainer .qc-pf-seg{display:inline-flex;border:1px solid #d1d8e0;border-radius:6px;overflow:hidden;margin-bottom:12px}',
     '#pageContainer .qc-pf-seg button{height:32px;padding:0 14px;border:0;background:#fff;font-size:12.5px;font-weight:600;color:#475569;cursor:pointer;font-family:inherit;border-right:1px solid #e6edf5}',
@@ -476,14 +494,18 @@
     var a = el.getAttribute('data-qc');
     if (a.indexOf('pf:') !== 0 && a.indexOf('filter:') !== 0) return;
 
-    /* 筛选条（统一读取） */
+    /* 筛选条（统一读取）
+       year/city/org 走 data-qcf（与其他质控页一致），ind/cancer 走 data-qcp。
+       历史遗留：qc-scope 的「质控指标 / 癌种」两个 select 一直没有监听，
+       点查询只读 data-qcf，改了指标或癌种会被静默丢弃；现一并读取。 */
     if (a.indexOf('filter:') === 0) {
-      if (a.indexOf('reset') > 0) { P.city = ''; P.org = ''; P.cancer = ''; P.year = '2026'; }
+      if (a.indexOf('reset') > 0) { P.city = ''; P.org = ''; P.cancer = ''; P.year = '2026'; P.ind = ''; }
       else {
         var box = el.closest('.qc-filter');
-        var reads = box ? box.querySelectorAll('[data-qcf]') : [];
+        var reads = box ? box.querySelectorAll('[data-qcf],[data-qcp]') : [];
         for (var k = 0; k < reads.length; k++) {
-          var kk = reads[k].getAttribute('data-qcf');
+          var attr = reads[k].hasAttribute('data-qcf') ? 'data-qcf' : 'data-qcp';
+          var kk = reads[k].getAttribute(attr);
           var vv = reads[k].value;
           P[kk] = vv === '' || vv === '全部' || vv === '全部机构' || vv === '全部癌种' ? '' : vv;
         }

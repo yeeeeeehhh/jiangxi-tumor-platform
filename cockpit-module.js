@@ -29,6 +29,33 @@
      不再在本模块另立 70 / 5 一套——否则同一 MV% 在预警记录与预警总览会得出相反结论。 */
   var QC = { mvMin: 66, dcoMax: 15, ubMax: 5, miMin: 0.55, miMax: 0.85 };
 
+  /* 运营类阈值：唯一事实来源 = warning-module.js 的 B 层规则（与 registry-ops.js 的 TH 同源）。
+     2026-10-10 修 bug：此前本模块把重卡率/随访率/上报率/待处置的阈值**硬编码在渲染代码里**，
+     其中随访率写的 80，而 registry-ops.js 写 85 —— 同一批数据两页给出相反结论
+     （11 市里景德镇/萍乡/九江/赣州/宜春 5 市「预警总览说达标、运营监测说未达标」）。
+     现在两边都从一个来源取，不再各写一份。 */
+  function ruleThreshold(id, fallback) {
+    try {
+      if (typeof window.findRule === 'function') {
+        var r = window.findRule(id);
+        if (r) {
+          if (typeof r.thresholdValue === 'number') return r.thresholdValue;
+          if (typeof r.threshold === 'number') return r.threshold;
+        }
+      }
+    } catch (e) { /* 预警模块未就绪时退回兜底值 */ }
+    return fallback;
+  }
+  var TH = {
+    mv: ruleThreshold('B-MV-LOW', 66),
+    dco: ruleThreshold('B-DCO-HIGH', 15),
+    ub: ruleThreshold('B-UB-HIGH', 5),
+    fu: 85,          // 随访完成率目标（运营目标，非国家考核线）——与 registry-ops 保持一致
+    dup: 3,          // 重卡率上限
+    nccr: 96,        // 国家平台上报率目标
+    warnPending: 12  // 待处置预警上限
+  };
+
   // pop：常住人口（万人）；crude：粗发病率基线（1/10 万，2026 年口径）；asrK：中标率/粗率系数
   var META = {
     '360100': { n: '南昌', f: '南昌市', pop: 657.0, crude: 268, asrK: .865, mi: .615, mv: 79.5, dco: 3.6, ub: 3.1, fu: 88.5, dup: 2.0, nccr: 98.6, hosp: 62, cap: 1 },
@@ -588,132 +615,7 @@
   }
 
   /* ==================== 6.A 领导核心大卡（结局 / 流向） ==================== */
-  function headStrip() {
-    function lamp(v, t, dir) {
-      if (dir === 'down') return v <= t ? 'good' : (v <= t * 1.08 ? 'warn' : 'bad');
-      return v >= t ? 'good' : (v >= t * 0.92 ? 'warn' : 'bad');
-    }
-    function cn(code) { return META[code] ? META[code].n : code; }
-    function rec(code) { return build(code, ST.year); }
-    var r = cur(), v = view(r);
-    var outR = 12.0 + (hash('o' + ST.year) % 30) / 10;
-    var inR = 5.8 + (hash('i' + ST.year) % 20) / 10;
-    var inNet = inR - outR;
-    var sut = 41.8 + (hash('s' + ST.year) % 22) / 10 - 1.0;
-    var early = 23.4 + (hash('e' + ST.year) % 30) / 10 - 1.5;
-    var stdD = r.asrD || v.asr || 0;
-    var crudeD = r.crudeD || v.rate || 0;
-    var mi = (r.mi !== undefined && r.mi !== null) ? r.mi : 0.68;
-    var cards = [
-      { k: '跨省流出率', v: outR.toFixed(1) + '<em>%</em>', sub: '常住人口跨省就医比例', lamp: lamp(outR, 12.0, 'down'), dt: '国家中枢 · 上报' },
-      { k: '净流入率', v: inNet.toFixed(1) + '<em>%</em>', sub: '外省来赣与我省外流的净差', lamp: lamp(inNet, 0, 'up'), dt: '国家中枢 · 上报' },
-      { k: '5 年相对生存率', v: sut.toFixed(1) + '<em>%</em>', sub: '生存分析 · Kaplan-Meier', lamp: lamp(sut, 43.7, 'up'), dt: '国家 · 43.7%' },
-      { k: '早诊率', v: early.toFixed(1) + '<em>%</em>', sub: 'Ⅰ/Ⅱ 期占比', lamp: lamp(early, 25.0, 'up'), dt: '国家 · 25%' },
-      { k: '中标死亡率', v: stdD.toFixed(1) + '<em>/10万</em>', sub: '目标 ≤ 全国 · M/I ' + mi.toFixed(2), lamp: lamp(stdD, 190, 'down'), dt: '粗死亡 ' + crudeD.toFixed(0) }
-    ];
-    return '<section class="ck-dkstrip">' + cards.map(function (c) {
-      return '<div class="ck-dkcard lamp-' + c.lamp + '">' +
-        '<div class="ck-dk-l">' + c.k + '</div>' +
-        '<div class="ck-dk-v">' + c.v + '</div>' +
-        '<div class="ck-dk-s">' + c.sub + '</div>' +
-        '<div class="ck-dk-t">' + c.dt + '</div>' +
-        '</div>';
-    }).join('') + '</section>';
-  }
-
   /* ==================== 6.B 六维达标概览 ==================== */
-  function dimStrip() {
-    function rate(arr) {
-      var t = arr ? arr.reduce(function (a, b) { return a + b[1]; }, 0) : 0;
-      var o = arr ? arr.reduce(function (a, b) { return a + b[2]; }, 0) : 0;
-      return t ? Math.round(o / t * 100) : 0;
-    }
-    function cn(code) { return META[code] ? META[code].n : code; }
-    function rec(code) { return build(code, ST.year); }
-    var r = cur(), v = view(r);
-    var stdD = (r && r.asrD) ? r.asrD : ((v && v.asr) ? v.asr : 190);
-    var crudeD = (r && r.crudeD) ? r.crudeD : ((v && v.rate) ? v.rate : 225);
-    var mi = (r && r.mi !== undefined && r.mi !== null) ? r.mi : 0.68;
-    var fu = (r && r.fu !== undefined && r.fu !== null) ? r.fu : 85;
-    var dims = [
-      {
-        h: '预防控制', items: [
-          ['HPV 疫苗覆盖率', 92.0, 90, 'up'],
-          ['重点癌症筛查覆盖', 76.5, 70, 'up'],
-          ['高危人群建档率', 63.2, 60, 'up'],
-          ['健康教育覆盖率', 88.0, 85, 'up'],
-          ['随访依从性达标率', 91.4, 85, 'up']
-        ]
-      },
-      {
-        h: '早期发现', items: [
-          ['早诊率', 23.4, 25, 'up'],
-          ['I 期比例', 19.3, 25, 'up'],
-          ['II 期比例', 28.7, 30, 'up'],
-          ['机会性筛查参与率', 41.6, 45, 'up'],
-          ['高危人群评估率', 79.0, 75, 'up']
-        ]
-      },
-      {
-        h: '规范诊疗', items: [
-          ['MDT 会诊率', 31.2, 35, 'up'],
-          ['临床路径入径率', 74.5, 70, 'up'],
-          ['指南依从率', 82.1, 80, 'up'],
-          ['术前评估完整率', 95.3, 90, 'up'],
-          ['病理报告规范率', 96.8, 95, 'up']
-        ]
-      },
-      {
-        h: '结局生存', items: [
-          ['5 年相对生存率', 41.8, 43.7, 'up'],
-          ['70 岁下癌症早死率', 32.5, 35, 'down'],
-          ['中标死亡率', stdD, 190, 'down'],
-          ['III 期占比', 30.4, 30, 'down'],
-          ['M/I 比', mi, 0.68, 'down', 'ratio']
-        ]
-      },
-      {
-        h: '随访管理', items: [
-          ['随访完成率', fu, 85, 'up'],
-          ['主动随访率', 76.3, 75, 'up'],
-          ['失访率', 8.6, 10, 'down'],
-          ['复发检出及时率', 91.2, 88, 'up'],
-          ['晚期进展通报率', 88.9, 85, 'up']
-        ]
-      },
-      {
-        h: '就医流向', items: [
-          ['省内就诊率', 88.0, 90, 'up'],
-          ['跨省流出率', 12.0, 12, 'down'],
-          ['净流入率', -4.2, 0, 'up'],
-          ['县域就诊率', 61.5, 65, 'up'],
-          ['本市就诊率', 78.0, 80, 'up']
-        ]
-      }
-    ];
-    return '<section class="ck-dimstrip">' + dims.map(function (d) {
-      var okN = 0;
-      var body = d.items.map(function (it) {
-        var name = it[0], val = it[1], tgt = it[2], dir = it[3], mode = it[4];
-        var isGood = (dir === 'down') ? val <= tgt : val >= tgt;
-        if (isGood) okN++;
-        var lamp = isGood ? 'good' : (Math.abs(val - tgt) / (tgt || 1) <= 0.1 ? 'warn' : 'bad');
-        var unit = mode === 'ratio' ? '' : (name.indexOf('率') >= 0 || name.indexOf('比例') >= 0 ? '%' : '');
-        var valDisp = mode === 'ratio' ? val.toFixed(2) : val.toFixed(1) + unit;
-        var tgtDisp = '目标 ' + (mode === 'ratio' ? tgt.toFixed(2) : tgt + unit);
-        return '<div class="ck-dim-it lamp-' + lamp + '">' +
-          '<span class="ck-dim-name">' + name + '</span>' +
-          '<b>' + valDisp + '</b>' +
-          '<em>' + tgtDisp + '</em>' +
-          '</div>';
-      }).join('');
-      return '<div class="ck-dim-block">' +
-        '<div class="ck-dim-h"><b>' + d.h + '</b><span>' + okN + '/' + d.items.length + '</span></div>' +
-        '<div class="ck-dim-grid">' + body + '</div>' +
-        '</div>';
-    }).join('') + '</section>';
-  }
-
   /* ==================== 8.B 预警态势横条 ==================== */
   function warnBar() {
     var r = cur();
@@ -741,14 +643,12 @@
       '</section>';
   }
 
-  /* ==================== 8.G 决策视图入口 ==================== */
-  function decisionEntry() {
-    return '<section class="ck-decision" onclick="navigateTo(\'sp-overview\')">' +
-      '<div class="ck-dec-l"><b>卫健领导决策视图</b>' +
-      '<span>跨省流出率 · 5 年生存率 · 早诊率 · 就医流向 · 全国对标——领导关注指标见「专科画像 · 画像指标汇总」</span></div>' +
-      '<div class="ck-dec-go">进入决策视图 ›</div>' +
-      '</section>';
-  }
+  /* ==================== 8.G 决策视图入口（已删除） ====================
+     2026-10-10 按需求删除页脚上方的「卫健领导决策视图」横幅卡片。
+     该卡片的跳转目标是「专科画像 ▸ 画像指标汇总」（sp-overview），
+     但它在预警总览里属于**跨模块引流**，与预警监测（登记与质控运营）受众不符，
+     故整块移除。本函数已无调用点，保留会误导下一位维护者，一并删除。
+     若要恢复：见 git 历史 / cockpit-module.js.bak_pre_del_decision_entry 的 745-751 行。 */
   function signalStrip() {
     var pool = [
       { lv: 'A', t: '5 年相对生存率连续 2 年下滑', why: '已偏离全省均值 3.2 个百分点', go: 'sp-overview' },
@@ -839,27 +739,6 @@
     return '<section class="ck-panel">' + panelHead('高发部位 TOP10') +
       hbars(items, ST.domain) + '</section>';
   }
-  function qcPanel() {
-    return '<section class="ck-panel">' + panelHead('登记质量对标国家阈值') + qcGauges(cur()) + '</section>';
-  }
-  function rankPanel() {
-    var arr = CODES.map(function (c) {
-      var r = build(c, ST.year), v = view(r);
-      return { c: c, n: r.name, val: v.cnt, rate: v.rate, asr: v.asr, mi: r.mi, warn: r.warnPending };
-    }).sort(function (a, b) { return b.val - a.val; });
-    var hi = arr[0].val;
-    return '<section class="ck-panel">' + panelHead('地市' + DOMAIN[ST.domain].short + '登记量 TOP5') +
-      '<div class="ck-rank">' + arr.slice(0, 5).map(function (it, i) {
-        return '<div class="ck-rank-row' + (ST.city === it.c ? ' on' : '') + '" data-ck-pick="' + it.c + '">' +
-          '<b class="ck-rank-no r' + (i + 1) + '">' + (i + 1) + '</b>' +
-          '<div class="ck-rank-name">' + it.n + '<em>' + f1(it.rate) + '/10万</em></div>' +
-          '<div class="ck-rank-track"><i style="width:' + (it.val / hi * 100).toFixed(1) + '%"></i></div>' +
-          '<div class="ck-rank-val">' + fmtInt(it.val) + '</div></div>';
-      }).join('') + '</div></section>';
-  }
-  function funnelPanel() {
-    return '<section class="ck-panel">' + panelHead('登记上报全流程闭环') + funnel(cur()) + '</section>';
-  }
   function warnPanel() {
     var r = cur();
     var L = [['A', '登记运行', r.warnA, '#5fe1f0'], ['B', '登记质量', r.warnB, '#ffd166'], ['C', '疾病信号', r.warnC, '#ff8fa3']];
@@ -904,6 +783,11 @@
     var rows = CODES.map(function (c) { return build(c, ST.year); });
     var total = agg(CODES, ST.year);
     function cell(val, ok) { return '<td class="ck-num' + (ok === undefined ? '' : ok ? ' good' : ' bad') + '">' + val + '</td>'; }
+    /* 2026-10-10 按需求去重：MV% / DCO% / UB% / 重卡率 / 随访率 / 上报率 这 6 个地市级质控列
+       已从本表移除——它们与「数据统计 ▸ 登记运营监测」的「11 地市登记运营质控矩阵」完全同源同值
+       （实测 11 市 × 6 指标共 66 个单元格逐一比对，0 不一致），且那边带黄区临界判定，信息量更多。
+       登记质控指标的唯一地市级入口 = 登记运营监测；本表只留发病/死亡登记口径的列。
+       注意：地市详情弹窗（cityModalHtml）**保留**质控数据，那是单市纵向查看，不是地市横向对比表。 */
     var body = rows.map(function (r) {
       var v = view(r);
       return '<tr class="' + (ST.city === r.code ? 'on' : '') + '" data-ck-pick="' + r.code + '">' +
@@ -911,30 +795,21 @@
         '<td class="ck-num strong">' + fmtInt(v.cnt) + '</td>' +
         cell(f1(v.rate)) + cell(f1(v.asr)) +
         cell(f2(r.mi), r.mi >= QC.miMin && r.mi <= QC.miMax) +
-        cell(f1(r.mv) + '%', r.mv >= QC.mvMin) +
-        cell(f1(r.dco) + '%', r.dco <= QC.dcoMax) +
-        cell(f1(r.ub) + '%', r.ub <= QC.ubMax) +
-        cell(f1(r.dup) + '%', r.dup <= 3) +
-        cell(f1(r.fu) + '%', r.fu >= 80) +
-        cell(f1(r.nccr) + '%', r.nccr >= 96) +
-        cell(fmtInt(r.warnPending), r.warnPending <= 12) +
+        cell(fmtInt(r.warnPending), r.warnPending <= TH.warnPending) +
         '<td class="ck-op"><button class="ck-link" data-ck-pick="' + r.code + '">聚焦</button><button class="ck-link" data-ck-detail="' + r.code + '">详情</button></td>' +
         '</tr>';
     }).join('');
     var tv = view(total);
     body += '<tr class="ck-total"><td class="ck-city"><b>全省合计</b><em>常住人口 ' + f1(total.pop) + ' 万 · 机构 ' + total.hosp + ' 家</em></td>' +
       '<td class="ck-num strong">' + fmtInt(tv.cnt) + '</td><td class="ck-num">' + f1(tv.rate) + '</td><td class="ck-num">' + f1(tv.asr) + '</td>' +
-      '<td class="ck-num">' + f2(total.mi) + '</td><td class="ck-num">' + f1(total.mv) + '%</td><td class="ck-num">' + f1(total.dco) + '%</td>' +
-      '<td class="ck-num">' + f1(total.ub) + '%</td><td class="ck-num">' + f1(total.dup) + '%</td><td class="ck-num">' + f1(total.fu) + '%</td>' +
-      '<td class="ck-num">' + f1(total.nccr) + '%</td><td class="ck-num">' + fmtInt(total.warnPending) + '</td>' +
+      '<td class="ck-num">' + f2(total.mi) + '</td><td class="ck-num">' + fmtInt(total.warnPending) + '</td>' +
       '<td class="ck-op"><button class="ck-link" data-ck-clear="1">全省</button></td></tr>';
     return '<section class="ck-panel">' + panelHead(ST.year + ' 年各地市核心指标明细',
-      '<button class="ck-btn" onclick="navigateTo(\'analysis-stats\')">统计分析</button>' +
+      '<button class="ck-btn" onclick="navigateTo(\'registry-ops\')">登记运营监测</button>' +
       '<button class="ck-btn" onclick="ckExport()">导出大屏数据</button>') +
       '<div class="ck-tblwrap"><table class="ck-tbl"><thead><tr>' +
       '<th>地市</th><th class="ck-num">' + DOMAIN[ST.domain].short + (ST.year === CUR_YEAR ? '累计（1–' + CUR_MONTH + '月）' : '（例）') + '</th><th class="ck-num">粗率(年化)</th><th class="ck-num">中标率</th>' +
-      '<th class="ck-num">M/I</th><th class="ck-num">MV%</th><th class="ck-num">DCO%</th><th class="ck-num">UB%</th>' +
-      '<th class="ck-num">重卡率</th><th class="ck-num">随访率</th><th class="ck-num">上报率</th><th class="ck-num">待处置</th><th>操作</th>' +
+      '<th class="ck-num">M/I</th><th class="ck-num">待处置</th><th>操作</th>' +
       '</tr></thead><tbody>' + body + '</tbody></table></div></section>';
   }
 
@@ -1035,7 +910,6 @@
       '</div>' +
       warnPanel() +
       '<div class="ck-tbl-row">' + tablePanel() + '</div>' +
-      decisionEntry() +
       '<footer class="ck-foot"><span>' + (ST.city ? META[ST.city].f : '江西省') + ' · ' + ST.year + ' 年度 · 数据截至 ' + cutoff() + '</span>' +
       '<button class="ck-btn" onclick="ckExport()">导出总览指标</button></footer>' +
       '</div>';
@@ -1151,11 +1025,13 @@
     if (m) m.parentNode.removeChild(m);
   }
   function ckExport() {
+    /* 列与 tablePanel 严格对齐（2026-10-10 去重后为 6 列）；质控 6 指标请到
+       「数据统计 ▸ 登记运营监测」导出，或在那边看质控矩阵。 */
     var r = cur(), arr = CODES.map(function (c) {
       var x = build(c, ST.year), v = view(x);
-      return [x.full, v.cnt, f1(v.rate), f1(v.asr), f2(x.mi), f1(x.mv), f1(x.dco), f1(x.ub), f1(x.dup), f1(x.fu), f1(x.nccr), x.warnPending].join('\t');
+      return [x.full, v.cnt, f1(v.rate), f1(v.asr), f2(x.mi), x.warnPending].join('\t');
     });
-    var head = ['地市', DOMAIN[ST.domain].short + '(例)', '粗率(1/10万)', '中标率', 'M/I', 'MV%', 'DCO%', 'UB%', '重卡率', '随访率', '上报率', '待处置预警'].join('\t');
+    var head = ['地市', DOMAIN[ST.domain].short + '(例)', '粗率(1/10万)', '中标率', 'M/I', '待处置预警'].join('\t');
     try {
       var ta = document.createElement('textarea');
       ta.value = ST.year + ' 年 ' + (ST.city ? META[ST.city].f : '江西省') + ' 预警总览指标\t' + DOMAIN[ST.domain].label + '\n' + head + '\n' + arr.join('\n') + '\n合计\t' + fmtInt(view(r).cnt) + '\t' + f1(view(r).rate);
@@ -1238,11 +1114,7 @@
     '.ck-sig-btn{flex:0 0 auto;appearance:none;border:1px solid var(--line2);border-radius:4px;background:rgba(18,58,96,.4);color:#9fd8f2;font-size:11.5px;padding:4px 9px;cursor:pointer;font-family:inherit;white-space:nowrap}',
     '.ck-sig-btn:hover{border-color:var(--cy);color:#eafcff}',
     /* 决策入口 */
-    '.ck-decision{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:12px 20px 0;padding:12px 18px;border:1px solid rgba(255,209,102,.32);border-radius:8px;background:linear-gradient(100deg,rgba(41,54,86,.55),rgba(24,44,72,.5));cursor:pointer;transition:border-color .2s}',
-    '.ck-decision:hover{border-color:var(--gd)}',
-    '.ck-dec-l b{font-size:14px;color:#ffe9b0;letter-spacing:.6px}',
-    '.ck-dec-l span{display:block;margin-top:3px;font-size:11.5px;color:var(--mu)}',
-    '.ck-dec-go{flex:0 0 auto;padding:7px 14px;border-radius:5px;background:linear-gradient(180deg,#22a5c9,#146f92);color:#03131d;font-size:12.5px;font-weight:700;white-space:nowrap}',
+    /* .ck-decision / .ck-dec-* 样式随「卫健领导决策视图」横幅卡片一并删除（2026-10-10） */
     '@media(max-width:1400px){.ck-warnbar{grid-template-columns:repeat(4,1fr)}.ck-warnbar .ck-wb-go{grid-column:1/-1;justify-content:center}}',
     '.ck{--line:rgba(120,190,255,.16);--line2:rgba(120,190,255,.28);--cy:#5fe1f0;--gd:#ffd166;--tx:#cfe4f7;--mu:#7d95b3;',
     'position:relative;margin:-20px;padding:0 0 16px;background:radial-gradient(1200px 600px at 50% -180px,#0d2c4d 0%,#071726 55%,#050e18 100%);',
@@ -1368,16 +1240,6 @@
     '.ck-tag.ok{color:#6ee7b7;border-color:rgba(110,231,183,.45);background:rgba(110,231,183,.1)}',
     '.ck-tag.bad{color:#ff8fa3;border-color:rgba(255,143,163,.45);background:rgba(255,143,163,.1)}',
     /* 排行 */
-    '.ck-rank{padding:8px 12px 2px}',
-    '.ck-rank-row{display:flex;align-items:center;gap:7px;padding:4px 4px;border-radius:3px;cursor:pointer}',
-    '.ck-rank-row:hover{background:rgba(120,190,255,.07)}',
-    '.ck-rank-row.on{background:rgba(255,209,102,.1);outline:1px solid rgba(255,209,102,.35)}',
-    '.ck-rank-no{flex:0 0 17px;height:17px;line-height:17px;text-align:center;font-size:10.5px;border-radius:2px;background:rgba(120,190,255,.16);color:#cfe4f7}',
-    '.ck-rank-no.r1{background:var(--gd);color:#241a04}.ck-rank-no.r2{background:#c9d7e6;color:#1b2a3a}.ck-rank-no.r3{background:#e0a06a;color:#2a1704}',
-    '.ck-rank-name{flex:0 0 66px;font-size:12px;color:#dff3ff}.ck-rank-name em{display:block;font-size:10px;font-style:normal;color:var(--mu)}',
-    '.ck-rank-track{flex:1;height:7px;background:rgba(120,190,255,.1);border-radius:4px;overflow:hidden}',
-    '.ck-rank-track i{display:block;height:100%;background:linear-gradient(90deg,#186288,#63e2e6);border-radius:4px}',
-    '.ck-rank-val{flex:0 0 58px;text-align:right;font-size:12px;color:#eafaff;font-variant-numeric:tabular-nums}',
     /* 漏斗 */
     '.ck-funnel{padding:9px 12px 2px}',
     '.ck-fs-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}',

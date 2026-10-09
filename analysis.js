@@ -2047,6 +2047,9 @@
      （登记运营监测，2026-09-29 从「预警监测」迁来，实现见 registry-ops.js）。
      2026-09-29 按评审意见去掉「业务监测 / 报表」两个分组标题，改为平铺。 */
   var analysisChildren = [
+    /* 「预警总览」2026-10-10 从「预警监测」迁来，排第一位（用户要求）。
+       页面实现仍在 cockpit-module.js，本模块只负责菜单归属。 */
+    { id: 'cockpit', label: '预警总览' },
     { id: 'analysis-stats', label: '统计分析' },
     { id: 'analysis-progress', label: '报卡工作量' },
     { id: 'analysis-quality', label: '报卡质量监测' },

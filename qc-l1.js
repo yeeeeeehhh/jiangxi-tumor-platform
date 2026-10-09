@@ -403,7 +403,9 @@
 
     /* 被质控数据：本指标实际纳入计算的数据范围 */
     var vc = S.verdictCounts(i.id, { orgIds: fs, cancerIds: cs });
-    var list = S.cases(i.id, { orgIds: fs, cancerIds: cs, verdict: ST.verdict, limit: 100000 }).rows;
+    /* 只要当前这一页要显示的条数：完整证据链按页构造，
+       total / 页签计数来自病例索引，数字口径不变。 */
+    var list = S.cases(i.id, { orgIds: fs, cancerIds: cs, verdict: ST.verdict, limit: ST.listPage * ST.per }).rows;
     var sl = U.slice(list, ST.listPage, ST.per);
     var tabs = [['ALL', '全部数据'], ['ok', '符合'], ['bad', '不符合'], ['miss', '数据缺失'], ['abn', '数据异常']];
     var tabHtml = '<div class="qc-tabs">' + tabs.map(function (t) {
@@ -640,10 +642,10 @@
          保证页面永远有内容可看，而不是抛出空态。 */
       return S.cases(ST.ind, { limit: 1 }).rows[0] || S.cases(inds()[0].id, { limit: 1 }).rows[0] || null;
     }
-    var indId = parts[0], orgId = parts[1], cancerId = parts[2];
-    var all = S.cases(indId, { orgIds: [orgId], cancerIds: [cancerId], limit: 100000 }).rows;
-    for (var i = 0; i < all.length; i++) if (all[i].key === ST.caseKey) return all[i];
-    return all[0] || S.cases(indId, { limit: 1 }).rows[0] || null;
+    var indId = parts[0];
+    /* 病例键里已经带着 指标|机构|癌种|序号，直接定位这一条；
+       旧写法是先把整个范围的上万条病例全构造出来再线性找。 */
+    return S.caseByKey(indId, ST.caseKey) || S.cases(indId, { limit: 1 }).rows[0] || null;
   }
 
   function renderMCD() {

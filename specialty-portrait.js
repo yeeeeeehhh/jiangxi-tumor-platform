@@ -81,6 +81,7 @@ spStyle.textContent=`
 .sp-domain-tab:hover{color:var(--color-primary)}
 .sp-domain-tab.active{color:var(--color-primary);border-bottom-color:var(--color-primary)}
 .sp-2col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.sp-3col{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 .spr-count{font-size:var(--fs-xs);color:var(--color-text-muted);font-weight:400;margin-left:8px}
 /* ---- 配置质控补充组件 ---- */
 .sp-progress{height:8px;border-radius:999px;background:var(--color-bg-subtle);overflow:hidden}
@@ -194,7 +195,7 @@ tr.sp-lab-abn>td{color:var(--color-danger-fg)}
 .sp-fn-gap-loss.ok{color:var(--color-text-muted)}
 @media(max-width:900px){.sp-fn-node{min-width:104px}.sp-fn-gap{flex-basis:34px}}
 @media(max-width:1280px){.sp-stat-row{grid-template-columns:repeat(3,1fr)}.sp-ov-grid{grid-template-columns:1fr}}
-@media(max-width:900px){.sp-2col{grid-template-columns:1fr}.sp-profile-blocks{grid-template-columns:1fr}.sp-patient-strip{grid-template-columns:auto 1fr}}
+@media(max-width:900px){.sp-2col{grid-template-columns:1fr}.sp-3col{grid-template-columns:1fr}.sp-profile-blocks{grid-template-columns:1fr}.sp-patient-strip{grid-template-columns:auto 1fr}}
 @media(max-width:768px){.sp-stat-row{grid-template-columns:repeat(2,1fr)}.sp-filter-bar{flex-direction:column}.sp-filter-bar .form-group,.sp-filter-bar .form-group.wide{width:100%}.sp-filter-actions{margin-left:0;width:100%}.sp-mini-grid{grid-template-columns:repeat(2,1fr)}}
 `;
 document.head.appendChild(spStyle);
@@ -810,6 +811,30 @@ function spHeat(colLabels,rows,baseColors){
   }).join('');
   return '<div class="sp-heat-wrap"><table class="sp-heat"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
 }
+/* 各瘤种分期构成 100% 堆叠条：每行一个瘤种，段=各分期占比，色=分期色。
+   小样本（N≈13）下比热力色深可读，直接指向「哪个瘤种发现得晚」。
+   rows:[{label,n,cells:[各分期例数]}]，stages 列名，colors 分期色 */
+function spSiteStageStack(rows,stages,colors){
+  if(!rows.length)return spChartEmpty();
+  var maxN=Math.max.apply(null,rows.map(function(r){return r.n}))||1;
+  /* 顶部图例 */
+  var legend='<div class="sp-ss-legend">'+stages.map(function(s,i){
+    return '<span class="sp-ss-leg"><i style="background:'+colors[i]+'"></i>'+esc(s)+'</span>';
+  }).join('')+'</div>';
+  var body=rows.map(function(r){
+    var segs=r.cells.map(function(c,i){
+      if(!c)return '';
+      var pct=c/r.n*100;
+      return '<div class="sp-ss-seg" style="width:'+pct.toFixed(2)+'%;background:'+colors[i]+'" title="'+esc(r.label)+' · '+esc(stages[i])+'：'+c+' 例（'+Math.round(pct)+'%）">'+(pct>=16?c:'')+'</div>';
+    }).join('');
+    /* 条宽按例数占最大瘤种比例，保留「谁人多」的量级感，最低 30% 以保证短瘤种可读 */
+    var barW=Math.max(30,Math.round(r.n/maxN*100));
+    return '<div class="sp-ss-row"><div class="sp-ss-lab" title="'+esc(r.label)+'">'+esc(r.label)+'</div>'+
+      '<div class="sp-ss-track" style="width:'+barW+'%">'+segs+'</div>'+
+      '<div class="sp-ss-num">'+r.n+' 例</div></div>';
+  }).join('');
+  return '<div class="sp-ss-wrap">'+legend+'<div class="sp-ss-body">'+body+'</div></div>';
+}
 /* 地市综合对照：患者数 + 可选指标内嵌条形，城市名可下钻
    keys 指定要显示的列（early/late/cross/fu），缺省=全部；用于按链条段裁剪，避免早诊指标与段②重复 */
 function spCityCompare(cityRows,keys){
@@ -925,6 +950,41 @@ var spChartStyle=document.createElement('style');spChartStyle.textContent=`
 .sp-vbar-lab{font-size:var(--fs-xs);color:var(--color-text-muted);margin-top:8px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sp-stack-bar{display:flex;height:30px;border-radius:8px;overflow:hidden;background:var(--color-bg-subtle)}
 .sp-stack-seg{display:flex;align-items:center;justify-content:center;color:#fff;font-size:var(--fs-xs);font-weight:700;font-family:var(--font-num);min-width:0}
+/* 各瘤种分期构成堆叠条 */
+.sp-ss-wrap{padding:6px 2px 2px}
+.sp-ss-legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px dashed var(--color-border)}
+.sp-ss-leg{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-xs);color:var(--color-text-body)}
+.sp-ss-leg i{width:10px;height:10px;border-radius:3px;flex:0 0 10px}
+.sp-ss-body{display:flex;flex-direction:column;gap:11px}
+.sp-ss-row{display:flex;align-items:center;gap:10px}
+.sp-ss-lab{width:84px;flex:0 0 84px;text-align:right;font-size:var(--fs-sm);color:var(--color-text-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp-ss-track{display:flex;height:22px;border-radius:6px;overflow:hidden;background:var(--color-bg-subtle);min-width:0}
+.sp-ss-seg{display:flex;align-items:center;justify-content:center;color:#fff;font-size:var(--fs-2xs);font-weight:700;font-family:var(--font-num);min-width:0}
+.sp-ss-num{width:52px;flex:0 0 52px;font-size:var(--fs-xs);font-weight:700;color:var(--color-text-title);font-family:var(--font-num);white-space:nowrap}
+/* 需关注提示（画像速览短板，轻量导航 chip；非正式告警） */
+.sp-notes-wrap{margin-top:16px;padding:14px 16px;background:var(--color-bg-subtle);border:1px solid var(--color-border);border-radius:10px}
+.sp-notes-head{display:flex;align-items:baseline;gap:10px;margin-bottom:11px}
+.sp-notes-head>span:first-child{font-size:var(--fs-sm);font-weight:700;color:var(--color-text-title)}
+.sp-notes-sub{font-size:var(--fs-2xs);color:var(--color-text-muted)}
+.sp-notes{display:flex;flex-wrap:wrap;gap:9px}
+.sp-note{display:inline-flex;align-items:center;gap:9px;padding:7px 11px;border-radius:8px;border:1px solid var(--color-border);background:var(--surface);cursor:pointer;font-size:var(--fs-xs);line-height:1.4;transition:border-color .15s,box-shadow .15s,transform .15s}
+.sp-note:hover{box-shadow:0 2px 8px rgba(15,23,42,.1);transform:translateY(-1px)}
+.sp-note-seg{flex:0 0 auto;font-weight:700;padding:1px 7px;border-radius:5px;font-size:var(--fs-2xs)}
+.sp-note-msg{color:var(--color-text-body)}
+.sp-note-go{flex:0 0 auto;color:var(--color-primary);font-weight:600}
+.sp-note-danger{border-color:rgba(239,68,68,.4)}
+.sp-note-danger .sp-note-seg{background:rgba(239,68,68,.12);color:#dc2626}
+.sp-note-caution{border-color:rgba(245,158,11,.4)}
+.sp-note-caution .sp-note-seg{background:rgba(245,158,11,.14);color:#b45309}
+.sp-notes-clean{margin-top:16px;display:flex;align-items:center;gap:9px;padding:13px 16px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);border-radius:10px;font-size:var(--fs-sm);color:#047857}
+.sp-notes-clean .sp-notes-ico{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#10b981;color:#fff;font-size:12px;font-weight:700}
+/* 指标明细表（可读 + 可复制 + 可导出） */
+.sp-mt-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.sp-mt-title{font-size:var(--fs-body);font-weight:700;color:var(--color-text-title)}
+.sp-mt-sub{margin-top:4px;font-size:var(--fs-xs);color:var(--color-text-muted)}
+.sp-mt-actions{display:flex;gap:8px;flex:0 0 auto}
+.sp-mt-table td.sp-mt-note{color:var(--color-text-muted);font-size:var(--fs-xs)}
+.sp-mt-table tr.sp-mt-grouprow td{background:var(--color-bg-subtle);font-weight:700;color:var(--color-text-title);font-size:var(--fs-sm);letter-spacing:.02em}
 `;
 document.head.appendChild(spChartStyle);
 
@@ -1019,7 +1079,7 @@ var _spDomain='burden';
 var SP_DOMAINS=[
  {key:'burden',label:'人群与病情构成'},{key:'early',label:'早期发现'},
  {key:'treat',label:'规范诊疗'},{key:'outcome',label:'生存结局'},
- {key:'equity',label:'资源与公平'}
+ {key:'equity',label:'资源与公平'},{key:'metrics',label:'指标明细表'}
 ];
 
 function spScopeBar(){
@@ -1156,8 +1216,6 @@ function renderOverview(){
     return '<button class="sp-domain-tab'+(_spDomain===d.key?' active':'')+'" onclick="window._spSetDomain(\''+d.key+'\')">'+d.label+'</button>';
   }).join('')+'</div>';
   h+='<div id="spDomainBody">'+spDomainPanel(list,agg,siteRows,cityRows)+'</div>';
-  /* 重点问题：按五段归类，「查看」跳对应段 + 带筛选回跳患者列表 */
-  h+=spIssuesPanel(list,siteRows,cityRows);
   return h;
 }
 
@@ -1199,14 +1257,13 @@ function spDomainPanel(list,agg,siteRows,cityRows){
     var regDist={};list.forEach(function(e){var k=(e.region||'不详');regDist[k]=(regDist[k]||0)+1});
     var regItems=Object.keys(regDist).map(function(k){return {k:k,v:regDist[k]}}).sort(function(a,b){return b.v-a.v});
     function pctOf(n){return list.length?Math.round(n/list.length*100):0}
-    /* 瘤种×分期热力：色深=例数 */
-    var heatCols=SP_STAGE_GROUPS.concat(['合计']);
-    var heatColors=SP_STAGE_GROUPS.map(function(s){return SP_STAGE_COLORS[s]}).concat(['#64748b']);
-    var heatRows=siteRows.map(function(r){
+    /* 各瘤种分期构成：100% 堆叠条（替代原色深热力矩阵，小样本下更可读） */
+    var ssStages=SP_STAGE_GROUPS;
+    var ssColors=SP_STAGE_GROUPS.map(function(s){return SP_STAGE_COLORS[s]});
+    var ssRows=siteRows.map(function(r){
       var cells=SP_STAGE_GROUPS.map(function(s){return r.list.filter(function(e){return e.stage===s}).length});
-      cells.push(r.n);
-      return {label:r.site+'癌',cells:cells};
-    });
+      return {label:r.site+'癌',n:r.n,cells:cells};
+    }).sort(function(a,b){return b.n-a.n});
     /* 段①两块：人群特征（是谁）+ 病情构成（得什么病、什么程度）。
        年龄性别以金字塔为主，顶部小指标不重复画同一信息。 */
     return spGpHead('A','人群特征','在管患者的人口学与社会属性 · 共病情况')+
@@ -1214,16 +1271,16 @@ function spDomainPanel(list,agg,siteRows,cityRows){
         spMini('在管患者',agg.total+'<em> 例</em>')+spMini('男 / 女',agg.male+' / '+agg.female)+
         spMini('中位年龄',medAge+'<em> 岁</em>')+
         spMini('有基础疾病（既往史）',baseDis+'<em> 例</em> · '+pctOf(baseDis)+'<em>%</em>')+
-      '</div><div class="sp-2col" style="margin-bottom:8px">'+
+      '</div><div class="sp-2col" style="margin-bottom:16px">'+
         spPanel('年龄结构（男/女）','<div class="sp-hbars">'+ageCap+ageRows+'</div>')+
-        spPanel('人群基础构成','<div class="sp-sec">医保类型</div>'+spHBar(insItems.slice().sort(function(a,b){return b.v-a.v}))+
-          '<div class="sp-sec">居住地分布（区/县）</div>'+spHBar(regItems,false,true))+
+        spPanel('居住地分布（区/县）',spHBar(regItems,false,true))+
       '</div>'+
-      spGpHead('B','病情构成','瘤谱 · 分期谱 · 瘤种×分期交叉')+
-      '<div class="sp-2col" style="margin-bottom:16px">'+
+      spGpHead('B','病情构成','医保 · 瘤谱 · 分期谱 · 各瘤种分期构成')+
+      '<div class="sp-3col" style="margin-bottom:16px">'+
+        spPanel('医保类型构成',spPie(insItems.slice().sort(function(a,b){return b.v-a.v}).map(function(x){return {k:x.k,v:x.v}})))+
         spPanel('瘤谱构成（病种）',spPie(siteRows.map(function(r){return {k:r.site+'癌',v:r.n}})))+
         spPanel('分期谱构成',spPie(spStageItems(list)))+
-      '</div>'+spPanel('瘤种 × 分期热力矩阵（色深=例数，–为 0 例）',spHeat(heatCols,heatRows,heatColors));
+      '</div>'+spPanel('各瘤种分期构成（条宽=例数，段=各分期占比）',spSiteStageStack(ssRows,ssStages,ssColors));
   }
 
   /* ========== 段② 早期发现：发现得早不早（筛查 → 早诊 → 地区/病种差异） ==========
@@ -1368,31 +1425,159 @@ function spDomainPanel(list,agg,siteRows,cityRows){
       spPanel('不同治疗模式费用','<div class="sp-table-wrap"><table class="data-table" style="min-width:520px"><thead><tr><th class="code">治疗方式</th><th class="num">次/年均费用</th><th class="txt">口径</th><th class="num">应用患者</th></tr></thead><tbody>'+modeCostRows+'</tbody></table></div>');
   }
 
+  /* ========== 段⑥ 指标明细表：全部聚合指标按维度列成可读、可复制、可导出的表 ==========
+     解决「画像指标汇总数据不好导出」：图形页读趋势，本页读数字 + 一键导 CSV */
+  if(_spDomain==='metrics'){
+    return spMetricsTable(list,agg,siteRows,cityRows);
+  }
+
   return '';
 }
 
-/* ---- 重点问题（自动扫描画像数据，问题类型对齐防治链条五段） ---- */
+/* ---- 指标明细表：把总览/五段的全部聚合指标汇成分组表格，支持整表 CSV 导出 ----
+   数据与各图形页同源（spAgg/spSiteRows/spCityRows），一处口径，确保图表与导出一致 ---- */
+function spMetricsGroups(list,agg,siteRows,cityRows){
+  function pct(v){return v+'%';}
+  function medDaysNum(from,to){
+    var ds=list.map(function(e){var a=new Date(e[from]),b=new Date(e[to]);if(isNaN(a)||isNaN(b))return null;return (b-a)/86400000;}).filter(function(x){return x!=null&&x>=0}).sort(function(x,y){return x-y});
+    if(!ds.length)return '—';
+    var m=ds.length%2?ds[(ds.length-1)/2]:(ds[ds.length/2-1]+ds[ds.length/2])/2;
+    return Math.round(m)+' 天';
+  }
+  var pathN=list.filter(function(e){return !!spMorphCode(e)}).length;
+  var scrN=list.filter(function(e){return (e.screenType||'').trim()}).length;
+  /* 概览型指标分组：{group, rows:[[指标, 数值, 口径/说明]]} */
+  var groups=[
+    {group:'一、人群与病情构成',rows:[
+      ['在管患者数',agg.total+' 例','当前范围在管全部患者'],
+      ['男 / 女',agg.male+' / '+agg.female+' 例','性别构成'],
+      ['病种数',siteRows.length+' 种','覆盖瘤种数'],
+      ['覆盖设区市',cityRows.filter(function(r){return r.n>0}).length+' 个','有在管患者的地市数']
+    ]},
+    {group:'二、早期发现',rows:[
+      ['筛查参与率',pct(agg.total?Math.round(scrN/agg.total*100):0),'有筛查记录 / 在管'],
+      ['早诊率（Ⅰ+Ⅱ期）',pct(agg.earlyRate),'早期例数 / 在管'],
+      ['晚期占比（Ⅳ期）',pct(agg.lateRate),'Ⅳ期例数 / 在管'],
+      ['首诊远处转移率',pct(agg.distantRate),'首诊即远处转移 / 在管']
+    ]},
+    {group:'三、规范诊疗',rows:[
+      ['病理确诊率',pct(agg.total?Math.round(pathN/agg.total*100):0),'有形态学编码 / 在管'],
+      ['MDT 覆盖率',pct(agg.mdtRate),'经 MDT 评估 / 在管'],
+      ['综合治疗率（≥2 种）',pct(agg.comboRate),'治疗方式≥2 种 / 在管'],
+      ['转诊率',pct(agg.referralRate),'有转诊轨迹 / 在管'],
+      ['姑息 / 安宁占比',pct(agg.pallRate),'姑息或安宁疗护 / 在管'],
+      ['手术治疗率',pct(agg.surgeryRate),'含手术 / 在管'],
+      ['放疗率',pct(agg.radioRate),'含放疗 / 在管'],
+      ['化疗率',pct(agg.chemoRate),'含化疗 / 在管'],
+      ['靶向治疗率',pct(agg.targetRate),'含靶向 / 在管'],
+      ['免疫治疗率',pct(agg.immunoRate),'含免疫 / 在管'],
+      ['内分泌治疗率',pct(agg.endocrineRate),'含内分泌 / 在管'],
+      ['介入治疗率',pct(agg.interRate),'含介入 / 在管'],
+      ['首诊 → 确诊（中位）',medDaysNum('firstDate','diagDate'),'中位天数'],
+      ['确诊 → 首治（中位）',medDaysNum('diagDate','tTreat'),'中位天数']
+    ]},
+    {group:'四、生存结局',rows:[
+      ['随访覆盖率',pct(agg.fuRate),'非失访 / 在管'],
+      ['失访率',pct(agg.lostRate),'失访 / 在管'],
+      ['复发率',pct(agg.recurRate),'有复发记录 / 在管'],
+      ['远处转移率',pct(agg.metaRate),'随访期远处转移 / 在管'],
+      ['疾病进展率',pct(agg.progRate),'疾病进展 / 在管'],
+      ['死亡率',pct(agg.deathRate),'死亡 / 在管'],
+      ['观察生存率',pct(agg.effSurvival),'存活 /（在管−失访）'],
+      ['在管存活',agg.alive+' 例','当前存活在管']
+    ]},
+    {group:'五、资源与公平',rows:[
+      ['县域内就诊率',pct(agg.localTreatRate),'本地就诊 / 在管'],
+      ['跨市就医率',pct(agg.crossCityRate),'跨市就诊 / 在管'],
+      ['跨省就医率',pct(agg.crossProvRate),'跨省就诊 / 在管']
+    ]}
+  ];
+  /* 分病种明细 */
+  var siteDetail={group:'六、分病种指标（例数 / 早诊率 / 晚期占比 / 随访覆盖率 / 观察生存率）',cols:['病种','患者数','早诊率','晚期占比','随访覆盖率','观察生存率'],matrix:
+    siteRows.slice().sort(function(a,b){return b.n-a.n}).map(function(r){
+      return [r.site+'癌',r.n,r.agg.earlyRate+'%',r.agg.lateRate+'%',r.agg.fuRate+'%',r.agg.effSurvival+'%'];
+    })};
+  /* 分地市明细 */
+  var cityDetail={group:'七、分地市指标（例数 / 早诊率 / 晚期占比 / 跨市就医率 / 随访覆盖率）',cols:['地市','患者数','早诊率','晚期占比','跨市就医率','随访覆盖率'],matrix:
+    cityRows.filter(function(r){return r.n>0}).sort(function(a,b){return b.n-a.n}).map(function(r){
+      return [r.city,r.n,r.agg.earlyRate+'%',r.agg.lateRate+'%',r.agg.crossCityRate+'%',r.agg.fuRate+'%'];
+    })};
+  return {groups:groups,siteDetail:siteDetail,cityDetail:cityDetail};
+}
+function spMetricsTable(list,agg,siteRows,cityRows){
+  var m=spMetricsGroups(list,agg,siteRows,cityRows);
+  /* 概览型分组：三列（指标 / 数值 / 口径） */
+  var ovBody=m.groups.map(function(g){
+    var head='<tr class="sp-mt-grouprow"><td colspan="3">'+esc(g.group)+'</td></tr>';
+    var rows=g.rows.map(function(r){
+      return '<tr><td class="txt">'+esc(r[0])+'</td><td class="num">'+esc(String(r[1]))+'</td><td class="txt sp-mt-note">'+esc(r[2])+'</td></tr>';
+    }).join('');
+    return head+rows;
+  }).join('');
+  var ovTable='<div class="sp-table-wrap"><table class="data-table sp-mt-table" style="min-width:560px"><thead><tr><th class="txt">指标</th><th class="num">数值</th><th class="txt">口径 / 说明</th></tr></thead><tbody>'+ovBody+'</tbody></table></div>';
+  /* 明细矩阵表 */
+  function matrixTable(d){
+    var head='<tr>'+d.cols.map(function(c,i){return '<th class="'+(i===0?'txt':'num')+'">'+esc(c)+'</th>'}).join('')+'</tr>';
+    var body=d.matrix.length?d.matrix.map(function(row){
+      return '<tr>'+row.map(function(c,i){return '<td class="'+(i===0?'txt':'num')+'">'+esc(String(c))+'</td>'}).join('')+'</tr>';
+    }).join(''):'<tr><td colspan="'+d.cols.length+'" style="text-align:center;color:var(--color-text-muted)">暂无数据</td></tr>';
+    return '<div class="sp-table-wrap"><table class="data-table sp-mt-table" style="min-width:560px"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
+  }
+  var scopeTxt=esc(spScopeLabel());
+  var head='<div class="sp-mt-head"><div><div class="sp-mt-title">画像指标明细表</div>'+
+    '<div class="sp-mt-sub">当前范围：<b>'+scopeTxt+'</b> · 共 '+agg.total+' 例在管 · 与各图形页同源实时聚合，口径一致</div></div>'+
+    '<div class="sp-mt-actions"><button class="btn btn-primary btn-sm" onclick="window._spExportMetricsCSV()">导出 CSV</button>'+
+    '<button class="btn btn-outline btn-sm" onclick="window._spCopyMetrics()">复制全部</button></div></div>';
+  return head+
+    spPanel('汇总指标',ovTable)+
+    '<div style="height:16px"></div>'+spPanel(m.siteDetail.group,matrixTable(m.siteDetail))+
+    '<div style="height:16px"></div>'+spPanel(m.cityDetail.group,matrixTable(m.cityDetail));
+}
+/* 把指标明细整理成「分组 / 指标 / 数值 / 口径」的扁平行，供 CSV 与复制共用 */
+function spMetricsFlatRows(){
+  var list=spScopeEvents(_spScope);
+  var m=spMetricsGroups(list,spAgg(list),spSiteRows(list),spCityRows(list));
+  var out=[['分组','指标','数值','口径/说明']];
+  m.groups.forEach(function(g){
+    g.rows.forEach(function(r){out.push([g.group,r[0],String(r[1]),r[2]]);});
+  });
+  /* 明细矩阵：分组名 + 列头 + 每行拼成「列=值」描述，保留结构又能单元格化 */
+  [m.siteDetail,m.cityDetail].forEach(function(d){
+    out.push([d.group,'','','']);
+    out.push(['','','', d.cols.join(' / ')]);
+    d.matrix.forEach(function(row){
+      out.push([d.group,String(row[0]),row.slice(1).join(' / '),d.cols.slice(1).join(' / ')]);
+    });
+  });
+  return out;
+}
+
 function spIssuesPanel(list,siteRows,cityRows){
   var gAgg=spAgg(list);
   var issues=[];
   /* 段② 早期发现：地区晚期偏高 */
   cityRows.filter(function(r){return r.n>0&&r.agg.lateRate>=50}).forEach(function(r){
-    issues.push({level:'高',cls:'badge-danger',type:'早期发现',msg:esc(r.city)+'晚期（Ⅳ期）占比 '+r.agg.lateRate+'%，高于全省平均（'+gAgg.lateRate+'%），早诊筛查需加强',act:'early',city:r.city,site:''});
+    issues.push({tone:'danger',type:'早期发现',msg:esc(r.city)+'晚期（Ⅳ期）占比 '+r.agg.lateRate+'%，高于全省平均（'+gAgg.lateRate+'%）',act:'early',city:r.city,site:''});
   });
   /* 段⑤ 资源与公平：病种外流偏高 */
   siteRows.filter(function(r){var out=r.list.filter(spOutCity).length;return r.n>=2&&out/r.n>=0.5}).forEach(function(r){
-    issues.push({level:'中',cls:'badge-caution',type:'资源与公平',msg:esc(r.site)+'癌患者跨市就医率 '+Math.round(r.list.filter(spOutCity).length/r.n*100)+'%，本地承接能力不足',act:'equity',city:'',site:r.site});
+    issues.push({tone:'caution',type:'资源与公平',msg:esc(r.site)+'癌跨市就医率 '+Math.round(r.list.filter(spOutCity).length/r.n*100)+'%',act:'equity',city:'',site:r.site});
   });
   /* 段④ 生存结局：机构失访 */
   var hospLost={};list.filter(function(e){return e.lostFollow}).forEach(function(e){hospLost[e.hospital]=(hospLost[e.hospital]||0)+1});
   Object.keys(hospLost).forEach(function(hp){
-    issues.push({level:'中',cls:'badge-caution',type:'生存结局',msg:esc(hp)+'在管患者中出现 '+hospLost[hp]+' 例失访，随访管理需加强',act:'outcome',city:'',site:''});
+    issues.push({tone:'caution',type:'生存结局',msg:esc(hp)+' '+hospLost[hp]+' 例失访',act:'outcome',city:'',site:''});
   });
-  if(!issues.length)issues.push({level:'低',cls:'badge-success',type:'人群与病情构成',msg:'当前范围内未扫描出需关注的画像异常',act:'burden',city:'',site:''});
-  var rows=issues.map(function(it,i){
-    return '<tr><td>'+badge(it.level,it.cls)+'</td><td>'+esc(it.type)+'</td><td class="txt" style="white-space:normal">'+it.msg+'</td><td class="ops"><button class="btn btn-outline btn-xs" onclick="window._spGoIssue(\''+it.act+'\',\''+esc(it.city)+'\',\''+esc(it.site)+'\')">查看</button></td></tr>';
+  if(!issues.length){
+    return '<div class="sp-notes sp-notes-clean"><span class="sp-notes-ico">✓</span>当前范围（'+esc(spScopeLabel())+'）画像各环节未见明显短板</div>';
+  }
+  var chips=issues.map(function(it){
+    return '<button class="sp-note sp-note-'+it.tone+'" onclick="window._spGoIssue(\''+it.act+'\',\''+esc(it.city)+'\',\''+esc(it.site)+'\')" title="跳转到「'+esc(it.type)+'」并带筛选查看患者">'+
+      '<span class="sp-note-seg">'+esc(it.type)+'</span>'+
+      '<span class="sp-note-msg">'+it.msg+'</span>'+
+      '<span class="sp-note-go">查看 ›</span></button>';
   }).join('');
-  return '<div class="panel" style="margin-top:16px"><div class="panel-header"><span>重点问题（自动扫描 · 按防治链条归类）</span></div><div class="panel-body"><div class="sp-table-wrap"><table class="data-table" style="min-width:620px"><thead><tr><th style="width:72px">程度</th><th style="width:110px">链条段</th><th class="txt">问题</th><th style="width:80px">操作</th></tr></thead><tbody>'+rows+'</tbody></table></div></div></div>';
+  return '<div class="sp-notes-wrap"><div class="sp-notes-head"><span>需关注提示</span><span class="sp-notes-sub">画像速览短板 · 点击跳对应环节查看患者（正式阈值告警见「预警监测」模块）</span></div><div class="sp-notes">'+chips+'</div></div>';
 }
 
 
@@ -1996,7 +2181,27 @@ var SP_ELEM_CHECK={stage:'R001',site_path:'R002',stagebasis:'R004',modes:'R006',
 function spCheck(id){return SP_CHECKS.filter(function(c){return c.id===id})[0];}
 /* 画像版本：含变更明细 */
 var SP_VERSIONS=[
- {v:'V12.4',time:'2026-10-01 10:30',by:'管理员',desc:'段①板块划分重构：按「人群特征 + 病情构成」两块组织，「疾病负担」改名「人群与病情构成」',cur:true,changes:[
+ {v:'V12.7',time:'2026-10-02 17:30',by:'管理员',desc:'新增「指标明细表」Tab：全部聚合指标列成可读表格，支持整表 CSV 导出与一键复制到 Excel',cur:true,changes:[
+  '问题：群体画像各图形页（饼/条/漏斗/热力）利于读趋势，但数字散落在图里，难以整体导出或粘进报表',
+  '五段 Tab 后新增第 6 个「指标明细表」Tab：把总览 KPI 带 + 五段的全部聚合指标按「人群/发现/诊疗/结局/公平」五组列成「指标 / 数值 / 口径」三列表',
+  '追加分病种明细表（例数/早诊率/晚期占比/随访覆盖率/观察生存率）与分地市明细表（例数/早诊率/晚期占比/跨市就医率/随访覆盖率）',
+  '顶部提供「导出 CSV」（带 UTF-8 BOM，Excel 直接打开不乱码；文件名含当前范围与日期）与「复制全部」（Tab 分隔，可直接粘进 Excel）两个动作',
+  '当前地市/瘤种筛选同步作用于本表与导出——导出的永远是当前范围的口径；表格与导出数据同源 spAgg/spSiteRows/spCityRows，确保图表与导出完全一致',
+  '新增 spMetricsGroups（数据）/spMetricsTable（渲染）/spMetricsFlatRows（扁平化供导出复制共用）与 _spExportMetricsCSV/_spCopyMetrics 两个窗口方法；全部由既有字段聚合，不新增采集']},
+ {v:'V12.6',time:'2026-10-02 16:30',by:'管理员',desc:'段①版式微调：年龄结构+居住地并排一行，医保/瘤谱/分期三饼并排一行，需关注提示下线',cur:false,changes:[
+  'A 人群特征：年龄结构（男/女）与居住地分布（区/县）并排一行（sp-2col），医保从本块移出',
+  'B 病情构成：医保类型构成、瘤谱构成、分期谱构成三饼并排一行（新增 sp-3col 栅格），其下为各瘤种分期构成堆叠条',
+  '移除页面底部「需关注提示」整块（spIssuesPanel 不再在 renderOverview 调用），短板导航交由各 Tab 自身与预警模块承担',
+  '新增 .sp-3col 栅格样式（含 ≤900px 单列降级）；全部由既有字段实时聚合，不新增采集']},
+ {v:'V12.5',time:'2026-10-02 15:00',by:'管理员',desc:'段①信息升级：热力矩阵→各瘤种分期堆叠条、医保独立成饼、重点问题降格为需关注提示',cur:false,changes:[
+  '问题1：「瘤种×分期热力矩阵」在 N≈13 队列下 max 例数仅 2-3，色深拉不出梯度、28 格大半为「–」，是视觉噪声且与上方两饼信息重叠',
+  '替换为「各瘤种分期构成」100% 堆叠条（spSiteStageStack）：每行一瘤种、条宽=例数量级、段=各分期占比，小样本下可读，直接指向「哪个瘤种发现得晚」，与段②早诊形成因果线',
+  '问题2：「人群基础构成」原把医保+居住地塞一个面板。医保类别少，拆出独立做饼（与瘤谱饼/分期饼视觉节奏统一）；居住地长尾，保留横向条单独成行；年龄金字塔与医保饼并排',
+  '保持「A 人群特征 / B 病情构成」语义分块不变——医保饼仍在 A 块、不与 B 块两饼并排，避免打破分块语义',
+  '问题3：「重点问题」原为类告警表格，与预警模块（地市级聚合阈值+工单流转）性质重叠但口径更薄弱。降格为轻量「需关注提示」chip 组，明确定位为「画像速览短板·导航」，点击仍带筛选跳对应 Tab 并回跳患者列表（个体闭环是预警给不了的独有价值）',
+  '提示文案标注「正式阈值告警见预警监测模块」，两边名实分离；无短板时显示绿色「各环节未见明显短板」',
+  '全部由患者画像既有字段实时聚合，不新增采集字段；spHeat 构件保留（段④分期×结局仍在用）']},
+ {v:'V12.4',time:'2026-10-01 10:30',by:'管理员',desc:'段①板块划分重构：按「人群特征 + 病情构成」两块组织，「疾病负担」改名「人群与病情构成」',cur:false,changes:[
   '问题：段①按「手上有什么字段」平铺，把人群特征、病情构成、临床状态、就诊途径四类性质不同的内容塞进同一个叫「疾病负担」的抽屉，且顶部 4 个小指标与年龄金字塔重复讲年龄性别',
   '段①内部明确分两块：A「人群特征」（在管规模/年龄性别/中位年龄/共病 + 医保/居住地）B「病情构成」（瘤谱/分期谱/瘤种×分期热力矩阵）',
   '顶部小指标 8→4：移除与年龄金字塔重复的「主力年龄段」「65 岁及以上」等，只留在管患者、男/女、中位年龄、有基础疾病',
@@ -2540,6 +2745,35 @@ function spDownload(name,text){
   var blob=new Blob(['\ufeff'+text],{type:'text/plain;charset=utf-8'});
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();
   setTimeout(function(){URL.revokeObjectURL(a.href)},4000);
+}
+/* ---- 指标明细表导出 ---- */
+function spCsvCell(v){
+  v=String(v==null?'':v);
+  return /[",\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;
+}
+window._spExportMetricsCSV=function(){
+  var rows=spMetricsFlatRows();
+  var csv=rows.map(function(r){return r.map(spCsvCell).join(',')}).join('\r\n');
+  var blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  var scope=spScopeLabel().replace(/\s·\s/g,'_').replace(/\s+/g,'');
+  a.download='画像指标明细_'+scope+'_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href)},4000);
+  if(typeof toast==='function')toast('指标明细 CSV 已导出（当前范围：'+spScopeLabel()+'）');
+};
+window._spCopyMetrics=function(){
+  var rows=spMetricsFlatRows();
+  /* Tab 分隔，便于直接粘进 Excel */
+  var tsv=rows.map(function(r){return r.join('\t')}).join('\n');
+  function done(){if(typeof toast==='function')toast('指标明细已复制到剪贴板，可直接粘贴到 Excel');}
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(tsv).then(done,function(){spCopyFallback(tsv);done();});
+  }else{spCopyFallback(tsv);done();}
+};
+function spCopyFallback(text){
+  var ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.left='-9999px';
+  document.body.appendChild(ta);ta.select();try{document.execCommand('copy')}catch(e){}document.body.removeChild(ta);
 }
 /* ---- 版本与归档 ---- */
 window._spVerView=function(v){

@@ -20,25 +20,6 @@
     { id: 'qc-p6', label: '术中淋巴结清扫规范率' }
   ];
 
-  /* 各组的达标线口径与对应国考指标（来源：《三级公立医院绩效考核操作手册》肿瘤专业）。
-     适用癌种不在此硬编，统一从 qcSpine 的 L1_IND[].cancers 取，保证与绩效页同源。 */
-  var GROUP_META = {
-    'qc-p1': { line: '≥ 86.4%', ind: 'NQ-01' },
-    'qc-p2': { line: '≥ 91.2%', ind: 'NQ-02' },
-    'qc-p3': { line: '≥ 88.7%', ind: 'NQ-03' },
-    'qc-p4': { line: '≤ 0.42%', ind: 'NQ-04' },
-    'qc-p5': { line: '≥ 79.5%', ind: 'NQ-05' },
-    'qc-p6': { line: '≥ 84.1%', ind: 'NQ-06' }
-  };
-  /* 组 → 适用癌种（读数据脊柱，避免两处口径漂移） */
-  function cancersOfGroup(catId) {
-    var S = window.qcSpine;
-    var meta = GROUP_META[catId] || {};
-    var i = S && S.ind && meta.ind ? S.ind(meta.ind) : null;
-    if (!i) return '—';
-    return i.cancers.map(function (c) { return S.cancer(c).name; }).join('、') + '（' + i.cancers.length + ' 个）';
-  }
-
   /* ==================== 校验模板 & 字段字典 ==================== */
   var TEMPLATES = [
     { id: 'required', label: '字段必填', needValue: false },
@@ -427,18 +408,13 @@
     } else if (OWNED_IDS.indexOf(pageId) >= 0) {
       state.category = pageId;
     }
-    var catLabel = '';
-    CATEGORIES.forEach(function (c) { if (c.id === state.category) catLabel = c.label; });
-    var meta = GROUP_META[state.category] || {};
     var catTabs = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px">' + CATEGORIES.map(function (c) {
       var on = c.id === state.category;
       return '<button class="btn ' + (on ? 'btn-primary' : 'btn-ghost') + ' btn-sm" onclick="qcrSwitchCat(\'' + c.id + '\')">' + esc(c.label) + '</button>';
     }).join('') + '</div>';
     return '<div class="qcr-page">' +
       '<div class="qcr-main">' +
-      '<div class="qcr-head"><div class="qcr-title">质控规则配置 · ' + esc(catLabel) + '</div><div><button class="btn btn-primary btn-sm" onclick="qcrAdd()">新增规则</button></div></div>' +
-      '<div style="font-size:12.5px;color:#64748b;margin:-6px 0 12px">对应绩效指标达标线 <b>' + esc(meta.line || '—') + '</b>（来源：《三级公立医院绩效考核操作手册》肿瘤专业）。<br>' +
-      '<b>适用癌种</b>：' + esc(cancersOfGroup(state.category)) + ' —— 本组规则对该范围内癌种统一生效；达标线作用于指标合计率，分癌种结果作短板定位。命中数取自质控问题中心。</div>' +
+      '<div class="qcr-head"><div class="qcr-title">质控规则配置</div><div><button class="btn btn-primary btn-sm" onclick="qcrAdd()">新增规则</button></div></div>' +
       catTabs +
       renderTable(state.category) +
       '</div></div>';

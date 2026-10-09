@@ -608,6 +608,44 @@ button,input,select,textarea{font-family:inherit}
   .common-detail-content p{margin:0 0 12px}
   .common-detail-content ol,.common-detail-content ul{padding-left:24px;margin:0 0 12px}
   .common-detail-content li{margin-bottom:6px}
+.entry-back-bar{display:flex;align-items:center;gap:12px;margin:0 0 16px;min-height:32px;position:relative;z-index:1}
+.entry-back-bar span{font-size:12px;color:#8295a7;line-height:1.6}
+.entry-back-bar+.entry-alert{margin-top:0}
+.sf-warn{display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;border-radius:50%;background:#f0b429;color:#fff;font-size:9px;font-weight:700;line-height:1;flex:0 0 auto}.sf-caret{font-size:10px;transition:transform .15s ease;display:inline-block}.sf-conflict.open .sf-caret{transform:rotate(180deg)}.sf-conflict{position:absolute;left:0;right:0;top:100%;z-index:60;margin-top:2px}.sf-conflict:not(.open){display:none}.sf-panel{border:1px solid #fcd34d;background:#fffdf5;border-radius:5px;padding:8px 10px;box-shadow:0 8px 20px rgba(15,23,42,.14)}.sf-panel-hint{font-size:12px;color:#92400e;margin-bottom:6px;line-height:1.5}.sf-option{display:flex;align-items:center;gap:8px;padding:5px 7px;border-radius:4px;cursor:pointer;font-size:13px;color:#334155}.sf-option:hover{background:#fef3c7}.sf-option.is-picked{background:#ecfdf5;box-shadow:inset 0 0 0 1px #6ee7b7}.sf-option input[type=radio]{margin:0;flex:0 0 auto;align-self:flex-start;margin-top:2px}.sf-option-main{display:flex;flex-direction:column;gap:2px;min-width:0}.sf-option-value{font-weight:600;color:#1f2937}.sf-option-src{font-size:11px;color:#8a6d3b;font-weight:400;line-height:1.45;word-break:break-all}.sf-option-from{margin-left:auto;font-size:11px;color:#94a3b8;flex:0 0 auto;align-self:flex-start;margin-top:2px}.sf-option-keep .sf-option-value{color:#475569;font-weight:500}.sf-option-keep .sf-option-value{color:#475569;font-weight:500}.form-group.has-source-conflict{position:relative}.form-group.has-source-conflict>label .sf-badge{display:inline-flex;align-items:center;gap:4px;margin-left:6px;background:#fef3c7;color:#a16207;border:1px solid #fcd34d;border-radius:3px;padding:1px 6px;font-size:11px;font-weight:600;line-height:1.5;cursor:pointer;vertical-align:1px;user-select:none}.form-group.has-source-conflict>label .sf-badge:hover{background:#fde68a;border-color:#d97706}.form-group.has-source-conflict.sf-open>label .sf-badge{background:#fde68a;border-color:#d97706;color:#92400e}
+    /* ---------- 报告卡登记：录入方式选择屏 ---------- */
+    .entry-choice{display:block}
+    .entry-choice-head{margin-bottom:16px}
+    .entry-choice-title{font-size:var(--fs-h2);font-weight:var(--fw-semibold);color:var(--color-text-title)}
+    .entry-choice-sub{font-size:var(--fs-sm);color:var(--color-text-muted);margin-top:6px}
+    .entry-choice-grid{display:grid;grid-template-columns:1fr;gap:12px}
+    .entry-choice-card{display:flex;align-items:center;gap:15px;padding:18px 20px;background:var(--color-bg-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-xs);cursor:pointer;transition:border-color .16s,box-shadow .16s,background .16s;font:inherit;text-align:left;width:100%}
+    .entry-choice-card:hover{border-color:var(--color-primary-400);box-shadow:var(--shadow-sm);background:var(--color-primary-50)}
+    .entry-choice-card:focus-visible{outline:2px solid var(--color-primary-500);outline-offset:2px}
+    .entry-choice-icon{display:flex;align-items:center;justify-content:center;width:48px;height:48px;flex:0 0 48px;border-radius:12px;background:var(--color-primary-50);color:var(--color-primary-600)}
+    .entry-choice-card:hover .entry-choice-icon{background:var(--color-primary-100);color:var(--color-primary-700)}
+    .entry-choice-icon svg{display:block;width:22px;height:22px}
+    .entry-choice-text{min-width:0}
+    .entry-choice-name{display:block;font-size:var(--fs-body);font-weight:var(--fw-semibold);color:var(--color-text-title)}
+    .entry-choice-desc{display:block;font-size:var(--fs-xs);color:var(--color-text-muted);margin-top:4px;line-height:1.5}
+    .entry-choice-go{margin-left:auto;flex:0 0 auto;color:var(--color-text-placeholder);font-size:18px;line-height:1}
+    .entry-choice-card:hover .entry-choice-go{color:var(--color-primary-600)}
+    /* ---------- 报告卡登记：填写 / 上传说明 ---------- */
+    .entry-guide{margin-top:16px;background:var(--color-bg-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-xs);overflow:hidden}
+    .entry-guide-head{padding:13px 18px;border-bottom:1px solid var(--color-border);font-size:var(--fs-sm);font-weight:var(--fw-semibold);color:var(--color-text-title)}
+    .entry-guide-body{padding:6px 18px 16px}
+    .entry-guide-row{display:grid;grid-template-columns:96px minmax(0,1fr);gap:14px;padding:11px 0}
+    .entry-guide-row+.entry-guide-row{border-top:1px solid var(--color-gray-100)}
+    .entry-guide-label{font-size:var(--fs-sm);font-weight:var(--fw-semibold);color:var(--color-text-title)}
+    .entry-guide-list{margin:0;padding-left:0;list-style:none}
+    .entry-guide-list li{position:relative;padding-left:16px;font-size:var(--fs-xs);line-height:2;color:var(--color-text-body)}
+    .entry-guide-list li:before{content:counter(eg);counter-increment:eg;position:absolute;left:0;color:var(--color-text-placeholder)}
+    .entry-guide-list{counter-reset:eg}
+    .entry-guide-list a{color:var(--color-primary-600);text-decoration:none;cursor:pointer}
+    .entry-guide-list a:hover{text-decoration:underline}
+    .entry-guide-list .req{color:var(--color-danger-fg)}
+    .entry-guide-list .opt{color:var(--color-primary-600)}
+    .entry-guide-list .caution{color:var(--color-caution-fg)}
+    @media(max-width:760px){.entry-guide-row{grid-template-columns:1fr;gap:6px}}
 </style>
 </head>
 <body>
@@ -643,9 +681,12 @@ button,input,select,textarea{font-family:inherit}
 <script>
 const menuData=[
   {id:'dashboard',label:'首页',icon:'●'},
-  {id:'collection',label:'报告卡管理',icon:'●',children:[/* 报告卡录入入口暂时隐藏（页面保留，只能经「批量登记」collection-batch 及首页快捷入口进入；报告卡列表 / 上报数据管理已移除「+ 添加」「批量添加」按钮） */{id:'collection-batch',label:'批量登记'},{id:'datamgmt-card',label:'报告卡列表'},{id:'datamgmt-source',label:'上报数据管理'},{id:'collection-death',label:'作废卡管理'},{id:'quality-dup-card',label:'报卡查重'}]},
-  {id:'followup',label:'随访与死亡信息管理',icon:'●',children:[{id:'followup-tasks',label:'随访任务列表'},{id:'followup',label:'随访信息管理'},{id:'followup-cycle',label:'随访周期管理'},{id:'death-info',label:'死亡信息列表'}]},
+  {id:'collection',label:'报告卡管理',icon:'●',children:[/* 报告卡录入入口暂时隐藏（页面保留，只能经「批量登记」collection-batch 及首页快捷入口进入；报告卡列表 / 上报数据管理已移除「+ 添加」「批量添加」按钮） */{id:'collection-batch',label:'批量登记'},{id:'datamgmt-card',label:'报告卡列表'},{id:'datamgmt-card-migrate',label:'报告卡迁移'},{id:'datamgmt-source',label:'上报数据管理'},{id:'collection-death',label:'作废卡管理'},{id:'quality-dup-card',label:'报卡查重'}]},
+  {id:'followup',label:'随访结局管理',icon:'●',children:[{id:'followup-tasks',label:'随访任务列表'},{id:'followup',label:'随访信息管理'},{id:'followup-cycle',label:'随访周期管理'},{id:'death-info',label:'死亡信息列表'}]},
   {id:'analysis',label:'数据统计',icon:'●',children:[
+    /* 「预警总览」原挂「预警监测」下，2026-10-10 按需求迁到「数据统计」并排第一位。
+       注意：本清单会被 analysis.js 加载时整体覆盖，两处必须同时改（见 analysis.js 注释）。 */
+    {id:'cockpit',label:'预警总览'},
     {id:'analysis-stats',label:'统计分析'},
     {id:'analysis-progress',label:'报卡工作量'},
     {id:'analysis-quality',label:'报卡质量监测'},
@@ -663,7 +704,7 @@ const menuData=[
   {id:'system',label:'系统管理',icon:'●',children:[{id:'master',label:'基础数据',icon:'●',children:[{id:'master-hospital',label:'机构管理'},{id:'master-pop',label:'人口基数管理'},{id:'master-address',label:'行政区划管理'}]},{id:'dict',label:'字典管理',icon:'●',children:[{id:'dict-common',label:'常规字典'},{id:'dict-anatomy',label:'解剖部位'},{id:'dict-pathology',label:'病理类型'},{id:'dict-logic',label:'逻辑字典'},{id:'dict-condition',label:'自定义条件'}]},{id:'dup-params',label:'查重参数配置',icon:'●',children:[{id:'quality-dup-param',label:'自动查重参数'},{id:'quality-dup-field',label:'合并字段参数'}]},{id:'system-users',label:'用户管理'},{id:'system-online',label:'在线用户'},{id:'system-roles',label:'角色与权限管理'},{id:'system-menu',label:'菜单栏管理'},{id:'system-logs',label:'操作日志'},{id:'system-config',label:'系统配置'},{id:'audit',label:'系统审计',icon:'●',children:[{id:'audit-card',label:'报卡记录日志'},{id:'audit-address',label:'空间地址日志'},{id:'audit-followup',label:'随访记录日志'},{id:'audit-system',label:'系统操作日志'}]}]},
   {id:'annual-report',label:'年报',icon:'●',children:[{id:'ar-tasks',label:'年报任务'},{id:'ar-workbench',label:'编制工作台'},{id:'ar-templates',label:'模板管理'},{id:'ar-archives',label:'归档记录'}]},
   {id:'monitor',label:'预警监测',icon:'●',children:[
-    {id:'cockpit',label:'预警总览'},
+    /* 「预警总览」已迁到「数据统计」下（2026-10-10），本菜单不再保留该入口。 */
     {id:'warning-records',label:'预警记录'},
     {id:'mon-model',label:'预警模型构建',children:[
       {id:'mdl-features',label:'多源特征数据仓库'},
@@ -675,7 +716,7 @@ const menuData=[
     {id:'warning-tickets',label:'处置工单'},
     {id:'warning-rules',label:'预警规则配置'}
   ]},
-  {id:'health-consult',label:'健康咨询',icon:'💬',children:[{id:'consult-sessions',label:'咨询会话管理'},{id:'consult-analysis',label:'咨询问题分析'},{id:'community-management',label:'互动社区管理'},{id:'consult-education',label:'科普内容配置'}]},
+  {id:'health-consult',label:'科普与培训',icon:'📚',children:[{id:'kb-sci',label:'科普内容'},{id:'kb-train',label:'培训内容'},{id:'kb-mine',label:'我的内容'},{id:'kb-dict',label:'分类维护'}]},
   {id:'specialty-portrait',label:'专科画像',icon:'●',children:[{id:'sp-patients',label:'患者专科画像'},{id:'sp-overview',label:'画像指标汇总'},{id:'sp-config',label:'画像配置'},{id:'cap-group',label:'肿瘤专科能力分析',children:[{id:'cap-catalog',label:'肿瘤诊疗技术目录'},{id:'cap-records',label:'机构技术开展记录'},{id:'cap-quality',label:'医疗质量核心指标明细'},{id:'cap-complex',label:'疑难病例收治特征库'}]}]},
   {id:'quality-control',label:'质控管理',icon:'●',children:[
     {id:'qc-performance',label:'六大绩效质控'},
@@ -700,7 +741,7 @@ function updateBreadcrumb(id,extra){const path=findPath(menuData,id)||[];let htm
 function navigateTo(id){if(id==='publish-news'){newsState.mode='list';newsState.editingId=null}if(id==='survey-list'){surveyState.mode='list';surveyState.editingId=null}if(id==='master-address'){addressState.mode='list';addressState.editingId=null;addressState.path=[]}if(id==='master-hospital'){hospitalState.mode='list';hospitalState.editingId=null;hospitalState.page=1;hospitalCascaderState.filter.region=[regionData[0]]}if(id==='master-pop'){popState.mode='list';popState.editingId=null;popState.editingStandardId=null;popState.editingDeathId=null;popState.popType='region';popState.page=1;popState.filters={year:'',gender:''};popCascaderState.filter.region=[regionData[0]]}
 if(id==='notice-center'){noticeCenterState.selectedId=null;setActiveMenu(id);document.getElementById('pageContainer').innerHTML=renderNoticeCenter();autoSizeSelects();const noticeMain=document.getElementById('mainContent');if(noticeMain)noticeMain.scrollTop=0;updateBreadcrumb(id);return}
 if(id==='notice-center-detail'){const noticeItem=newsData.find(r=>r.id===noticeCenterState.selectedId);if(noticeItem){setActiveMenu('notice-center');document.getElementById('pageContainer').innerHTML=renderNoticeCenter();autoSizeSelects();const noticeDetailMain=document.getElementById('mainContent');if(noticeDetailMain)noticeDetailMain.scrollTop=0;updateBreadcrumb('notice-center',noticeItem.title);return}}
-setActiveMenu(id);renderPage(id);updateBreadcrumb(id)}
+if(id==='collection-batch'&&!window.entryFlowKeepPicked)window.entryFlowPicked=false;else if(id!=='collection-batch')window.entryFlowKeepPicked=false;setActiveMenu(id);renderPage(id);updateBreadcrumb(id)}
 function toast(msg,type='success'){const box=document.getElementById('toastContainer');const el=document.createElement('div');el.className='toast '+(type==='error'?'error':'');el.textContent=msg;box.appendChild(el);setTimeout(()=>el.remove(),2400)}
 function showConfirm(title,message,onConfirm){const modal=document.createElement('div');modal.className='news-confirm-modal';modal.innerHTML='<div class="news-confirm-box"><div class="news-confirm-title">'+title+'</div><div class="news-confirm-body">'+message+'</div><div class="news-confirm-actions"><button class="btn btn-ghost" id="__confirmCancel">取消</button><button class="btn btn-danger" id="__confirmOk">确认</button></div></div>';document.body.appendChild(modal);modal.querySelector('#__confirmCancel').onclick=function(){modal.remove()};modal.querySelector('#__confirmOk').onclick=function(){modal.remove();if(onConfirm)onConfirm()};modal.addEventListener('click',e=>{if(e.target===modal)modal.remove()})}
 function handleLogout(){navigateTo('dashboard');toast('已返回首页')}
@@ -756,7 +797,7 @@ const wbAdminStats=[
 /* 咨询栏 · 操作指引（纯静态文案，点击锚到对应模块，不改动业务数据） */
 const wbGuideList=[
   {q:'退回后如何整改？',a:'报告卡管理 › 退回整改',go:'collection-batch'},
-  {q:'随访逾期如何处理？',a:'随访与死亡信息管理 › 随访任务列表',go:'followup-tasks'},
+  {q:'随访逾期如何处理？',a:'随访结局管理 › 随访任务列表',go:'followup-tasks'},
   {q:'如何补充材料？',a:'报告卡登记 › 补充材料',go:'collection-batch'},
   {q:'上报门禁失败排查',a:'国家肿瘤数据上报 › 上报记录',go:'nccr-records'}
 ];
@@ -1317,7 +1358,7 @@ window.reportCardListData=cardRows;
 window.reportCardFollowup={'JX-2026-000091':{dlc:'2026-06-15',state:'存活',deadplace:'-',caus:'-',causicd:'-',deathda:'-',deadDoct:'-'},'JX-2026-000092':{dlc:'2026-06-15',state:'存活',deadplace:'-',caus:'-',causicd:'-',deathda:'-',deadDoct:'-'},'JX-2026-000093':{dlc:'2026-06-15',state:'存活',deadplace:'-',caus:'-',causicd:'-',deathda:'-',deadDoct:'-'},'JX-2026-000102':{dlc:'2026-06-14',state:'存活',deadplace:'-',caus:'-',causicd:'-',deathda:'-',deadDoct:'-'},'JX-2026-000118':{dlc:'2026-06-12',state:'存活',deadplace:'-',caus:'-',causicd:'-',deathda:'-',deadDoct:'-'},'JX-2026-000125':{dlc:'2026-06-10',state:'死亡',deadplace:'医院',caus:'肝恶性肿瘤',causicd:'C22.0',deathda:'2026-06-28',deadDoct:'吴医生'},'JX-2026-000133':{dlc:'2026-06-08',state:'存活',deadplace:'-',caus:'-',causicd:'-',deathda:'-',deadDoct:'-'}};
 const sourceFilter=window.cardSourceFilter||'';const cardTypeFilter=window.cardTypeFilter||'';const allRows=cardRows.filter(r=>{const linked=typeof sourceDataRecords!=='undefined'&&sourceDataRecords.some(s=>s.linkedCards.includes(r.id));const cardType=cardTypeText(r);return (!sourceFilter||(sourceFilter==='linked'?linked:!linked))&&(!cardTypeFilter||cardType===cardTypeFilter)}).map(r=>'<tr>'+cardCells(r)+opBtns(r)+'</tr>').join('');
 const dataTable='<div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:12px"><div class="table-wrap"><table class="data-table" style="margin:0;min-width:1900px"><thead>'+headRow(false)+'</thead><tbody>'+allRows+'</tbody></table></div></div>';
-return '<div class="page-toolbar"><div class="toolbar-actions"><button class="btn btn-outline btn-sm" onclick="toast(\'导出Excel中...\')">导出Excel</button></div></div>'+
+return '<div class="page-toolbar"><div class="toolbar-actions"><button class="btn btn-import btn-sm" onclick="navigateTo(\'datamgmt-card-migrate\')">批量迁移</button><button class="btn btn-outline btn-sm" onclick="toast(\'导出Excel中...\')">导出Excel</button></div></div>'+
 '<div class="panel"><div class="panel-body"><div class="filter-toolbar"><div class="form-group region-filter" style="min-width:200px"><label>行政区划</label>'+renderRegionCascader()+'</div><div class="form-group"><label>报告卡类型</label><select onchange="window.cardTypeFilter=this.value;renderPage(\'datamgmt-card\')"><option value="">全部</option><option '+(cardTypeFilter==='多原发卡'?'selected':'')+'>多原发卡</option></select></div><div class="form-group"><label>源数据状态</label><select onchange="window.cardSourceFilter=this.value;renderPage(\'datamgmt-card\')"><option value="">全部</option><option value="linked" '+(sourceFilter==='linked'?'selected':'')+'>已关联</option><option value="unlinked" '+(sourceFilter==='unlinked'?'selected':'')+'>未关联</option></select></div><div class="form-group"><label>日期类型</label><select><option>报告日期</option><option>登记日期</option><option>确诊日期</option></select></div><div class="form-group date-group"><label>日期区间</label>'+renderDateRangePicker('dr_card','2026-06-01','2026-06-30')+'</div><div class="form-group search-group"><label>检索内容</label><input type="text" placeholder="登记编号 / 姓名 / 身份证号"></div><div class="filter-actions"><button class="btn btn-ghost btn-sm" onclick="window.cardSourceFilter=\'\';window.cardTypeFilter=\'\';renderPage(\'datamgmt-card\')">重置</button></div></div>'+
 '<div style="margin-bottom:8px;color:#667085;font-size:13px">共 '+cardRows.length+' 张报告卡</div>'+
 dataTable+
@@ -1337,20 +1378,34 @@ function renderDuplicateManagement(){const dupRows=[{group:'DUP-RC-202606-001',n
 '<div class="void-pagination"><span class="void-pagination-info">共4组疑似重卡，第1/1页</span><div class="void-pagination-controls"><button onclick="toast(\'已是第一页\')">‹</button><input type="text" value="1" readonly><button onclick="toast(\'已是最后一页\')">›</button></div></div>'}
 
 const regionData=[{label:'江西省',value:'江西省',children:[{label:'南昌市',value:'南昌市',children:[{label:'东湖区',value:'东湖区',children:[{label:'董家窑街道',value:'董家窑街道',children:[{label:'民巷社区',value:'民巷社区'},{label:'环湖路社区',value:'环湖路社区'},{label:'贤士湖社区',value:'贤士湖社区'}]},{label:'百花洲街道',value:'百花洲街道',children:[{label:'苏圃社区',value:'苏圃社区'},{label:'彭家桥社区',value:'彭家桥社区'}]},{label:'滕王阁街道',value:'滕王阁街道',children:[{label:'秋水社区',value:'秋水社区'},{label:'榕门路社区',value:'榕门路社区'}]},{label:'八一桥街道',value:'八一桥街道',children:[{label:'胜利路社区',value:'胜利路社区'},{label:'象山社区',value:'象山社区'}]},{label:'大院街道',value:'大院街道',children:[{label:'永叔路社区',value:'永叔路社区'},{label:'民德路社区',value:'民德路社区'}]},{label:'公园街道',value:'公园街道',children:[{label:'戴家巷社区',value:'戴家巷社区'},{label:'花园社区',value:'花园社区'}]}]},{label:'西湖区',value:'西湖区',children:[{label:'绳金塔街道',value:'绳金塔街道',children:[{label:'孺子路社区',value:'孺子路社区'},{label:'南浦社区',value:'南浦社区'}]},{label:'丁公路街道',value:'丁公路街道',children:[{label:'抚河园社区',value:'抚河园社区'},{label:'桃源社区',value:'桃源社区'}]},{label:'系马桩街道',value:'系马桩街道',children:[{label:'蓼洲社区',value:'蓼洲社区'},{label:'桃花社区',value:'桃花社区'}]},{label:'朝阳洲街道',value:'朝阳洲街道',children:[{label:'朝阳洲社区',value:'朝阳洲社区'},{label:'抚生路社区',value:'抚生路社区'}]}]},{label:'青云谱区',value:'青云谱区',children:[{label:'三家店街道',value:'三家店街道',children:[{label:'青峰社区',value:'青峰社区'},{label:'梅湖社区',value:'梅湖社区'}]},{label:'徐家坊街道',value:'徐家坊街道',children:[{label:'解放东路社区',value:'解放东路社区'},{label:'岱山社区',value:'岱山社区'}]},{label:'洪都街道',value:'洪都街道',children:[{label:'包家花园社区',value:'包家花园社区'},{label:'京山社区',value:'京山社区'}]}]},{label:'青山湖区',value:'青山湖区',children:[{label:'上海路街道',value:'上海路街道',children:[{label:'湖东社区',value:'湖东社区'},{label:'铁路新村社区',value:'铁路新村社区'}]},{label:'塘山镇',value:'塘山镇',children:[{label:'江纺社区',value:'江纺社区'},{label:'五联社区',value:'五联社区'}]},{label:'湖坊镇',value:'湖坊镇',children:[{label:'辛家庵社区',value:'辛家庵社区'},{label:'隆鑫社区',value:'隆鑫社区'}]}]},{label:'红谷滩区',value:'红谷滩区',children:[{label:'沙井街道',value:'沙井街道',children:[{label:'翠林社区',value:'翠林社区'},{label:'香江社区',value:'香江社区'}]},{label:'凤凰洲街道',value:'凤凰洲街道',children:[{label:'凤凰洲社区',value:'凤凰洲社区'},{label:'珠江路社区',value:'珠江路社区'}]},{label:'卫东街道',value:'卫东街道',children:[{label:'卫东社区',value:'卫东社区'},{label:'岭口社区',value:'岭口社区'}]}]},{label:'新建区',value:'新建区',children:[{label:'长堎街道',value:'长堎街道',children:[{label:'礼步湖社区',value:'礼步湖社区'},{label:'幸福里社区',value:'幸福里社区'}]},{label:'望城镇',value:'望城镇',children:[{label:'岗背社区',value:'岗背社区'},{label:'青城社区',value:'青城社区'}]}]},{label:'南昌县',value:'南昌县',children:[{label:'莲塘镇',value:'莲塘镇',children:[{label:'澄碧湖社区',value:'澄碧湖社区'},{label:'向阳社区',value:'向阳社区'}]},{label:'向塘镇',value:'向塘镇',children:[{label:'向塘社区',value:'向塘社区'},{label:'银三角社区',value:'银三角社区'}]}]},{label:'进贤县',value:'进贤县',children:[{label:'民和镇',value:'民和镇',children:[{label:'青岚社区',value:'青岚社区'},{label:'滨湖社区',value:'滨湖社区'}]},{label:'温圳镇',value:'温圳镇',children:[{label:'温圳社区',value:'温圳社区'},{label:'泉岭社区',value:'泉岭社区'}]}]},{label:'安义县',value:'安义县',children:[{label:'龙津镇',value:'龙津镇',children:[{label:'龙津社区',value:'龙津社区'},{label:'文峰社区',value:'文峰社区'}]}]}]},{label:'景德镇市',value:'景德镇市',children:[{label:'珠山区',value:'珠山区',children:[{label:'石狮埠街道',value:'石狮埠街道',children:[{label:'珠山社区',value:'珠山社区'},{label:'中山路社区',value:'中山路社区'}]},{label:'新村街道',value:'新村街道',children:[{label:'茶叶坞社区',value:'茶叶坞社区'},{label:'梨树园社区',value:'梨树园社区'}]}]},{label:'昌江区',value:'昌江区',children:[{label:'西郊街道',value:'西郊街道',children:[{label:'昌江社区',value:'昌江社区'},{label:'官庄社区',value:'官庄社区'}]}]},{label:'乐平市',value:'乐平市',children:[{label:'洎阳街道',value:'洎阳街道',children:[{label:'洎阳社区',value:'洎阳社区'},{label:'天湖社区',value:'天湖社区'}]}]}]},{label:'萍乡市',value:'萍乡市',children:[{label:'安源区',value:'安源区',children:[{label:'凤凰街道',value:'凤凰街道',children:[{label:'凤凰池社区',value:'凤凰池社区'},{label:'后埠社区',value:'后埠社区'}]},{label:'东大街街道',value:'东大街街道',children:[{label:'南正街社区',value:'南正街社区'},{label:'孔家庙社区',value:'孔家庙社区'}]}]},{label:'湘东区',value:'湘东区',children:[{label:'湘东镇',value:'湘东镇',children:[{label:'湘东社区',value:'湘东社区'},{label:'泉湖社区',value:'泉湖社区'}]}]},{label:'上栗县',value:'上栗县',children:[{label:'上栗镇',value:'上栗镇',children:[{label:'栗江社区',value:'栗江社区'},{label:'滨河社区',value:'滨河社区'}]}]}]},{label:'九江市',value:'九江市',children:[{label:'浔阳区',value:'浔阳区',children:[{label:'湓浦街道',value:'湓浦街道',children:[{label:'浔阳楼社区',value:'浔阳楼社区'},{label:'甘棠社区',value:'甘棠社区'}]},{label:'白水湖街道',value:'白水湖街道',children:[{label:'长虹社区',value:'长虹社区'},{label:'三里街社区',value:'三里街社区'}]}]},{label:'濂溪区',value:'濂溪区',children:[{label:'十里街道',value:'十里街道',children:[{label:'前进社区',value:'前进社区'},{label:'莲花社区',value:'莲花社区'}]},{label:'五里街道',value:'五里街道',children:[{label:'濂溪社区',value:'濂溪社区'},{label:'荷塘社区',value:'荷塘社区'}]}]},{label:'柴桑区',value:'柴桑区',children:[{label:'沙河街道',value:'沙河街道',children:[{label:'沙河社区',value:'沙河社区'},{label:'渊明社区',value:'渊明社区'}]}]},{label:'瑞昌市',value:'瑞昌市',children:[{label:'湓城街道',value:'湓城街道',children:[{label:'府东社区',value:'府东社区'},{label:'杨林湖社区',value:'杨林湖社区'}]}]}]},{label:'新余市',value:'新余市',children:[{label:'渝水区',value:'渝水区',children:[{label:'城南街道',value:'城南街道',children:[{label:'站前社区',value:'站前社区'},{label:'魁星路社区',value:'魁星路社区'}]},{label:'城北街道',value:'城北街道',children:[{label:'北湖社区',value:'北湖社区'},{label:'长林社区',value:'长林社区'}]}]},{label:'分宜县',value:'分宜县',children:[{label:'分宜镇',value:'分宜镇',children:[{label:'钤东社区',value:'钤东社区'},{label:'介桥社区',value:'介桥社区'}]}]}]},{label:'鹰潭市',value:'鹰潭市',children:[{label:'月湖区',value:'月湖区',children:[{label:'交通街道',value:'交通街道',children:[{label:'百佳城社区',value:'百佳城社区'},{label:'胜利社区',value:'胜利社区'}]},{label:'东湖街道',value:'东湖街道',children:[{label:'东湖社区',value:'东湖社区'},{label:'站前社区',value:'站前社区'}]}]},{label:'余江区',value:'余江区',children:[{label:'邓埠街道',value:'邓埠街道',children:[{label:'磨仂洲社区',value:'磨仂洲社区'},{label:'马岗社区',value:'马岗社区'}]}]},{label:'贵溪市',value:'贵溪市',children:[{label:'雄石街道',value:'雄石街道',children:[{label:'铜都社区',value:'铜都社区'},{label:'象山社区',value:'象山社区'}]}]}]},{label:'赣州市',value:'赣州市',children:[{label:'章贡区',value:'章贡区',children:[{label:'解放街道',value:'解放街道',children:[{label:'洪城巷社区',value:'洪城巷社区'},{label:'南京路社区',value:'南京路社区'}]},{label:'赣江街道',value:'赣江街道',children:[{label:'大公路社区',value:'大公路社区'},{label:'东郊路社区',value:'东郊路社区'}]}]},{label:'南康区',value:'南康区',children:[{label:'蓉江街道',value:'蓉江街道',children:[{label:'金鸡社区',value:'金鸡社区'},{label:'南水社区',value:'南水社区'}]},{label:'龙岭镇',value:'龙岭镇',children:[{label:'龙岭社区',value:'龙岭社区'},{label:'金塘社区',value:'金塘社区'}]}]},{label:'赣县区',value:'赣县区',children:[{label:'梅林街道',value:'梅林街道',children:[{label:'城东社区',value:'城东社区'},{label:'双龙社区',value:'双龙社区'}]}]},{label:'瑞金市',value:'瑞金市',children:[{label:'象湖镇',value:'象湖镇',children:[{label:'红都社区',value:'红都社区'},{label:'绵水社区',value:'绵水社区'}]}]}]},{label:'吉安市',value:'吉安市',children:[{label:'吉州区',value:'吉州区',children:[{label:'古南镇街道',value:'古南镇街道',children:[{label:'太平桥社区',value:'太平桥社区'},{label:'习溪桥社区',value:'习溪桥社区'}]},{label:'文山街道',value:'文山街道',children:[{label:'文山社区',value:'文山社区'},{label:'竹亭社区',value:'竹亭社区'}]}]},{label:'青原区',value:'青原区',children:[{label:'河东街道',value:'河东街道',children:[{label:'滨江社区',value:'滨江社区'},{label:'天玉社区',value:'天玉社区'}]}]},{label:'永新县',value:'永新县',children:[{label:'禾川镇',value:'禾川镇',children:[{label:'义山社区',value:'义山社区'},{label:'湘赣社区',value:'湘赣社区'}]},{label:'三湾乡',value:'三湾乡',children:[{label:'三湾社区',value:'三湾社区'}]}]},{label:'井冈山市',value:'井冈山市',children:[{label:'茨坪街道',value:'茨坪街道',children:[{label:'茨坪社区',value:'茨坪社区'},{label:'黄竹坳社区',value:'黄竹坳社区'}]}]}]},{label:'宜春市',value:'宜春市',children:[{label:'袁州区',value:'袁州区',children:[{label:'灵泉街道',value:'灵泉街道',children:[{label:'五眼井社区',value:'五眼井社区'},{label:'鼓楼社区',value:'鼓楼社区'}]},{label:'珠泉街道',value:'珠泉街道',children:[{label:'珠泉社区',value:'珠泉社区'},{label:'窑前社区',value:'窑前社区'}]}]},{label:'樟树市',value:'樟树市',children:[{label:'淦阳街道',value:'淦阳街道',children:[{label:'药都社区',value:'药都社区'},{label:'鹿江社区',value:'鹿江社区'}]}]},{label:'丰城市',value:'丰城市',children:[{label:'剑光街道',value:'剑光街道',children:[{label:'剑光社区',value:'剑光社区'},{label:'河洲社区',value:'河洲社区'}]}]},{label:'高安市',value:'高安市',children:[{label:'筠阳街道',value:'筠阳街道',children:[{label:'筠阳社区',value:'筠阳社区'},{label:'碧落社区',value:'碧落社区'}]}]}]},{label:'抚州市',value:'抚州市',children:[{label:'临川区',value:'临川区',children:[{label:'西大街街道',value:'西大街街道',children:[{label:'若士路社区',value:'若士路社区'},{label:'兴鲁坊社区',value:'兴鲁坊社区'}]},{label:'荆公路街道',value:'荆公路街道',children:[{label:'荆公路社区',value:'荆公路社区'},{label:'穆堂路社区',value:'穆堂路社区'}]}]},{label:'东乡区',value:'东乡区',children:[{label:'孝岗街道',value:'孝岗街道',children:[{label:'东铜社区',value:'东铜社区'},{label:'龙山社区',value:'龙山社区'}]}]},{label:'南城县',value:'南城县',children:[{label:'建昌镇',value:'建昌镇',children:[{label:'建昌社区',value:'建昌社区'},{label:'盱江社区',value:'盱江社区'}]}]}]},{label:'上饶市',value:'上饶市',children:[{label:'信州区',value:'信州区',children:[{label:'东市街道',value:'东市街道',children:[{label:'金龙岗社区',value:'金龙岗社区'},{label:'五桂山社区',value:'五桂山社区'}]},{label:'西市街道',value:'西市街道',children:[{label:'信江社区',value:'信江社区'},{label:'祝家巷社区',value:'祝家巷社区'}]}]},{label:'广丰区',value:'广丰区',children:[{label:'永丰街道',value:'永丰街道',children:[{label:'丰溪社区',value:'丰溪社区'},{label:'西山社区',value:'西山社区'}]}]},{label:'婺源县',value:'婺源县',children:[{label:'蚺城街道',value:'蚺城街道',children:[{label:'文博社区',value:'文博社区'},{label:'天佑社区',value:'天佑社区'}]}]},{label:'鄱阳县',value:'鄱阳县',children:[{label:'鄱阳镇',value:'鄱阳镇',children:[{label:'饶州社区',value:'饶州社区'},{label:'芝阳社区',value:'芝阳社区'}]}]}]}]}];
-let regionSelected=[];
-function renderRegionCascader(){const path=regionSelected.map(r=>r.label).join(' / ');return '<div class="region-cascader" id="regionCascader"><div class="region-cascader-input '+(path?'':'placeholder')+'" title="'+(path||'请选择行政区划')+'" onclick="toggleRegionCascader()">'+(path||'请选择行政区划')+'</div><span class="region-cascader-arrow">▾</span><div class="region-cascader-panel" id="regionCascaderPanel"></div></div>'}
-function toggleRegionCascader(){const el=document.getElementById('regionCascader');el.classList.toggle('open');if(el.classList.contains('open'))renderRegionColumns()}
-function renderRegionColumns(){const panel=document.getElementById('regionCascaderPanel');if(!panel)return;let html='';const levels=[regionData];for(let i=0;i<regionSelected.length;i++){const parent=regionSelected[i];const next=parent.children||[];if(!next.length)break;levels.push(next)}levels.forEach((items,depth)=>{html+='<div class="region-cascader-col">';items.forEach(item=>{const isActive=regionSelected[depth]&&regionSelected[depth].value===item.value;const hasChildren=item.children&&item.children.length;html+='<div class="region-cascader-col-item'+(isActive?' active':'')+'" onmouseover="hoverRegion('+depth+',\''+item.value+'\')" onclick="confirmRegion('+depth+',\''+item.value+'\')">'+item.label+(hasChildren?'<span class="col-arrow">▸</span>':'')+'</div>'});html+='</div>'});panel.innerHTML=html}
-function hoverRegion(depth,value){const levels=[regionData];for(let i=0;i<depth;i++)levels.push(regionSelected[i].children||[]);const items=levels[depth];const found=items.find(r=>r.value===value);if(!found)return;regionSelected=regionSelected.slice(0,depth);regionSelected.push(found);renderRegionColumns();updateRegionInput()}
-function confirmRegion(depth,value){const levels=[regionData];for(let i=0;i<depth;i++)levels.push(regionSelected[i].children||[]);const items=levels[depth];const found=items.find(r=>r.value===value);if(!found)return;regionSelected=regionSelected.slice(0,depth);regionSelected.push(found);updateRegionInput();if(!found.children||!found.children.length){setTimeout(()=>{document.getElementById('regionCascader')?.classList.remove('open')},100)}else{renderRegionColumns()}}
-function updateRegionInput(){const path=regionSelected.map(r=>r.label).join(' / ');const input=document.querySelector('.region-cascader-input');if(input){input.textContent=path||'请选择行政区划';input.classList.toggle('placeholder',!path)}}
-document.addEventListener('click',function(e){const cascader=document.getElementById('regionCascader');if(cascader&&!cascader.contains(e.target))cascader.classList.remove('open');document.querySelectorAll('.dr-picker.open').forEach(p=>{if(!p.contains(e.target))p.classList.remove('open')})});
+/* ===== 行政区划级联（按 key 隔离的多实例实现）=====
+   改造背景：原实现把 id 与选中态全部写死为全局（id="regionCascader" + regionSelected），
+   同页渲染两个实例（报告卡迁移的「当前归属地筛选」+「目标归属地」）会撞 id 且互相污染。
+   现在按 key 隔离；不传 key 时默认走 'default'，既有 20+ 处单实例调用方行为完全不变。 */
+var regionSelectedMap={default:[]};
+function getRegionSelected(key){key=key||'default';if(!regionSelectedMap[key])regionSelectedMap[key]=[];return regionSelectedMap[key]}
+function setRegionSelected(key,val){key=key||'default';regionSelectedMap[key]=val}
+function resetRegionSelected(key){setRegionSelected(key,[])}
+function regionPathText(key){return getRegionSelected(key).map(function(r){return r.label}).join(' / ')}
+/* 变更回调：调用方按 key 注册 regionChangeHooks[key]=fn，confirmRegion 落定后触发（供依赖该级联重绘的页面使用） */
+var regionChangeHooks={};
+function onRegionChange(key,fn){regionChangeHooks[key]=fn}
+function fireRegionChange(key){if(typeof regionChangeHooks[key]==='function'){try{regionChangeHooks[key]()}catch(e){console.error('[regionCascader] hook error',e)}}}
+function renderRegionCascader(key){key=key||'default';const path=regionPathText(key);return '<div class="region-cascader" id="regionCascader_'+key+'"><div class="region-cascader-input '+(path?'':'placeholder')+'" title="'+(path||'请选择行政区划')+'" onclick="toggleRegionCascader(\''+key+'\')">'+(path||'请选择行政区划')+'</div><span class="region-cascader-arrow">▾</span><div class="region-cascader-panel" id="regionCascaderPanel_'+key+'"></div></div>'}
+function toggleRegionCascader(key){key=key||'default';const el=document.getElementById('regionCascader_'+key);if(!el)return;el.classList.toggle('open');if(el.classList.contains('open'))renderRegionColumns(key)}
+function renderRegionColumns(key){key=key||'default';const panel=document.getElementById('regionCascaderPanel_'+key);if(!panel)return;const sel=getRegionSelected(key);let html='';const levels=[regionData];for(let i=0;i<sel.length;i++){const next=sel[i].children||[];if(!next.length)break;levels.push(next)}levels.forEach(function(items,depth){html+='<div class="region-cascader-col">';items.forEach(function(item){const isActive=sel[depth]&&sel[depth].value===item.value;const hasChildren=item.children&&item.children.length;html+='<div class="region-cascader-col-item'+(isActive?' active':'')+'" onmouseover="hoverRegion(\''+key+'\','+depth+',\''+item.value+'\')" onclick="confirmRegion(\''+key+'\','+depth+',\''+item.value+'\')">'+item.label+(hasChildren?'<span class="col-arrow">▸</span>':'')+'</div>'});html+='</div>'});panel.innerHTML=html}
+/* 兼容旧签名 hoverRegion(depth,value)：首参为数字时按无 key 调用处理 */
+function hoverRegion(a,b,c){let key='default',depth=a,value=b;if(typeof a==='string'){key=a;depth=b;value=c}const sel=getRegionSelected(key);const levels=[regionData];for(let i=0;i<depth;i++)levels.push((sel[i]||{}).children||[]);const items=levels[depth];if(!items)return;const found=items.find(function(r){return r.value===value});if(!found)return;setRegionSelected(key,sel.slice(0,depth).concat([found]));renderRegionColumns(key);updateRegionInput(key)}
+function confirmRegion(a,b,c){let key='default',depth=a,value=b;if(typeof a==='string'){key=a;depth=b;value=c}const sel=getRegionSelected(key);const levels=[regionData];for(let i=0;i<depth;i++)levels.push((sel[i]||{}).children||[]);const items=levels[depth];if(!items)return;const found=items.find(function(r){return r.value===value});if(!found)return;setRegionSelected(key,sel.slice(0,depth).concat([found]));updateRegionInput(key);fireRegionChange(key);if(!found.children||!found.children.length){setTimeout(function(){const el=document.getElementById('regionCascader_'+key);if(el)el.classList.remove('open')},100)}else{renderRegionColumns(key)}}
+function updateRegionInput(key){key=key||'default';const input=document.querySelector('#regionCascader_'+key+' .region-cascader-input');if(!input)return;const path=regionPathText(key);input.textContent=path||'请选择行政区划';input.classList.toggle('placeholder',!path)}
+document.addEventListener('click',function(e){document.querySelectorAll('.region-cascader').forEach(function(c){if(!c.contains(e.target))c.classList.remove('open')});document.querySelectorAll('.dr-picker.open').forEach(p=>{if(!p.contains(e.target))p.classList.remove('open')})});
 
 function renderDateRangePicker(id,start,end){const text=start&&end?(start+' ~ '+end):'';return '<div class="dr-picker" id="'+id+'"><div class="dr-picker-input '+(text?'':'placeholder')+'" onclick="toggleDateRangePicker(\''+id+'\')">'+(text||'请选择日期区间')+'</div><span class="dr-picker-arrow">▾</span><div class="dr-picker-panel"><div class="dr-picker-presets"><span class="dr-picker-preset" onclick="applyDateRangePreset(\''+id+'\',\'today\')">今天</span><span class="dr-picker-preset" onclick="applyDateRangePreset(\''+id+'\',\'week\')">本周</span><span class="dr-picker-preset" onclick="applyDateRangePreset(\''+id+'\',\'month\')">本月</span><span class="dr-picker-preset" onclick="applyDateRangePreset(\''+id+'\',\'quarter\')">本季度</span><span class="dr-picker-preset" onclick="applyDateRangePreset(\''+id+'\',\'year\')">本年</span></div><div class="dr-picker-row"><label>开始</label><input type="date" id="'+id+'_start" value="'+(start||'')+'"></div><div class="dr-picker-row"><label>结束</label><input type="date" id="'+id+'_end" value="'+(end||'')+'"></div><div class="dr-picker-actions"><button class="btn btn-ghost btn-xs" onclick="clearDateRangePicker(\''+id+'\')">清除</button><button class="btn btn-primary btn-xs" onclick="confirmDateRangePicker(\''+id+'\')">确定</button></div></div></div>'}
 function toggleDateRangePicker(id){const el=document.getElementById(id);if(el)el.classList.toggle('open')}
 function applyDateRangePreset(id,preset){const now=new Date();let s,e;if(preset==='today'){s=e=now}else if(preset==='week'){const day=now.getDay()||7;s=new Date(now);s.setDate(now.getDate()-day+1);e=new Date(s);e.setDate(s.getDate()+6)}else if(preset==='month'){s=new Date(now.getFullYear(),now.getMonth(),1);e=new Date(now.getFullYear(),now.getMonth()+1,0)}else if(preset==='quarter'){const q=Math.floor(now.getMonth()/3);s=new Date(now.getFullYear(),q*3,1);e=new Date(now.getFullYear(),q*3+3,0)}else if(preset==='year'){s=new Date(now.getFullYear(),0,1);e=new Date(now.getFullYear(),11,31)}const fmt=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');const ss=fmt(s),ee=fmt(e);const si=document.getElementById(id+'_start');const ei=document.getElementById(id+'_end');if(si)si.value=ss;if(ei)ei.value=ee;updateDateRangeInput(id,ss,ee)}
 function updateDateRangeInput(id,start,end){const el=document.getElementById(id);const input=el?.querySelector('.dr-picker-input');if(!input)return;const text=start&&end?(start+' ~ '+end):'';input.textContent=text||'请选择日期区间';input.classList.toggle('placeholder',!text)}
-function confirmDateRangePicker(id){const s=document.getElementById(id+'_start')?.value||'';const e=document.getElementById(id+'_end')?.value||'';updateDateRangeInput(id,s,e);const el=document.getElementById(id);if(el)el.classList.remove('open');if(id==='dr_dedup'&&typeof dedupDateRangeApply==='function')dedupDateRangeApply()}
+function confirmDateRangePicker(id){const s=document.getElementById(id+'_start')?.value||'';const e=document.getElementById(id+'_end')?.value||'';updateDateRangeInput(id,s,e);const el=document.getElementById(id);if(el)el.classList.remove('open');if(id==='dr_dedup'&&typeof dedupDateRangeApply==='function')dedupDateRangeApply();if(typeof dateRangeChangeHooks==='object'&&typeof dateRangeChangeHooks[id]==='function')dateRangeChangeHooks[id]()}
+var dateRangeChangeHooks={};
 function clearDateRangePicker(id){const si=document.getElementById(id+'_start');const ei=document.getElementById(id+'_end');if(si)si.value='';if(ei)ei.value='';updateDateRangeInput(id,'','');if(id==='dr_dedup'&&typeof dedupDateRangeClear==='function')dedupDateRangeClear()}
 function getDateRangeValue(id){const s=document.getElementById(id+'_start')?.value||'';const e=document.getElementById(id+'_end')?.value||'';return{start:s,end:e}}
 let _autoQueryTimer;function autoQuery(fn){clearTimeout(_autoQueryTimer);_autoQueryTimer=setTimeout(fn,300)}
@@ -1361,6 +1416,98 @@ function hisBadge(text,type){return `<span class="badge badge-${type}">${text}</
 function validationBadge(v){return v==='通过'?hisBadge(v,'success'):v==='警告'?hisBadge(v,'warning'):v==='错误'?hisBadge(v,'danger'):v==='已处理'?hisBadge(v,'muted'):hisBadge(v,'muted')}
 function duplicateBadge(v){return v==='无重卡'?hisBadge(v,'success'):v==='疑似重卡'?hisBadge(v,'warning'):v==='已处理'?hisBadge(v,'info'):hisBadge(v,'muted')}
 function renderHisTable(rows){if(!rows.length)return '<div class="empty-state">当前筛选条件下没有待处理 HIS 临时数据</div>';const headers=['校验状态','重卡状态','姓名','身份证号码','性别','年龄','出生日期','发病部位','ICD10','确诊日期','最后接触状态','最后接触时间','报告单位','报卡类型','来源类型','上传日期'];return `<div class="table-wrap"><table class="data-table" style="min-width:1760px"><thead><tr><th><input type="checkbox" onchange="toggleAllHisRows(this.checked)"></th>${headers.map(h=>`<th>${h}</th>`).join('')}<th class="sticky-col">操作</th></tr></thead><tbody>${rows.map(r=>`<tr><td><input type="checkbox" ${r.checked?'checked':''} onchange="toggleHisRow(${r.id},this.checked)"></td><td>${validationBadge(r.validation)}</td><td>${duplicateBadge(r.duplicate)}</td><td>${r.name}</td><td>${r.idNo}</td><td>${r.sex}</td><td>${r.age||'-'}</td><td>${r.birth}</td><td>${r.site}</td><td>${r.icd10||'-'}</td><td>${r.diagnosisDate}</td><td>${r.lastContactState||'-'}</td><td>${r.lastContactTime||'-'}</td><td>${r.reportUnit}</td><td>${r.cardType||'-'}</td><td>${r.uploadType||'HIS'}</td><td>${(r.uploadTime||'').slice(0,10)||'-'}</td><td class="sticky-col"><button class="btn btn-ghost btn-xs" onclick="cardListEdit(${r.id})">编辑</button> <button class="btn btn-ghost btn-xs" onclick="deleteHisRecord(${r.id})">删除</button></td></tr>`).join('')}</tbody></table></div>`}
+/* ---------- 报告卡登记：录入方式选择屏 ---------- */
+/* 默认展示选择屏；选定后 entryFlowPicked=true，同一菜单下不再重复询问。 */
+function renderEntryModeChoice(){
+  var opts=[
+    {mode:'single',title:'单条录入',desc:'填写单张报告卡，提交后直接入库',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-6"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>'},
+    {mode:'batch',title:'批量添加',desc:'导入 Excel，先进入临时列表校验后再提交',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 17.5a4.5 4.5 0 0 0 .5-8.97A6.5 6.5 0 0 0 5.2 10.2A4 4 0 0 0 6 18h3"/><path d="M12 12v7"/><path d="m9 15 3-3 3 3"/></svg>'}
+  ];
+  /* 左栏：入口选择 */
+  var left='<div>'
+    +'<div class="entry-choice-head">'
+      +'<div class="entry-choice-title">请选择录入方式</div>'
+      +'<div class="entry-choice-sub">单条填写直接入库；批量导入先进入临时列表，校验后再提交</div>'
+    +'</div>'
+    +'<div class="entry-choice-grid">'
+      +opts.map(function(o){
+        return '<button type="button" class="entry-choice-card" onclick="chooseEntryMode(\''+o.mode+'\')">'
+          +'<span class="entry-choice-icon">'+o.svg+'</span>'
+          +'<span class="entry-choice-text">'
+            +'<span class="entry-choice-name">'+o.title+'</span>'
+            +'<span class="entry-choice-desc">'+o.desc+'</span>'
+          +'</span>'
+          +'<span class="entry-choice-go">›</span>'
+        +'</button>';
+      }).join('')
+    +'</div>'
+  +'</div>';
+  /* 左栏入口 + 下方填写/上传说明（原右栏统计卡已删除） */
+  return '<div class="entry-choice">'+left+'</div>'+renderEntryGuide();
+}
+/* 填写 / 上传说明：内容与原型需求文档一致，作为录入参考常驻在选择屏下方。 */
+function renderEntryGuide(){
+  var rows=[
+    {label:'1、填写说明',items:[
+      '<span class="req">必填变量</span>（模板中红色注释）：姓名 性别 出生日期 身份证号码 户籍地址 常住地址 ICD10 报告日期；',
+      '<span class="opt">自识变量</span>（模板中蓝色注释）：发病部位 病理类型 行为 分级 诊断依据 诊断结果 详细诊断结果 确诊日期 治疗信息 门诊号 住院号；',
+      '<span class="caution">可选变量</span>（模板中橙色注释）：诊断单位 报告单位，注意：诊断单位类型必须为非登记中心。'
+    ]},
+    {label:'2、上传说明',items:[
+      '肿瘤登记批量上报模板不在区分 HIS、协查及死因，全部统一为肿瘤登记批量上报模板；',
+      '上传模板格式支持：“xls”，“xlsx”和“csv”三种电子表格文档格式；',
+      '必需变量缺失会造成上传的时候校验错误；',
+      '身份证号码验证错误，或身份证号码与出生日期或者性别不匹配 会造成校验错误；',
+      '数据模板中用红色字体标注的变量均为必须变量；',
+      '上传数据按照模板整理好后，请先删除第二行 变量说明行后再执行上传；'
+    ]},
+    {label:'3、模板下载',items:[
+      '<a onclick="downloadTemplate()">⬇ 肿瘤登记批量上报模板</a>',
+      '<a onclick="downloadVisitTemplate()">⬇ 肿瘤登记随访模板</a>'
+    ]}
+  ];
+  return '<div class="entry-guide">'
+    +'<div class="entry-guide-head">填写 / 上传说明</div>'
+    +'<div class="entry-guide-body">'
+      +rows.map(function(r){
+        return '<div class="entry-guide-row">'
+          +'<div class="entry-guide-label">'+r.label+'</div>'
+          +'<ul class="entry-guide-list">'+r.items.map(function(t){return '<li>'+t+'</li>'}).join('')+'</ul>'
+        +'</div>';
+      }).join('')
+    +'</div>'
+  +'</div>';
+}
+/* 随访模板下载：与批量上报模板分开命名，便于后续接真实文件 */
+function downloadVisitTemplate(){toast('随访模板下载中...')}
+
+/* 选择录入方式：单条 -> 报告卡登记表单；批量 -> 临时表列表页 */
+function chooseEntryMode(mode){
+  window.entryFlowPicked=true;
+  if(mode==='single'){
+    cardListAdd();
+    /* 单条录入属于「报告卡登记」流程：菜单高亮与面包屑都留在报告卡登记下 */
+    setActiveMenu('collection-batch');
+    updateBreadcrumb('collection-batch','单条录入');
+    return;
+  }
+  setActiveMenu('collection-batch');
+  renderPage('collection-batch');
+  updateBreadcrumb('collection-batch');
+  var mc=document.getElementById('mainContent');if(mc)mc.scrollTop=0;
+}
+/* 从单条录入 / 临时表返回选择屏 */
+function backToEntryModeChoice(){
+  window.entryFlowPicked=false;
+  window.editCardId=null;window.editCardData=null;window.editCardErrors=[];
+  setActiveMenu('collection-batch');
+  renderPage('collection-batch');
+  updateBreadcrumb('collection-batch');
+  var mc=document.getElementById('mainContent');if(mc)mc.scrollTop=0;
+}
+
 function renderHisUploadManagement(){const visible=getVisibleHisRecords();const checkedCount=hisRecords.filter(r=>r.checked).length;return `<div class="page-toolbar"><div class="toolbar-actions"><button class="btn btn-import btn-sm" onclick="cardListAdd()">添加</button><button class="btn btn-import btn-sm" onclick="openBatchImportDialog()">批量登记</button><button class="btn btn-outline btn-sm" onclick="downloadTemplate()">模板下载</button></div></div><div class="panel"><div class="panel-body"><div class="filter-toolbar"><div class="form-group region-filter"><label>过滤行政区划</label>${renderRegionCascader()}</div><div class="form-group"><label>重卡状态</label><select id="hisDuplicateFilter" onchange="queryHisRecords()"><option>全部</option><option>无重卡</option><option>疑似重卡</option></select></div><div class="form-group"><label>校验状态</label><select id="hisValidationFilter" onchange="queryHisRecords()"><option>全部</option><option>通过</option><option>警告</option><option>错误</option></select></div><div class="form-group"><label>日期类型</label><select id="hisDateType" onchange="queryHisRecords()"><option>确诊日期</option><option>报告日期</option><option>上传日期</option></select></div><div class="form-group date-group"><label>日期</label>${renderDateRangePicker('dr_his',hisFilters.dateStart,hisFilters.dateStart)}</div><div class="form-group search-group"><label>检索内容</label><input id="hisKeyword" placeholder="姓名 / 身份证号 / 登记编号" value="${hisFilters.keyword}" oninput="autoQuery(queryHisRecords)"></div><div class="filter-actions"><button class="btn btn-ghost btn-sm" onclick="resetHisFilters()">重置</button></div></div>${checkedCount>0?`<div class="void-batch-bar"><div class="void-batch-info">已选择 <strong>${checkedCount}</strong> 条记录（仅校验"通过"的可上传至报告卡列表）</div><div class="void-batch-actions"><button class="btn btn-outline btn-sm" onclick="exportSelectedHisExcel()">导出 Excel</button><button class="btn btn-primary btn-sm" onclick="hisBatchUpload()">批量上传</button><button class="btn btn-danger btn-sm" onclick="hisBatchDelete()">批量删除</button></div></div>`:''}${renderHisTable(visible)}</div></div>`}
 function downloadTemplate(){toast('模板文件下载中...')}
 function exportSelectedHisExcel(){const rows=getSelectedHis();if(!rows.length){toast('请先选择要导出的记录','error');return}const headers=['校验状态','重卡状态','姓名','性别','出生日期','身份证号码','发病部位','病理类型','ICD10编号','确诊日期','报告日期','报告单位'];const body=rows.map(r=>[r.validation,r.duplicate,r.name,r.sex,r.birth,r.idNo,r.site,r.pathology,r.icd10||'',r.diagnosisDate,r.reportDate,r.reportUnit]);const html='<table><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+body.map(row=>'<tr>'+row.map(value=>'<td>'+String(value||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</td>').join('')+'</tr>').join('')+'</tbody></table>';const blob=new Blob(['\ufeff'+html],{type:'application/vnd.ms-excel;charset=utf-8'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download='报告卡登记_已选记录.xls';link.click();URL.revokeObjectURL(url);toast('已导出 '+rows.length+' 条记录')}
@@ -1398,7 +1545,7 @@ toast(msg)
 }
 function hisBatchDelete(){const checked=hisRecords.filter(r=>r.checked);if(checked.length===0){toast('请先选择要删除的记录','error');return}showConfirm('批量删除','确定要删除选中的 '+checked.length+' 条记录吗？删除后不可恢复。',()=>{const ids=checked.map(r=>r.id);for(let i=hisRecords.length-1;i>=0;i--){if(ids.includes(hisRecords[i].id))hisRecords.splice(i,1)}renderPage('collection-batch');toast('已删除 '+checked.length+' 条记录')})}
 
-function renderCardEntryForm(){const errors=window.editCardErrors||[];const isEdit=!!window.editCardId;const errorBlock=errors.length?'<div class="entry-alert" style="background:#fee2e2;border-color:#fca5a5;margin-bottom:14px"><div class="entry-alert-title" style="color:#b91c1c">⚠ 校验错误：'+(isEdit?window.editCardId+' - '+window.editCardData.name:'当前报告卡')+'</div><ol style="margin:8px 0 0 18px;color:#7f1d1d;font-size:13px;line-height:1.8">'+errors.map(e=>'<li><strong style="color:#b91c1c">['+stepName(e.step)+'] '+e.field+'：</strong>'+e.msg+(e.field&&e.field!=='系统校验'?' <a href="javascript:void(0)" onclick="jumpToErrorField('+e.step+',this)" data-field="'+e.field+'" style="color:var(--primary);text-decoration:underline">→ 立即定位</a>':'')+'</li>').join('')+'</ol></div>':'';return errorBlock+`<div class="entry-alert"><div class="entry-alert-title">⚠ 提示！</div><ol><li>表单界面标题中带红色 <span class="required">*</span> 的提示为必填 / 选项，黄色 <span class="conditional-required">*</span> 为条件触发必填；</li><li>"身份证号码 中"性别、出生年月" 必须任填 / 选其一，二者不能同时为空；</li><li>三个 Tab 标签（发病基本信息、肿瘤报告信息与随访报告信息）必须同时完成填写才允许提交。</li></ol></div><div class="panel entry-form-panel"><div class="panel-body"><div class="entry-step-tabs" id="cardEntryTabs"><div class="step-tabs-inner"><button class="step-btn active" onclick="goEntryStep(0)"><span class="step-index">1</span><span>发病人口信息</span></button><button class="step-btn" onclick="goEntryStep(1)"><span class="step-index">2</span><span>肿瘤报告信息</span></button><button class="step-btn" onclick="goEntryStep(2)"><span class="step-index">3</span><span>随访报告信息</span></button></div></div>${renderEntryStepOne()}${renderEntryStepTwo()}${renderEntryStepThree()}<div class="form-actions"><button class="btn btn-ghost" id="entryPrevBtn" onclick="goEntryStep(entryStep - 1)">上一步</button><button class="btn btn-primary" id="entryNextBtn" onclick="nextEntryStep()">下一步</button><button class="btn btn-primary" id="entrySubmitBtn" style="display:none" onclick="submitEntryForm()">`+(isEdit?'保存修改':'提交')+`</button><button class="btn btn-ghost" onclick="`+(isEdit?'cancelCardEdit()':'resetEntryForm()')+`">`+(isEdit?'取消编辑':'重置')+`</button></div><div class="entry-note"><span class="required">*</span> 必填项。点击“下一步”会先校验当前步骤，通过后再进入下一模块。`+(isEdit?' <span style="margin-left:12px;color:var(--primary);font-weight:600">● 正在编辑：'+window.editCardId+'</span>':'')+`</div></div></div>`}
+function renderCardEntryForm(){const errors=window.editCardErrors||[];const isEdit=!!window.editCardId;const backBar=(window.entryFlowPicked&&!isEdit)?'<div class="entry-back-bar"><button class="btn btn-ghost btn-sm" onclick="backToEntryModeChoice()">← 返回</button><span>单条录入：填写单张报告卡并提交入库</span></div>':'';const errorBlock=errors.length?'<div class="entry-alert" style="background:#fee2e2;border-color:#fca5a5;margin-bottom:14px"><div class="entry-alert-title" style="color:#b91c1c">⚠ 校验错误：'+(isEdit?window.editCardId+' - '+window.editCardData.name:'当前报告卡')+'</div><ol style="margin:8px 0 0 18px;color:#7f1d1d;font-size:13px;line-height:1.8">'+errors.map(e=>'<li><strong style="color:#b91c1c">['+stepName(e.step)+'] '+e.field+'：</strong>'+e.msg+(e.field&&e.field!=='系统校验'?' <a href="javascript:void(0)" onclick="jumpToErrorField('+e.step+',this)" data-field="'+e.field+'" style="color:var(--primary);text-decoration:underline">→ 立即定位</a>':'')+'</li>').join('')+'</ol></div>':'';return backBar+errorBlock+`<div class="entry-alert"><div class="entry-alert-title">⚠ 提示！</div><ol><li>表单界面标题中带红色 <span class="required">*</span> 的提示为必填 / 选项，黄色 <span class="conditional-required">*</span> 为条件触发必填；</li><li>"身份证号码 中"性别、出生年月" 必须任填 / 选其一，二者不能同时为空；</li><li>三个 Tab 标签（发病基本信息、肿瘤报告信息与随访报告信息）必须同时完成填写才允许提交。</li></ol></div><div class="panel entry-form-panel"><div class="panel-body"><div class="entry-step-tabs" id="cardEntryTabs"><div class="step-tabs-inner"><button class="step-btn active" onclick="goEntryStep(0)"><span class="step-index">1</span><span>发病人口信息</span></button><button class="step-btn" onclick="goEntryStep(1)"><span class="step-index">2</span><span>肿瘤报告信息</span></button><button class="step-btn" onclick="goEntryStep(2)"><span class="step-index">3</span><span>随访报告信息</span></button></div></div>${renderEntryStepOne()}${renderEntryStepTwo()}${renderEntryStepThree()}<div class="form-actions"><button class="btn btn-ghost" id="entryPrevBtn" onclick="goEntryStep(entryStep - 1)">上一步</button><button class="btn btn-primary" id="entryNextBtn" onclick="nextEntryStep()">下一步</button><button class="btn btn-primary" id="entrySubmitBtn" style="display:none" onclick="submitEntryForm()">`+(isEdit?'保存修改':'提交')+`</button><button class="btn btn-ghost" onclick="`+(isEdit?'cancelCardEdit()':'resetEntryForm()')+`">`+(isEdit?'取消编辑':'重置')+`</button></div><div class="entry-note"><span class="required">*</span> 必填项。点击“下一步”会先校验当前步骤，通过后再进入下一模块。`+(isEdit?' <span style="margin-left:12px;color:var(--primary);font-weight:600">● 正在编辑：'+window.editCardId+'</span>':'')+`</div></div></div>`}
 function renderEntryStepOne(){return `<section class="entry-section active" id="entry-population" data-step="0"><div class="entry-section-title">发病人口信息</div><div class="form-grid"><div class="form-group"><label>姓名 ${requiredMark()}</label><input placeholder="请输入姓名" data-required="姓名"></div><div class="form-group"><label>身份证号 ${requiredMark()}</label><input placeholder="请输入身份证号" data-required="身份证号"></div><div class="form-group"><label>其他证件</label><select id="otherCertType" onchange="toggleOtherCertInput(this)"><option value="">请选择</option><option value="护照">护照</option><option value="军官证">军官证</option><option value="其他">其他</option></select></div><div class="form-group"><label>性别 ${requiredMark()}</label><select data-required="性别"><option>请选择</option><option>男</option><option>女</option><option>不详</option></select></div><div class="form-group"><label>出生日期 ${requiredMark()}</label><input type="date" data-required="出生日期"></div><div class="form-group"><label>联系电话 ${requiredMark()}</label><input placeholder="请输入联系电话" data-required="联系电话"></div><div class="form-group" id="otherCertInputGroup" style="display:none"><label>其他证件号码</label><input placeholder="请输入其他证件号码" id="otherCertNo"></div><div class="form-group"><label>联系人关系</label><select><option>选择联系人关系</option><option>配偶</option><option>子女</option><option>父母</option><option>其他</option></select></div><div class="form-group"><label>联系人</label><input placeholder="联系人"></div><div class="form-group"><label>联系人电话</label><input placeholder="联系人电话"></div><div class="form-group"><label>民族 ${requiredMark()}</label><select data-required="民族"><option>汉族</option><option>回族</option><option>其他</option></select></div><div class="form-group"><label>婚姻状况 ${requiredMark()}</label><select data-required="婚姻状况"><option>请选择</option><option>未婚</option><option>已婚</option><option>离异</option><option>丧偶</option></select></div><div class="form-group"><label>职业 ${requiredMark()}</label><select data-required="职业"><option>请选择</option><option>农民</option><option>工人</option><option>干部</option><option>退休</option><option>其他</option></select></div><div class="form-group full"><label>工作单位 ${requiredMark()}</label><input placeholder="请输入工作单位" data-required="工作单位"></div><div class="form-group full"><label>户籍地址 ${requiredMark()}</label><div class="cascader-row"><select data-required="户籍省"><option>省</option><option>江西省</option></select><select data-required="户籍市"><option>市</option><option>南昌市</option></select><select data-required="户籍区县"><option>区县</option><option>东湖区</option></select><select><option>乡镇</option><option>董家窑街道</option></select><select><option>村/社区</option><option>民巷社区</option></select></div></div><div class="form-group full"><label>户籍详细地址 ${requiredMark()}</label><input placeholder="请输入详细地址" data-required="户籍详细地址"></div><div class="form-group full"><label>常住地址</label><div class="cascader-row"><select><option>省</option><option>江西省</option></select><select><option>市</option><option>南昌市</option></select><select><option>区县</option><option>东湖区</option></select><select><option>乡镇</option><option>董家窑街道</option></select><select><option>村/社区</option><option>民巷社区</option></select></div></div><div class="form-group full"><label>常驻详细地址</label><input placeholder="请输入常驻详细地址" id="residenceDetail"></div></div></section>`}
 function renderEntryStepTwo(){return `<section class="entry-section" id="entry-tumor" data-step="1"><div class="entry-section-title">肿瘤报告信息</div><div class="form-grid"><div class="form-group"><label>发病部位 ${requiredMark()}</label><select data-required="发病部位"><option>请选择</option><option>肺</option><option>胃</option><option>肝</option><option>乳腺</option><option>结直肠</option></select></div><div class="form-group"><label>亚部位 ${requiredMark()}</label><select data-required="亚部位"><option>请选择</option><option>上叶</option><option>中叶</option><option>下叶</option><option>贲门</option></select></div><div class="form-group"><label>病理类型 ${requiredMark()}</label><select data-required="病理类型"><option>请选择</option><option>腺癌</option><option>鳞状细胞癌</option><option>小细胞癌</option><option>其他</option></select></div><div class="form-group"><label>肿瘤位置/侧位 ${requiredMark()}</label><select data-required="肿瘤位置/侧位"><option>请选择</option><option value="1">左</option><option value="2">右</option><option value="3">双侧</option><option value="9">不详</option></select></div><div class="form-group"><label>行为 ${requiredMark()}</label><select data-required="行为"><option>请选择</option><option>/0 良性</option><option>/1 未定</option><option>/2 原位</option><option>/3 恶性原发</option><option>/6 恶性转移</option><option>/9 恶性(原发/转移未定)</option></select></div><div class="form-group"><label>分级 ${requiredMark()}</label><select data-required="分级"><option>请选择</option><option>I级</option><option>II级</option><option>III级</option><option>不详</option></select></div><div class="form-group"><label>诊断依据 ${requiredMark()}</label><select data-required="诊断依据"><option>请选择</option><option>临床诊断</option><option>影像学诊断</option><option>病理学诊断</option></select></div><div class="form-group full"><label>TNM分期</label><div class="tnm-row"><select><option>选择TNM类型</option><option>cTNM</option><option>pTNM</option></select><select><option>选择N</option><option>N0</option><option>N1</option><option>N2</option></select><select><option>选择M</option><option>M0</option><option>M1</option></select></div></div><div class="form-group"><label>确诊日期 ${requiredMark()}</label><input type="date" data-required="确诊日期"></div><div class="form-group"><label>ICD10 ${requiredMark()}</label><input placeholder="ICD10" data-required="ICD10" oninput="autoFillIcdO3(this)"></div><div class="form-group"><label>肿瘤解剖学部位代码 (ICD-O-3) ${requiredMark()}</label><input id="entry-icdo3-topo" placeholder="如 C34.9" data-required="肿瘤解剖学部位代码"></div><div class="form-group"><label>肿瘤形态学代码 (ICD-O-3) ${requiredMark()}</label><input id="entry-icdo3-morph" placeholder="如 8140/3" data-required="肿瘤形态学代码"></div><div class="form-group"><label>诊断单位 <span class="conditional-required">*</span></label><input placeholder="请输入诊断单位（如：江西省肿瘤医院）"></div><div class="form-group"><label>诊断单位区划</label><input placeholder="如：江西省/南昌市/东湖区"></div><div class="form-group full"><label>治疗信息</label><div class="ms-dropdown" id="treatment-ms"><div class="ms-display" onclick="toggleMsDropdown('treatment-ms')">请选择治疗方式<span class="ms-arrow">▾</span></div><div class="ms-options" style="display:none"><label class="ms-option"><input type="checkbox" value="手术治疗" onchange="updateMsDisplay('treatment-ms')">手术治疗</label><label class="ms-option"><input type="checkbox" value="放射治疗" onchange="updateMsDisplay('treatment-ms')">放射治疗</label><label class="ms-option"><input type="checkbox" value="化学治疗" onchange="updateMsDisplay('treatment-ms')">化学治疗</label><label class="ms-option"><input type="checkbox" value="靶向治疗" onchange="updateMsDisplay('treatment-ms')">靶向治疗</label><label class="ms-option"><input type="checkbox" value="免疫治疗" onchange="updateMsDisplay('treatment-ms')">免疫治疗</label></div></div></div><div class="form-group full"><label>诊断结果 ${requiredMark()}</label><input placeholder="诊断结果" data-required="诊断结果"></div><div class="form-group full"><label>详细诊断结果</label><textarea placeholder="详细诊断结果"></textarea></div><div class="form-group"><label>门诊号</label><input placeholder="门诊号"></div><div class="form-group"><label>住院号</label><input placeholder="住院号"></div><div class="form-group"><label>报告日期 ${requiredMark()}</label><input type="date" data-required="报告日期"></div><div class="form-group"><label>报告医师</label><input placeholder="报告医师"></div></div></section>`}
 function renderEntryStepThree(){if(typeof renderFollowupReportSection==='function'){return renderFollowupReportSection({prefix:'cardFu',values:entryFollowupPrefill(),activeSection:false,sectionId:'entry-followup'})}return `<section class="entry-section" id="entry-followup" data-step="2"><div class="entry-section-title">随访报告信息</div><div class="form-grid"><div class="form-group"><label>最后接触日期 ${requiredMark()}</label><input type="date" data-required="最后接触日期"></div><div class="form-group"><label>最后接触状态 ${requiredMark()}</label><select data-required="最后接触状态"><option>请选择</option><option>存活</option><option>死亡</option><option>移居</option><option>失访</option><option>不详</option></select></div><div class="form-group"><label>死亡地点 ${requiredMark()}</label><select data-required="死亡地点"><option>请选择</option><option>医院</option><option>家中</option><option>其他</option><option>不详</option></select></div><div class="form-group"><label>根本死因 ${requiredMark()}</label><select data-required="根本死因"><option>请选择</option><option>肿瘤</option><option>心脑血管疾病</option><option>呼吸系统疾病</option><option>其他</option></select></div><div class="form-group"><label>死因ICD10编码 ${requiredMark()}</label><input placeholder="死因ICD10编码" data-required="死因ICD10编码"></div><div class="form-group"><label>死亡日期 ${requiredMark()}</label><input type="date" data-required="死亡日期"></div><div class="form-group"><label>死亡报告医师</label><input placeholder="死亡报告医师"></div></div></section>`}
@@ -1431,6 +1578,132 @@ function entryFillMulti(id,values){var dd=document.getElementById(id);if(!dd)ret
 function entrySplitSite(site){var s=entryCleanText(site);var sub='',base=s;for(var i=0;i<ENTRY_SUB_SITES.length;i++){if(s.indexOf(ENTRY_SUB_SITES[i])>=0){sub=ENTRY_SUB_SITES[i];base=s.replace(sub,'');break}}return {base:ENTRY_SITE_ALIAS[base]||base,sub:sub}}
 function entryFollowupPrefill(){var v={};var id=window.editCardId;if(!id)return v;/* 随访映射里用 '-' 表示空值，统一清洗掉 */var f=(window.reportCardFollowup||{})[id];if(f){v.lastContact=entryCleanText(f.dlc);v.status=entryCleanText(f.state);v.place=entryCleanText(f.deadplace);v.cause=entryCleanText(f.caus);v.causeIcd=entryCleanText(f.causicd);v.deathDate=entryCleanText(f.deathda);v.doctor=entryCleanText(f.deadDoct)}
 if(typeof window.ensureFollowupStore==='function'){var list=window.ensureFollowupStore()||[];var rec=list.find(function(r){return r.reportCardId===id||r.id===id});if(rec){if(!entryCleanText(v.lastContact))v.lastContact=entryCleanText(rec.lastContact);if(!entryCleanText(v.status))v.status=entryCleanText(rec.status);if(entryCleanText(rec.lostReason))v.lostReason=entryCleanText(rec.lostReason);if(!entryCleanText(v.place))v.place=entryCleanText(rec.place);if(!entryCleanText(v.cause))v.cause=entryCleanText(rec.cause);if(!entryCleanText(v.causeIcd))v.causeIcd=entryCleanText(rec.causeIcd);if(!entryCleanText(v.deathDate))v.deathDate=entryCleanText(rec.deathDate);if(!entryCleanText(v.doctor))v.doctor=entryCleanText(rec.doctor)}}return v}
+/* ===== 源数据分歧：字段级「来源取值」按钮 =====
+   触发条件（三条同时成立）：
+     1. 该报告卡关联了 2 条及以上源数据；
+     2. 这些源数据在同一字段上给出了不止一种取值（源数据之间不一致）；
+     3. 该字段的源数据取值集合与报告卡当前值也不一致。
+   位置：按钮贴在冲突字段自身的 .form-group 上（不新增独立面板），点开在字段下方展开选项列表。
+   选项：报告卡当前值（保留）+ 每个去重后的源数据取值一条，后附来源编号，点选即回填该字段。
+   说明：源数据模型只有 current.site / current.pathology / current.icd10 / org / uploadTime / name / idNo，
+   因此实际会产生按钮的字段就是下面 SOURCE_CONFLICT_FIELDS 列出的这批（外加联系人/联系电话、诊断单位）。 */
+var SOURCE_CONFLICT_FIELDS=[
+ {key:'site',label:'发病部位',map:function(r){return r.current&&r.current.site}},
+ {key:'pathology',label:'病理类型',map:function(r){return r.current&&r.current.pathology}},
+ {key:'icd10',label:'ICD10',map:function(r){return r.current&&r.current.icd10}},
+ {key:'org',label:'上报医院',map:function(r){return r.org}}
+];
+function sourceConflictValue(item){return entryCleanText(item.raw)}
+/* 汇总某报告卡的关联源数据（去重后按编号排序，保证渲染顺序稳定） */
+function cardLinkedSources(cardId){if(typeof sourceDataRecords==='undefined'||!sourceDataRecords)return [];return sourceDataRecords.filter(function(record){return (record.linkedCards||[]).indexOf(cardId)>-1})}
+/* 取一条源数据的上报医院（上报单位）：record.org；缺失时回退到关联报告卡的 reportUnit */
+function sourceOrgOf(record){if(!record)return '';var org=entryCleanText(record.org);if(org)return org;var cards=window.reportCardListData||[];var linked=record.linkedCards||[];for(var i=0;i<linked.length;i++){var card=cards.find(function(item){return item.id===linked[i]});if(card&&entryCleanText(card.reportUnit))return entryCleanText(card.reportUnit)}return ''}
+/* 一条源数据的来源信息：上报医院、上报时间、源数据编号，直接给值不加前缀标签。
+   同一取值有多条源数据时逐条列出；时间取 record.uploadTime。 */
+function sourceOptionOrigin(record){var org=sourceOrgOf(record),up=entryRawText(record.uploadTime),sn=entryRawText(record.id);return [org,up,sn].filter(Boolean).join('　')}
+/* 计算一个字段的分歧：返回 null 表示不出按钮，否则返回 {options:[...],cardValue:...} */
+/* 计算某字段的源数据可选值：返回 null 表示不出选项，否则返回 {options:[...],cardValue:...}
+   触发口径：只要源数据提供了「与报告卡当前值不同」的取值，就给选择。
+     · 不要求源数据 ≥ 2 条 —— 单条源数据与卡片值不同时，同样应允许改用该值；
+     · 不要求源数据之间取值不同 —— 多条源数据取值一致但与卡片不同时，该值仍是可选值。
+   反之，源数据取值与卡片当前值全部相同（无新值可选）时不出选项。 */
+function fieldSourceConflict(field,cardId){
+ var card=window.reportCardListData?(window.reportCardListData.find(function(item){return item.id===cardId})||{}):{};
+ var cardValue=entryCleanText(card[field.key]);
+ /* 卡片模型里没有该字段（如上報医院）时，以当前输入框的值为准 —— 那是 applyEntryPrefill 刚写入的初值，*/
+ /* 否则面板会显示「当前为空」而输入框其实有值，两边对不上。 */
+ var _ctrl=entryControlOf(field.label);if(!cardValue&&_ctrl)cardValue=entryCleanText(_ctrl.value);
+ var sources=cardLinkedSources(cardId);
+ if(!sources.length)return null;                     /* 没有关联源数据，无从可选 */
+ var groups={},order=[];
+ sources.forEach(function(record){
+  var raw=field.map(record);var value=sourceConflictValue({raw:raw});
+  if(!value)return;                                  /* 源数据该字段为空，不参与 */
+  if(!groups[value]){groups[value]={value:value,records:[]};order.push(value)}
+  groups[value].records.push(record);
+ });
+ if(!order.length)return null;                       /* 源数据该字段全为空 */
+ /* 源数据取值全部等于卡片当前值 → 没有新值可选，不必打扰 */
+ if(order.every(function(value){return value===cardValue}))return null;
+ return {cardValue:cardValue,options:order.map(function(value){return groups[value]})};
+}
+/* 字段下方的取值选项浮层（position:absolute，不占文档流，展开时下面的字段不会被推走） */
+function renderSourceConflictBlock(field,conflict){
+ var options=conflict.options;
+ var rows=options.map(function(option,index){
+  /* 选项正文 = 取值 + 常驻的来源行（上报医院 / 源数据编号）。来源始终显示，不依赖悬浮。
+     同一取值来自多条源数据时逐条列一行，便于分辨是哪几家医院报了同样的值。 */
+  var lines=option.records.map(sourceOptionOrigin).filter(Boolean);
+  if(!lines.length)lines=['该取值无来源信息'];
+  return '<label class="sf-option" data-value="'+cardDetailEscape(option.value)+'" onclick="applySourceConflictValue(this,\''+field.key+'\',\''+field.label+'\')">'+
+   '<input type="radio" name="sf-'+field.key+'" '+(index===0?'':'')+'>'+
+   '<span class="sf-option-main">'+
+    '<span class="sf-option-value">'+cardDetailEscape(option.value)+'</span>'+
+    lines.map(function(line){return '<span class="sf-option-src">'+cardDetailEscape(line)+'</span>'}).join('')+
+   '</span>'+
+  '</label>';
+ }).join('');
+ var keepRow='<label class="sf-option sf-option-keep" data-value="'+cardDetailEscape(conflict.cardValue||'')+'" onclick="applySourceConflictKeep(this,\''+field.key+'\')">'+
+  '<input type="radio" name="sf-'+field.key+'">'+
+  '<span class="sf-option-main"><span class="sf-option-value">'+(conflict.cardValue?cardDetailEscape(conflict.cardValue):'（当前为空）')+'</span></span>'+
+  '<span class="sf-option-from">报告卡当前值</span>'+
+ '</label>';
+ return '<div class="sf-conflict" data-field-key="'+field.key+'">'+
+  '<div class="sf-panel"><div class="sf-panel-hint">该卡关联 '+cardLinkedSources(window.editCardId).length+' 条源数据，此字段有源数据取值，请选择采用哪一项：</div>'+
+  keepRow+rows+'</div>'+
+ '</div>';
+}
+/* label 旁的可点角标：点它展开/收起该字段的取值选项 */
+function renderSourceConflictBadge(field){return '<span class="sf-badge" role="button" tabindex="0" title="该字段有源数据可选值，点击选择" onclick="toggleSourceConflictBadge(this)" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();toggleSourceConflictBadge(this)}"><span class="sf-warn">!</span>多条数据<span class="sf-caret">▾</span></span>'}
+function toggleSourceConflictBadge(badge){
+ var group=badge.closest('.form-group');if(!group)return;
+ var block=group.querySelector('.sf-conflict');if(!block)return;
+ var open=block.classList.toggle('open');
+ group.classList.toggle('sf-open',open);
+ badge.setAttribute('aria-expanded',open?'true':'false');
+}
+/* 选择后立刻收起面板 */
+function closeSourceConflict(block){if(!block)return;block.classList.remove('open');var g=block.closest('.form-group');if(g)g.classList.remove('sf-open');g=g||null;if(g){var b=g.querySelector('.sf-badge');if(b)b.setAttribute('aria-expanded','false')}}
+/* 把按钮插到对应字段的 .form-group 内（label/控件之后），不动原有表单结构 */
+function applySourceConflictButtons(){
+ var cardId=window.editCardId;if(!cardId)return;
+ var panel=document.querySelector('.entry-form-panel');if(!panel)return;
+ SOURCE_CONFLICT_FIELDS.forEach(function(field){
+  var group=entryGroupOf(field.label);if(!group)return;
+  var old=group.querySelector('.sf-conflict');if(old)old.remove();
+  var conflict=fieldSourceConflict(field,cardId);if(!conflict)return;
+  group.classList.add('has-source-conflict');
+  /* 角标挂在 label 末尾（与必填星号同一行），面板挂在字段下方 */
+  var lab=group.querySelector('label');if(lab)lab.insertAdjacentHTML('beforeend',renderSourceConflictBadge(field));
+  group.insertAdjacentHTML('beforeend',renderSourceConflictBlock(field,conflict));
+ });
+}
+/* 选择某个源数据取值：按现有回填通道写回字段（与 applyEntryPrefill 同一套 entryFill） */
+function applySourceConflictValue(label,key,fieldLabel){
+ var block=label.closest('.sf-conflict');if(!block)return;
+ var value=label.getAttribute('data-value');
+ if(entryFill(fieldLabel,value)){
+  block.querySelectorAll('.sf-option').forEach(function(el){el.classList.remove('is-picked')});
+  label.classList.add('is-picked');
+  closeSourceConflict(block);
+  toast('已采用源数据取值：'+value);
+ }else{
+  toast('该字段当前无法写入，请手动填写','error');
+ }
+}
+/* 选择「保留报告卡当前值」 */
+function applySourceConflictKeep(label,key){
+ var block=label.closest('.sf-conflict');if(!block)return;
+ var field=SOURCE_CONFLICT_FIELDS.filter(function(item){return item.key===key})[0];if(!field)return;
+ var card=window.reportCardListData?(window.reportCardListData.find(function(item){return item.id===window.editCardId})||{}):{};
+ var value=entryCleanText(card[field.key]);
+ if(!value){var _c=entryControlOf(field.label);if(_c)value=entryCleanText(_c.value);}
+ if(value)entryFill(field.label,value);
+ block.querySelectorAll('.sf-option').forEach(function(el){el.classList.remove('is-picked')});
+ label.classList.add('is-picked');
+ closeSourceConflict(block);
+ toast('已保留报告卡当前值');
+}
 function applyEntryPrefill(){var c=window.editCardData;if(!c)return;if(!document.querySelector('.entry-form-panel'))return;
 /* 说明：联系人关系/联系人/联系人电话、亚部位、行为、分级、诊断依据、TNM、治疗信息、诊断结果等
    在报告卡数据模型里没有字段，故保持空白由用户补录，不做臆造。 */
@@ -1446,7 +1719,7 @@ entryFill('确诊日期',c.diagnosisDate);entryFill('ICD10',c.icd10);
 var icdInput=entryControlOf('ICD10');
 var topoEl=document.getElementById('entry-icdo3-topo');var topoVal=entryCleanText(c.topoCode||c.icdo3Topo);if(topoEl&&topoVal){topoEl.value=topoVal;topoEl.dataset.userEdited='1'}else if(topoEl&&icdInput&&typeof autoFillIcdO3==='function'){autoFillIcdO3(icdInput)}
 var morphEl=document.getElementById('entry-icdo3-morph');var morphVal=entryCleanText(c.morphCode||c.icdo3Morph);if(morphEl&&morphVal){morphEl.value=morphVal;morphEl.dataset.userEdited='1'}
-entryFill('诊断单位区划',c.regionPath||entryCleanText(c.household).split('/').slice(0,3).join('/'));entryFill('诊断单位',c.reportUnit);
+entryFill('诊断单位区划',c.regionPath||entryCleanText(c.household).split('/').slice(0,3).join('/'));entryFill('诊断单位',c.reportUnit);/* 上报医院：卡片模型无对应字段，取该卡关联源数据的上报单位（record.org）作初值 */var _sfOrg=(typeof cardLinkedSources==='function')?cardLinkedSources(window.editCardId)[0]:null;if(_sfOrg&&_sfOrg.org)entryFill('上报医院',_sfOrg.org);
 entryFillMulti('treatment-ms',entryCleanText(c.treaInfo).split(/[+＋、,，;；\/]/));
 var tnmRow=document.querySelector('.entry-form-panel .tnm-row');var tnm=entryCleanText(c.tnm);if(tnmRow&&tnm){var tnmSels=tnmRow.querySelectorAll('select');var typeHit=tnm.match(/[cp]TNM/i),nHit=tnm.match(/N[0-9X]/i),mHit=tnm.match(/M[0-9X]/i);if(tnmSels[0]&&typeHit)entryPickOption(tnmSels[0],typeHit[0]);if(tnmSels[1]&&nHit)entryPickOption(tnmSels[1],nHit[0].toUpperCase());if(tnmSels[2]&&mHit)entryPickOption(tnmSels[2],mHit[0].toUpperCase())}
 entryFill('诊断结果',c.diagnosisResult);entryFillArea('详细诊断结果',c.detailedDiagnosisResult);entryFill('门诊号',c.outpatientNo);entryFill('住院号',c.inpatientNo);entryFill('报告日期',c.reportDate);entryFill('报告医师',c.doctor);
@@ -1457,7 +1730,7 @@ var fu=entryFollowupPrefill();
 if(typeof toggleFollowupFormFields==='function')toggleFollowupFormFields('cardFu')}
 function cancelCardEdit(){window.editCardId=null;window.editCardData=null;window.editCardErrors=[];navigateTo('datamgmt-card')}
 function toggleOtherCertInput(sel){var grp=document.getElementById('otherCertInputGroup');if(!grp)return;var on=!!(sel&&sel.value&&sel.value!=='身份证');grp.style.display=on?'':'none';if(!on){var no=document.getElementById('otherCertNo');if(no)no.value=''}}
-function initEntryWizard(){entryStep=0;goEntryStep(0,true);if(window.editCardData)applyEntryPrefill();if(typeof toggleFollowupFormFields==='function')toggleFollowupFormFields('cardFu')}
+function initEntryWizard(){entryStep=0;goEntryStep(0,true);if(window.editCardData)applyEntryPrefill();if(window.editCardId)applySourceConflictButtons();if(typeof toggleFollowupFormFields==='function')toggleFollowupFormFields('cardFu')}
 function getEntrySections(){return Array.from(document.querySelectorAll('.entry-section'))}
 function isPlaceholderValue(el){if(!el.options||el.selectedIndex<0)return false;return ['请选择','选择联系人关系','省','市','区县','乡镇','村/社区','选择TNM类型','选择N','选择M'].includes(el.options[el.selectedIndex].text.trim())}
 function clearEntryErrors(section){section.querySelectorAll('.form-group.invalid').forEach(group=>{group.classList.remove('invalid');const err=group.querySelector('.field-error');if(err)err.remove()})}
@@ -2050,15 +2323,15 @@ function userFilterChange(){userState.filters.status=document.getElementById('us
 function userResetFilter(){userState.filters={keyword:'',status:''};userState.page=1;renderPage('system-users')}
 function userGoPage(page){const total=getFilteredUsers().length;const totalPages=Math.max(1,Math.ceil(total/userState.pageSize));if(page<1||page>totalPages)return;userState.page=page;renderPage('system-users')}
 let roleData=[
-{id:3,code:'REGISTRY',name:'登记处',status:'enabled',order:0,desc:'疾控/肿瘤登记中心工作人员，拥有病例上报、审核、本地统计权限',menus:['collection-entry','datamgmt-card','datamgmt-source','quality-dup-card','analysis']},
+{id:3,code:'REGISTRY',name:'登记处',status:'enabled',order:0,desc:'疾控/肿瘤登记中心工作人员，拥有病例上报、审核、本地统计权限',menus:['collection-entry','datamgmt-card','datamgmt-card-migrate','datamgmt-source','quality-dup-card','analysis']},
 {id:4,code:'HOSPITAL',name:'医院',status:'enabled',order:0,desc:'医疗机构填报人员，仅可录入、提交本院肿瘤病例',menus:['collection-entry','datamgmt-card']},
-{id:5,code:'ALL',name:'超级权限',status:'enabled',order:0,desc:'超级权限',menus:['dashboard','collection-entry','datamgmt-card','datamgmt-source','collection-batch','collection-death','datamgmt-import','datamgmt-patient','datamgmt-followup','quality-dup-card','quality-dup-param','quality-dup-field','analysis','master-hospital','master-pop','master-address','publish-news','system-users','system-online','system-roles','system-logs','system-config']}
+{id:5,code:'ALL',name:'超级权限',status:'enabled',order:0,desc:'超级权限',menus:['dashboard','collection-entry','datamgmt-card','datamgmt-card-migrate','datamgmt-source','collection-batch','collection-death','datamgmt-import','datamgmt-patient','datamgmt-followup','quality-dup-card','quality-dup-param','quality-dup-field','analysis','master-hospital','master-pop','master-address','publish-news','system-users','system-online','system-roles','system-logs','system-config']}
 ];
 let roleState={mode:'list',editingId:null,permRoleId:null,filters:{keyword:'',status:''},page:1,pageSize:10,selectedIds:[]};
 const roleMenuTree=[
-  {group:'病例上报',icon:'●',children:[{id:'collection-entry',label:'报告卡登记'},{id:'datamgmt-card',label:'报告卡查询'},{id:'datamgmt-source',label:'上报数据管理'},{id:'collection-batch',label:'批量登记'},{id:'collection-death',label:'作废卡管理'},{id:'quality-dup-card',label:'报卡查重'}]},
+  {group:'病例上报',icon:'●',children:[{id:'collection-entry',label:'报告卡登记'},{id:'datamgmt-card',label:'报告卡查询'},{id:'datamgmt-card-migrate',label:'报告卡迁移'},{id:'datamgmt-source',label:'上报数据管理'},{id:'collection-batch',label:'批量登记'},{id:'collection-death',label:'作废卡管理'},{id:'quality-dup-card',label:'报卡查重'}]},
 /* 原「数据查重」分组已拆分：报卡查重并入「病例上报」；两个参数页并入「系统管理」 */
-{group:'随访与死亡信息管理',icon:'●',children:[{id:'followup',label:'随访信息上传'},{id:'followup-plan',label:'随访计划'},{id:'death-info',label:'死亡信息列表'}]},
+{group:'随访结局管理',icon:'●',children:[{id:'followup',label:'随访信息上传'},{id:'followup-plan',label:'随访计划'},{id:'death-info',label:'死亡信息列表'}]},
 {group:'统计报表',icon:'●',children:[{id:'analysis-burden',label:'流行病学分析'},{id:'analysis-progress',label:'报卡工作量'},{id:'analysis-quality',label:'报卡质量监测'},{id:'analysis-cross',label:'交叉统计'},{id:'report-files',label:'报表文件库'}]},
 {group:'审核质控',icon:'●',children:[{id:'quality-todo',label:'待办工作台'},{id:'quality-rules',label:'质控规则'},{id:'quality-log',label:'质控审计日志'}]},
 {group:'基础数据',icon:'●',children:[{id:'master-hospital',label:'机构管理'},{id:'master-pop',label:'人口基数管理'},{id:'master-address',label:'行政区划管理'}]},
@@ -2261,7 +2534,7 @@ return '<div class="page-toolbar"><div class="toolbar-actions"><button class="bt
 function followupBatchUpdateCount(){const c=document.querySelectorAll('.batch-followup-check:checked').length;const el=document.getElementById('batchCount');if(el)el.textContent=c}
 function followupBatchExecute(){const c=document.querySelectorAll('.batch-followup-check:checked').length;if(c===0){toast('请至少选择一条记录','error');return}showConfirm('批量随访确认','确定要对选中的 '+c+' 条记录执行批量随访吗？',()=>{toast('批量随访已执行，共生成 '+c+' 条随访记录')})}
 
-function renderPage(id){const titles={'datamgmt-import':'导入数据管理','datamgmt-patient':'患者信息管理','datamgmt-followup':'随访信息管理','quality-dup':'查重管理','quality-todo':'待办工作台','quality-rules':'质控规则','quality-log':'质控审计日志','followup-tasks':'随访任务','followup':'随访信息上传','followup-upload':'随访批量上传','followup-plan':'随访计划','followup-batch':'随访计划','death-register':'死因批量登记（临时表）','death-entry':'随访报告信息','death-info':'死亡信息列表','death-cause':'死亡信息列表','analysis':'统计分析','data-report':'数据上报','master-hospital':'机构管理','master-pop':'人口基数管理','master-address':'行政区划管理','publish-news':'资讯管理','survey-list':'问卷列表','survey-design':'问卷设计','survey-publish':'发布管理','survey-responses':'答卷管理','survey-stats':'统计分析','survey-fill':'问卷填写','system-users':'用户管理','system-online':'在线用户','system-roles':'角色与权限管理','system-logs':'操作日志','system-config':'系统配置','warning-records':'预警记录','warning-tickets':'发病异常预警工单','warning-rules':'异常监测规则配置','cap-catalog':'肿瘤诊疗技术目录','cap-records':'机构技术开展记录','cap-quality':'医疗质量核心指标明细','cap-complex':'疑难病例收治特征库','mdl-features':'多源特征数据仓库','mdl-registry':'预警模型元信息注册','mdl-training':'模型训练与超参记录','mdl-predictions':'风险预测结果快照','mdl-evaluation':'模型验证与评估报告'};let html;if(id==='dashboard')html=renderDashboard();else if(id==='collection-entry')html=renderCardEntryForm();else if(id==='collection-batch')html=renderHisUploadManagement();else if(id==='collection-death')html=renderVoidCardManagement();else if(id==='death-register')html=renderDeathRegister();else if(id==='death-entry')html=renderDeathEntryForm();else if(id==='death-cause')html=renderDeathCause();else if(id==='death-info')html=renderDeathInfo();else if(id==='followup-tasks')html=renderFollowupTasks();else if(id==='followup')html=renderFollowupRecords();else if(id==='followup-upload')html=renderFollowupUploadPage();else if(id==='followup-plan')html=renderFollowupPlan();else if(id==='followup-batch')html=renderFollowupBatch();else if(id==='quality-todo')html=renderQualityTodo();else if(id==='quality-rules')html=renderQualityRules();else if(id==='quality-log')html=renderQualityLog();else if(id==='quality-dup'||id==='quality-dup-card'||id==='quality-dup-pop'||id==='quality-dup-param'||id==='quality-dup-field'){if(id!=='quality-dup')dedupState.subId=id;html=renderDedupPage()}else if(id==='datamgmt-card')html=renderReportCardList();else if(id==='publish-news')html=(newsState.mode==='form'?renderPublishNews():renderNewsList());else if(id==='master-address')html=(addressState.mode==='form'?renderAddressForm():renderAddressList());else if(id==='master-hospital')html=(hospitalState.mode==='form'?renderHospitalForm():renderHospitalList());else if(id==='master-pop')html=(popState.mode==='form'?renderPopulationForm():renderPopulationList());else if(id==='analysis'||id==='report-files'||(id&&id.indexOf('analysis-')===0))html=(typeof DA!=='undefined'?DA.render(id):renderGeneric(titles[id]||'数据分析'));else if(id.startsWith('audit'))html=renderAuditPage(id);else if(id.startsWith('dict'))html=renderDictPage(id);else if(id==='system-online')html=renderOnlineUsers();else if(id==='system-users')html=(userState.mode==='form'?renderUserForm():renderUserList());else if(id==='system-roles')html=(roleState.mode==='form'?renderRoleForm():renderRoleList());else if(id==='system-menu')html=(menuPermState.mode==='form'?renderMenuPermForm():renderMenuPermList());else if(id.startsWith('survey'))html=renderSurveyPage(id);else if(window.warningPageIds&&window.warningPageIds.indexOf(id)>=0)html=window.renderWarningPage(id);else if(window.capabilityPageIds&&window.capabilityPageIds.indexOf(id)>=0)html=window.renderCapabilityPage(id);else if(window.modelPageIds&&window.modelPageIds.indexOf(id)>=0)html=window.renderModelPage(id);else if(window.monitorPageIds&&window.monitorPageIds.indexOf(id)>=0)html=window.renderMonitorPage(id);else if(window.qcPageIds&&window.qcPageIds.indexOf(id)>=0)html=window.renderQCPage(id);else if(window.cockpitPageIds&&window.cockpitPageIds.indexOf(id)>=0&&typeof window.renderCockpitPage==='function'){window.renderCockpitPage(id);const mc=document.getElementById('mainContent');if(mc)mc.scrollTop=0;return}else if(id==='sp-patients'||id==='sp-overview'||id==='sp-config'||id==='specialty-portrait'){if(typeof window.renderSpecialtyPortrait==='function'){var _spSub=id==='sp-overview'?'overview':id==='sp-config'?'config':'workbench';html=window.renderSpecialtyPortrait(_spSub)}else{html=renderGeneric('专科画像')}}else if(typeof renderHealthConsultPage==='function'&&['consult-sessions','consult-analysis','community-management','consult-education','consult-session','consult-message','consult-category','consult-assign-log','analysis-raw-text','analysis-ai-result','analysis-hotspot','analysis-insight','community-board','community-post','community-comment','community-user-log','community-recommend'].indexOf(id)>=0){renderHealthConsultPage(id);return}else html=renderGeneric(titles[id]||'页面开发中');document.getElementById('pageContainer').innerHTML=html;if(id==='collection-entry')initEntryWizard();if(id==='master-pop'&&popState.mode==='form')updatePopChart();autoSizeSelects();const mainContent=document.getElementById('mainContent');if(mainContent)mainContent.scrollTop=0}
+function renderPage(id){const titles={'datamgmt-import':'导入数据管理','datamgmt-patient':'患者信息管理','datamgmt-followup':'随访信息管理','quality-dup':'查重管理','quality-todo':'待办工作台','quality-rules':'质控规则','quality-log':'质控审计日志','followup-tasks':'随访任务','followup':'随访信息上传','followup-upload':'随访批量上传','followup-plan':'随访计划','followup-batch':'随访计划','death-register':'死因批量登记（临时表）','death-entry':'随访报告信息','death-info':'死亡信息列表','death-cause':'死亡信息列表','analysis':'统计分析','data-report':'数据上报','master-hospital':'机构管理','master-pop':'人口基数管理','master-address':'行政区划管理','publish-news':'资讯管理','survey-list':'问卷列表','survey-design':'问卷设计','survey-publish':'发布管理','survey-responses':'答卷管理','survey-stats':'统计分析','survey-fill':'问卷填写','system-users':'用户管理','system-online':'在线用户','system-roles':'角色与权限管理','system-logs':'操作日志','system-config':'系统配置','warning-records':'预警记录','warning-tickets':'发病异常预警工单','warning-rules':'异常监测规则配置','cap-catalog':'肿瘤诊疗技术目录','cap-records':'机构技术开展记录','cap-quality':'医疗质量核心指标明细','cap-complex':'疑难病例收治特征库','mdl-features':'多源特征数据仓库','mdl-registry':'预警模型元信息注册','mdl-training':'模型训练与超参记录','mdl-predictions':'风险预测结果快照','mdl-evaluation':'模型验证与评估报告','kb-sci':'科普内容','kb-train':'培训内容','kb-mine':'我的内容','kb-dict':'分类维护','kb-library':'科普内容'};let html;if(id==='dashboard')html=renderDashboard();else if(id==='collection-entry')html=renderCardEntryForm();else if(id==='collection-batch')html=window.entryFlowPicked?renderHisUploadManagement():'<div class="panel"><div class="panel-body">'+renderEntryModeChoice()+'</div></div>';else if(id==='collection-death')html=renderVoidCardManagement();else if(id==='death-register')html=renderDeathRegister();else if(id==='death-entry')html=renderDeathEntryForm();else if(id==='death-cause')html=renderDeathCause();else if(id==='death-info')html=renderDeathInfo();else if(id==='followup-tasks')html=renderFollowupTasks();else if(id==='followup')html=renderFollowupRecords();else if(id==='followup-upload')html=renderFollowupUploadPage();else if(id==='followup-plan')html=renderFollowupPlan();else if(id==='followup-batch')html=renderFollowupBatch();else if(id==='quality-todo')html=renderQualityTodo();else if(id==='quality-rules')html=renderQualityRules();else if(id==='quality-log')html=renderQualityLog();else if(id==='quality-dup'||id==='quality-dup-card'||id==='quality-dup-pop'||id==='quality-dup-param'||id==='quality-dup-field'){if(id!=='quality-dup')dedupState.subId=id;html=renderDedupPage()}else if(id==='datamgmt-card')html=renderReportCardList();else if(id==='publish-news')html=(newsState.mode==='form'?renderPublishNews():renderNewsList());else if(id==='master-address')html=(addressState.mode==='form'?renderAddressForm():renderAddressList());else if(id==='master-hospital')html=(hospitalState.mode==='form'?renderHospitalForm():renderHospitalList());else if(id==='master-pop')html=(popState.mode==='form'?renderPopulationForm():renderPopulationList());else if(id==='analysis'||id==='report-files'||(id&&id.indexOf('analysis-')===0))html=(typeof DA!=='undefined'?DA.render(id):renderGeneric(titles[id]||'数据分析'));else if(id.startsWith('audit'))html=renderAuditPage(id);else if(id.startsWith('dict'))html=renderDictPage(id);else if(id==='system-online')html=renderOnlineUsers();else if(id==='system-users')html=(userState.mode==='form'?renderUserForm():renderUserList());else if(id==='system-roles')html=(roleState.mode==='form'?renderRoleForm():renderRoleList());else if(id==='system-menu')html=(menuPermState.mode==='form'?renderMenuPermForm():renderMenuPermList());else if(id.startsWith('survey'))html=renderSurveyPage(id);else if(window.warningPageIds&&window.warningPageIds.indexOf(id)>=0)html=window.renderWarningPage(id);else if(window.capabilityPageIds&&window.capabilityPageIds.indexOf(id)>=0)html=window.renderCapabilityPage(id);else if(window.modelPageIds&&window.modelPageIds.indexOf(id)>=0)html=window.renderModelPage(id);else if(window.monitorPageIds&&window.monitorPageIds.indexOf(id)>=0)html=window.renderMonitorPage(id);else if(window.qcPageIds&&window.qcPageIds.indexOf(id)>=0)html=window.renderQCPage(id);else if(window.cockpitPageIds&&window.cockpitPageIds.indexOf(id)>=0&&typeof window.renderCockpitPage==='function'){window.renderCockpitPage(id);const mc=document.getElementById('mainContent');if(mc)mc.scrollTop=0;return}else if(id==='sp-patients'||id==='sp-overview'||id==='sp-config'||id==='specialty-portrait'){if(typeof window.renderSpecialtyPortrait==='function'){var _spSub=id==='sp-overview'?'overview':id==='sp-config'?'config':'workbench';html=window.renderSpecialtyPortrait(_spSub)}else{html=renderGeneric('专科画像')}}else if(window.kbPageIds&&window.kbPageIds.indexOf(id)>=0){window.renderKBPage(id);return}else html=renderGeneric(titles[id]||'页面开发中');document.getElementById('pageContainer').innerHTML=html;if(id==='collection-entry')initEntryWizard();if(id==='master-pop'&&popState.mode==='form')updatePopChart();autoSizeSelects();const mainContent=document.getElementById('mainContent');if(mainContent)mainContent.scrollTop=0}
 function updateTime(){document.getElementById('currentTime').textContent=new Date().toLocaleString('zh-CN')}
 function initApp(){const menu=document.getElementById('sidebarMenu');menu.innerHTML='';buildMenu(menuData,menu);updateTime();var _h=decodeURIComponent((location.hash||'').replace(/^#/,'')).trim();var _ids=[];(function walk(items){items.forEach(function(i){if(i.id)_ids.push(i.id);if(i.children)walk(i.children)})})(menuData);navigateTo(_ids.indexOf(_h)>=0?_h:'dashboard')}
 setInterval(updateTime,1000);document.addEventListener('DOMContentLoaded',initApp);
@@ -2271,6 +2544,7 @@ setInterval(updateTime,1000);document.addEventListener('DOMContentLoaded',initAp
 <script src="interactions.js"></script>
 <script src="dictionary-management.js"></script>
 <script src="report-data-management.js?v=20260930a"></script>
+<script src="report-card-migrate.js?v=20261012a"></script>
 
 <script src="report-card-detail.js?v=20260829b"></script>
 <script src="report-card-detail-tabs.js"></script>
@@ -2625,8 +2899,9 @@ function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":
 <script src="warning-module.js?v=20260910c"></script>
 <script src="capability-module.js?v=20260910d"></script>
 <script src="model-module.js?v=20260827a"></script>
-  <script src="annual-report.js?v=20260830-notab"></script>
-  <script src="health-consult.js?v=20260828b"></script>
+  <script src="annual-report-stages.js?v=20261010-stage2"></script>
+  <script src="annual-report.js?v=20261010-stage2"></script>
+  <script src="kb-module.js?v=20261009kb7"></script>
   <script src="qc-data.js?v=20261003a"></script>
   <script src="qc-ui.js?v=20261002qcfix2"></script>
   <script src="qc-l1.js?v=20260928qc"></script>

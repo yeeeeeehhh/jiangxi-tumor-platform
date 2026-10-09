@@ -61,8 +61,14 @@
     tim: 95,   // 上报及时率目标
     dup: 3,    // 重卡率上限
     miss: 2,   // 漏报率上限
-    nccr: 96   // 国家平台上报率目标
+    nccr: 96,  // 国家平台上报率目标
+    warnPending: 12, // 待处置预警上限
+    backlog: 200     // 录入积压上限（张）
   };
+  /* 2026-10-10 阈值并轨说明：cockpit-module.js 的 TH 与本表保持同值。
+     此前 cockpit 把 重卡率/随访率/上报率/待处置 的阈值硬编码在渲染代码里（随访率写 80），
+     与本表的 85 冲突，导致 11 个地市里 5 个出现「预警总览说达标、运营监测说未达标」。
+     现两边同源；改阈值请同时改 cockpit-module.js 的 TH。 */
 
   function panelHead(title, tools) {
     return '<header class="ck-p-head"><div class="ck-p-title">' + title + '</div><div class="ck-p-tools">' + (tools || '') + '</div></header>';
@@ -221,8 +227,8 @@
         cell(f1(r.dup) + '%', r.dup <= TH.dup) +
         cell(f1(r.miss) + '%', r.miss <= TH.miss) +
         cell(f1(r.ret) + '%', r.ret <= 3) +
-        cell(fmtInt(r.backlog), r.backlog <= 200) +
-        cell(fmtInt(r.pending), r.pending <= 12) +
+        cell(fmtInt(r.backlog), r.backlog <= TH.backlog) +
+        cell(fmtInt(r.pending), r.pending <= TH.warnPending) +
         '<td class="ck-op"><button class="ck-link" data-ro-pick="' + r.code + '">聚焦</button></td>' +
         '</tr>';
     }).join('');
