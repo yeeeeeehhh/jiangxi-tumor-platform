@@ -690,6 +690,9 @@
     insight: insight, insights: insights,
     scoreRing: scoreRing, scoreCard: scoreCard,
     divergeBars: divergeBars, rankList: rankList, matrix: matrix,
+    /* 列宽测算：供自定义表（如规则配置页的 .qcr-tbl）复用同一口径，
+       避免两处各写一套、口径分叉。 */
+    fitWidths: fitWidths, displayUnits: displayUnits,
     modal: modal, closeModal: closeModal, toast: toast
   };
 })();

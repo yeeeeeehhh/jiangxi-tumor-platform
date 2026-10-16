@@ -90,8 +90,14 @@
 #pageContainer .qcr-field-actions{display:flex;gap:8px;align-items:flex-end}\
 #pageContainer .qcr-tblwrap{overflow:auto;border:1px solid var(--border);border-radius:6px;background:#fff}\
 #pageContainer .qcr-tbl{width:100%;min-width:960px;border-collapse:collapse}\
+/* 与 U.table 的 fit 模式同规格：fixed 布局按 colgroup 声明分列，避免浏览器把剩余宽度平摊到各列（列间大片空白的根因）。 */\
+#pageContainer .qcr-tbl.fixed{table-layout:fixed}\
 #pageContainer .qcr-tbl th{height:40px;padding:0 11px;text-align:left;background:#f8fafc;color:#5b6673;font-size:12px;font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap}\
 #pageContainer .qcr-tbl td{height:46px;padding:7px 11px;border-bottom:1px solid var(--border);color:#334155;font-size:13px;vertical-align:middle}\
+/* 数字列右对齐、启停/操作列居中，表头与内容必须同向；固定列宽下内容不换行、超长省略，防溢出压邻列 */\
+#pageContainer .qcr-tbl th.num,#pageContainer .qcr-tbl td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}\
+#pageContainer .qcr-tbl th.center,#pageContainer .qcr-tbl td.center{text-align:center}\
+#pageContainer .qcr-tbl.fixed td,#pageContainer .qcr-tbl.fixed th{overflow:hidden;text-overflow:ellipsis}\
 #pageContainer .qcr-tbl tbody tr:hover{background:#f5f9ff}\
 #pageContainer .qcr-link{background:none;border:0;padding:0;color:var(--primary);font-weight:600;font-size:13px;cursor:pointer}\
 #pageContainer .qcr-link:hover{text-decoration:underline}\
@@ -356,7 +362,12 @@
   function renderTable(catId) {
     var result = getFilteredRules(catId);
     var list = result.list;
-    var rows = list.map(function (r) {
+
+    var HEADERS = ['规则编号', '规则名称', '校验字段', '校验类型', '校验值', '拦截级别', '命中数', '统计期', '启停', '操作'];
+    /* 列宽按内容测算（与 U.table 的 fit 模式同一口径，取自 qcUI.fitWidths）。
+       本表 10 列，原先走浏览器自动列宽 → 剩余宽度被平摊，列间出现大片空白；
+       改为固定列宽后各行边界严格对齐。 */
+    var cellsOf = list.map(function (r) {
       var switchHtml = '<label class="qcr-switch"><input type="checkbox"' + (r.status === '启用' ? ' checked' : '') + ' onchange="qcrToggle(\'' + r.id + '\')"><i></i></label>';
       /* 命中数：实时从问题中心统计，取不到显示"—"（不硬造）。阈值类聚合规则无逐条命中。 */
       var hit = statHitOf(r);
@@ -368,18 +379,37 @@
       if ((r.tplId === 'threshold_gt' || r.tplId === 'threshold_lt') && cv) cv = cv + (r.unit || '');
       else if (r.tplId === 'time_within' && cv) cv = cv + (r.unit || '') + '（自' + (r.refField || '起点') + '）';
       var basisIcon = r.basis ? ' <span title="' + esc(r.basis) + '" style="cursor:help;color:#94a3b8">ⓘ</span>' : '';
-      return '<tr>' +
-        '<td><button class="qcr-link" onclick="qcrEdit(\'' + r.id + '\')">' + esc(r.id) + '</button></td>' +
-        '<td>' + esc(r.name) + '</td>' +
-        '<td>' + esc(r.targetField) + '</td>' +
-        '<td>' + esc(getTplLabel(r.tplId)) + '</td>' +
-        '<td>' + (cv ? esc(cv) : '-') + basisIcon + '</td>' +
-        '<td>' + sb(getSevLabel(r.severity)) + '</td>' +
-        '<td class="num">' + hitCell + '</td>' +
-        '<td>' + esc(r.period || '—') + '</td>' +
-        '<td>' + switchHtml + '</td>' +
-        '<td><button class="qcr-link" onclick="qcrEdit(\'' + r.id + '\')">编辑</button> <button class="qcr-link" style="color:#dc2626" onclick="qcrDelete(\'' + r.id + '\')">删除</button></td>' +
-        '</tr>';
+      return [
+        '<button class="qcr-link" onclick="qcrEdit(\'' + r.id + '\')">' + esc(r.id) + '</button>',
+        esc(r.name),
+        esc(r.targetField),
+        esc(getTplLabel(r.tplId)),
+        (cv ? esc(cv) : '-') + basisIcon,
+        sb(getSevLabel(r.severity)),
+        hitCell,
+        esc(r.period || '—'),
+        switchHtml,
+        '<button class="qcr-link" onclick="qcrEdit(\'' + r.id + '\')">编辑</button> <button class="qcr-link" style="color:#dc2626" onclick="qcrDelete(\'' + r.id + '\')">删除</button>'
+      ];
+    });
+
+    /* 列宽：用表头 + 全部单元格内容测算；对齐方式与内容保持一致 */
+    var fitRows = cellsOf.map(function (cells) {
+      return { cells: cells.map(function (h, i) {
+        return { h: h, cls: /命中数/.test(HEADERS[i]) ? 'num' : (/启停|操作/.test(HEADERS[i]) ? 'act center' : '') };
+      }) };
+    });
+    var fit = (window.qcUI && window.qcUI.fitWidths)
+      ? window.qcUI.fitWidths(HEADERS, fitRows, '暂无符合条件的规则')
+      : { widths: null, minWidth: 960 };
+    var colgroup = fit.widths
+      ? '<colgroup>' + fit.widths.map(function (w) { return '<col style="width:' + esc(w) + '">'; }).join('') + '</colgroup>'
+      : '';
+
+    var rows = fitRows.map(function (fr) {
+      return '<tr>' + fr.cells.map(function (c) {
+        return '<td' + (c.cls ? ' class="' + c.cls + '"' : '') + '>' + c.h + '</td>';
+      }).join('') + '</tr>';
     }).join('');
 
     var pager = '';
@@ -395,8 +425,13 @@
     }
 
     return renderToolbar(catId) +
-      '<div class="qcr-tblwrap"><table class="qcr-tbl"><thead><tr>' +
-      '<th>规则编号</th><th>规则名称</th><th>校验字段</th><th>校验类型</th><th>校验值</th><th>拦截级别</th><th class="num">命中数</th><th>统计期</th><th>启停</th><th>操作</th>' +
+      '<div class="qcr-tblwrap"><table class="qcr-tbl fixed"' +
+      (fit.minWidth ? ' style="min-width:' + fit.minWidth + 'px"' : '') + '>' + colgroup +
+      '<thead><tr>' +
+      HEADERS.map(function (h, i) {
+        var cls = /命中数/.test(h) ? 'num' : (/启停|操作/.test(h) ? 'act center' : '');
+        return '<th' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(h) + '</th>';
+      }).join('') +
       '</tr></thead><tbody>' + (rows || '<tr><td colspan="10"><div class="qcr-empty">暂无符合条件的规则</div></td></tr>') + '</tbody></table></div>' + pager;
   }
 

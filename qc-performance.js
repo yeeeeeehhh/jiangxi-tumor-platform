@@ -460,16 +460,6 @@
     return parts.length ? parts.join(' · ') : scopeName();
   }
 
-  function abnStrip() {
-    var i = curInd();
-    var types = S.abnTypes(i.id);
-    var html = '<b>异常原因结构</b>：' + types.map(function (t) {
-      return S.esc(t.type) + ' <b>' + S.fmt(t.count) + '</b>';
-    }).join(' · ') + '　—　这些病例多为<b>报告卡字段缺陷</b>导致，直接影响本指标达标。' +
-      '<button class="qc-link" data-qc="pf:toReport">前往报卡质量监测 →</button>';
-    return U.note(html, true);
-  }
-
   /* 打开被质控数据页：scope 为对象则用该交叉口径，null 则沿用筛选条 */
   function openDetail(scope) {
     P.scope = scope || null;
@@ -545,12 +535,10 @@
       };
     });
 
+    /* 表格上方不再放"异常原因结构"提示带与"实际纳入计算的全部病例"说明段，
+       直接给页签 + 表格，保持页面干净。 */
     var card = U.card('被质控数据明细',
-      abnStrip() +
-      '<div style="height:10px"></div>' +
       tabHtml +
-      U.note('本表是本指标在 <b>' + S.esc(scopeLabel(P.scope)) + '</b> 条件下<b>实际纳入计算的全部病例</b>：' +
-        '既含判定「符合」的病例，也含判定异常的病例。点击患者可进入病例质控详情。', true) +
       '<div style="height:10px"></div>' +
       U.table(['患者', '设区市', '医疗机构', '癌种', '质控结果', '问题原因', '病例详情', '操作'], rows,
         { compact: true, fit: true, align: { 4: 'center' }, empty: '该交叉条件下暂无被质控数据' }) +
@@ -641,7 +629,8 @@
       U.note('按方案要求，本页<b>只展示与当前指标「' + S.esc(i.name) + '」有关的数据字段</b>，不提供完整病历浏览器。') +
       '<div style="height:10px"></div>' +
       U.table(['数据项', '数据值', '数据来源'],
-        fields.map(function (f) { return { cells: [f[0], { h: v(f[1]) }, f[2]] }; }), { compact: true }));
+        fields.map(function (f) { return { cells: [f[0], { h: v(f[1]) }, f[2]] }; }),
+        { compact: true, fit: true }));
 
     var judgeCard = U.card('规则判定',
       U.judgeBlock(rule, '<div>' + fields.slice(0, 3).map(function (f) {
