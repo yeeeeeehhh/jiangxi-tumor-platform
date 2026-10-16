@@ -52,6 +52,7 @@
 #pageContainer .wa-filter{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;align-items:end;padding:13px;background:#f8fafc;border:1px solid var(--border);border-radius:7px;margin-bottom:12px}
 #pageContainer .wa-filter .form-group{width:auto;min-width:0;margin:0}
 #pageContainer .wa-filter select,#pageContainer .wa-filter input{width:100%;height:35px;padding:0 9px;box-sizing:border-box}
+#pageContainer .wa-filter .filter-actions{justify-content:flex-end}
 #pageContainer .wa-table-wrap{overflow:auto;border:1px solid var(--border);border-radius:7px;background:#fff}
 #pageContainer .wa-table{width:100%;min-width:1180px;border-collapse:collapse}
 #pageContainer .wa-table.compact{min-width:900px}
@@ -306,6 +307,14 @@
         scope: '区县 / 地市登记处', method: 'ABSOLUTE绝对值', threshold: 30, unit: '张', minSample: 0, severity: 'INFO',
         window: '月度', basis: '待审报告卡在本级停留不应超过 30 张或 15 日',
         params: '待审≥30张或最长停留≥15日触发；≥80张升关注级', confirm: '已由省级登记中心确认' },
+      { id: 'A-NCCR-SUBMIT', name: '国家上报批次异常', type: 'REGISTRY_OPERATION', point: 'NCCR_SUBMIT',
+        scope: '国家肿瘤登记年度上报批次', method: 'STATE批次状态', threshold: 7, unit: '日', minSample: 0, severity: 'ATTENTION',
+        window: '按国家上报窗口', basis: '国家肿瘤登记数据上报有固定报送窗口：临近截止未提交、被国家平台退回、或数据包校验未通过，都会导致错过报送窗口，须立即处置',
+        params: '距截止≤7日未提交触发关注级；≤3日或被退回/校验未过升紧急级（错过窗口影响全省年度数据纳入国家库）', confirm: '已由省级登记中心确认' },
+      { id: 'A-FOLLOWUP-LOST', name: '随访失访率超标 / 死亡证明回收超期', type: 'REGISTRY_OPERATION', point: 'FOLLOWUP_LOST',
+        scope: '区县登记处 / 随访责任机构', method: 'RATE比率上限', threshold: 20, unit: '%', minSample: 30, severity: 'ATTENTION',
+        window: '季度', basis: '随访失访率过高会使生存分析与 M/I 比失真；死亡证明回收超期会拖慢死亡补发病闭环。两者均属随访履职问题，可由随访员跟进处置',
+        params: '失访率＞20%或死亡证明回收超期＞30日触发关注级；失访率＞35%升紧急级。随访在册不足30例不参与评价', confirm: '已由省级登记中心确认' },
 
       /* ---------- B 登记质量预警（登记处 × 癌种 × 年度） ---------- */
       { id: 'B-MV-LOW', name: 'MV% 形态学确诊比例偏低', type: 'REGISTRY_QUALITY', point: 'MV_RATE',
@@ -369,7 +378,11 @@
       { id: 'C-MOR-RATE-DEV', name: '死亡率偏离近三年基线', type: 'DISEASE_SIGNAL', point: 'MOR_RATE_BASELINE',
         scope: '省定重点癌种 × 地市', method: 'BASELINE近3年均值基线', threshold: 15, unit: '%', minSample: 30, severity: 'ATTENTION',
         window: '年度（对比近3年均值）', basis: '粗死亡率偏离本地区近三年均值≥15%时发起研判线索；与发病趋势及随访质量联合研判',
-        params: '偏离≥15%关注级；≥30%升紧急级。年死亡数不足30例不参与评价', confirm: '待省级专家组论证' }
+        params: '偏离≥15%关注级；≥30%升紧急级。年死亡数不足30例不参与评价', confirm: '待省级专家组论证' },
+      { id: 'C-QUARTER-PREVIEW', name: '季度趋势预评（线索）', type: 'DISEASE_SIGNAL', point: 'QUARTER_PREVIEW',
+        scope: '省定重点癌种 × 地市', method: 'TREND季度累计率', threshold: 25, unit: '%', minSample: 20, severity: 'INFO',
+        window: '季度（年内累计外推）', basis: '为避免疾病信号拖到年报出来才发现，季度对年内累计率做趋势预评。但季度数据不完整、受上报节奏影响大，只能产出"研判线索"，严禁据此结案或对外发布为疾病流行结论——必须等年度数据齐备后由 C 层年度规则重新判定并经专家组论证',
+        params: '年内累计率外推偏离近3年同期≥25%时提示线索；仅提示级（INFO），不自动升级、不自动结案、不生成对外结论。年内累计不足20例不参与', confirm: '待省级专家组论证' }
     ];
     defs.forEach(def => {
       rules.push({
@@ -449,6 +462,28 @@
   const populationChecks = [
     { region: '萍乡市', year: '2025', pop: 1800000, prevPop: 1620000, evidence: '', note: '' },
     { region: '新余市', year: '2025', pop: 1200000, prevPop: 1188000, evidence: '2024年统计年鉴', note: '' }
+  ];
+
+  /* A 层新增：国家上报批次状态（NCCR）。status: SUBMITTED/RETURNED/VALIDATE_FAILED/PENDING，daysToDeadline 为距报送窗口截止天数 */
+  const nccrBatches = [
+    { batch: '2024年度发病数据包', scope: '全省11地市', status: 'PENDING', daysToDeadline: 5, note: '上饶、宜春两地登记处数据包尚未并入省级汇总' },
+    { batch: '2024年度死亡数据包', scope: '全省11地市', status: 'RETURNED', daysToDeadline: 12, note: '国家平台退回：死因编码 ICD-10 第4位缺失记录占比超限' },
+    { batch: '2023年度发病数据包（补报）', scope: '赣州市登记处', status: 'VALIDATE_FAILED', daysToDeadline: 20, note: '数据包校验未通过：发病日期早于出生日期逻辑错误 46 条' }
+  ];
+
+  /* A 层新增：随访失访与死亡证明回收（区县登记处 / 季度）。lostRate 失访率%，dcReturnOverdueDays 死亡证明回收最长超期天数，enrolled 随访在册例数 */
+  const followupStats = [
+    { registry: '赣州市登记处', city: '赣州市', enrolled: 2860, lostRate: 24.6, dcReturnOverdueDays: 42, note: '县域随访员配置不足，部分乡镇连续两季度未开展主动随访' },
+    { registry: '上饶市登记处', city: '上饶市', enrolled: 2140, lostRate: 38.2, dcReturnOverdueDays: 18, note: '外出务工人口占比高，电话随访接通率低' },
+    { registry: '九江市登记处', city: '九江市', enrolled: 1680, lostRate: 11.4, dcReturnOverdueDays: 36, note: '失访率达标，但公安死亡证明回收渠道存在延迟' },
+    { registry: '南昌市登记处', city: '南昌市', enrolled: 3200, lostRate: 8.6, dcReturnOverdueDays: 9, note: '' }
+  ];
+
+  /* C 层新增：季度趋势预评（年内累计率外推 vs 近3年同期）。cumRate 年内累计率，sameQBaseline 近3年同期均值，quarter 当前季度 */
+  const quarterPreview = [
+    { region: '赣州市信丰县', cancer: 'C15 食管', level: '县区', quarter: 'Q3', cumRate: 18.6, sameQBaseline: 13.8, cases: 126, note: '与年度 ASR 趋势信号方向一致，可作为年度研判的提前线索' },
+    { region: '九江市都昌县', cancer: 'C22 肝', level: '县区', quarter: 'Q3', cumRate: 27.4, sameQBaseline: 21.0, cases: 158, note: '' },
+    { region: '抚州市', cancer: 'C16 胃', level: '地市', quarter: 'Q3', cumRate: 14.2, sameQBaseline: 20.1, cases: 88, note: '年内累计偏低疑为上报节奏滞后，非真实下降，需待四季度数据补齐' }
   ];
 
   /* ==================== 预警与工单生成 ==================== */
@@ -573,6 +608,49 @@
         })) created++;
       }
     });
+
+    /* A-NCCR-SUBMIT：国家上报批次异常（临近截止未提交 / 被退回 / 校验未过） */
+    const nccrRule = findRule('A-NCCR-SUBMIT');
+    if (nccrRule && nccrRule.isEnabled) {
+      const stateText = { PENDING: '待提交', RETURNED: '已被国家平台退回', VALIDATE_FAILED: '数据包校验未通过', SUBMITTED: '已提交' };
+      nccrBatches.forEach(function (b) {
+        const nearDeadline = b.status === 'PENDING' && b.daysToDeadline <= nccrRule.thresholdValue;
+        const abnormal = b.status === 'RETURNED' || b.status === 'VALIDATE_FAILED';
+        if (!nearDeadline && !abnormal) return;
+        const severity = (abnormal || b.daysToDeadline <= 3) ? 'URGENT' : 'ATTENTION';
+        const reason = abnormal ? stateText[b.status] : ('距报送截止仅 ' + b.daysToDeadline + ' 日仍未提交');
+        if (createWarning(nccrRule, {
+          targetType: 'NCCR_BATCH', targetId: b.batch, responsibleEntity: '省级登记中心',
+          targetLabel: b.batch + ' · ' + reason, period: PERIOD_YEAR,
+          metricValue: b.daysToDeadline, metricLabel: stateText[b.status] + '（距截止 ' + b.daysToDeadline + ' 日）', severity,
+          snapshot: { 上报批次: b.batch, 覆盖范围: b.scope, 批次状态: stateText[b.status], 距截止天数: b.daysToDeadline + '日', 触发线: '待提交≤' + nccrRule.thresholdDisplay() + ' 或 退回/校验未过', 紧急条件: '≤3日 或 被退回 或 校验未过' },
+          evidence: makeEvidence([['当前状态', stateText[b.status]], ['问题说明', b.note || '-'], ['后果', '错过国家报送窗口将导致全省该年度数据无法纳入国家肿瘤登记库'], ['处理入口', '国家肿瘤数据上报 · 上报记录']])
+        })) created++;
+      });
+    }
+
+    /* A-FOLLOWUP-LOST：随访失访率超标 / 死亡证明回收超期 */
+    const fuRule = findRule('A-FOLLOWUP-LOST');
+    if (fuRule && fuRule.isEnabled) {
+      followupStats.forEach(function (s) {
+        if (s.enrolled < fuRule.minSampleSize) return;
+        const lostHit = s.lostRate > fuRule.thresholdValue;
+        const dcHit = s.dcReturnOverdueDays > 30;
+        if (!lostHit && !dcHit) return;
+        const severity = s.lostRate > 35 ? 'URGENT' : 'ATTENTION';
+        const parts = [];
+        if (lostHit) parts.push('失访率 ' + n1(s.lostRate) + '%');
+        if (dcHit) parts.push('死亡证明回收超期 ' + s.dcReturnOverdueDays + ' 日');
+        if (createWarning(fuRule, {
+          targetType: 'REGISTRY', targetId: s.registry + '|随访', responsibleEntity: s.registry,
+          targetLabel: '季度随访履职：' + parts.join(' · '), period: PERIOD_YEAR + 'Q3',
+          metricValue: s.lostRate, metricLabel: parts.join(' · '), severity,
+          snapshot: { 登记处: s.registry, 所属地市: s.city, 随访在册: s.enrolled + '例', 失访率: n1(s.lostRate) + '%', 失访率上限: fuRule.thresholdDisplay(), 紧急线: '35%', 死亡证明回收最长超期: s.dcReturnOverdueDays + '日', 回收时限: '30日' },
+          evidence: makeEvidence([['失访率', n1(s.lostRate) + '%（上限 ' + fuRule.thresholdDisplay() + '）'], ['死亡证明回收最长超期', s.dcReturnOverdueDays + '日'], ['情况说明', s.note || '-'], ['后果', '失访拉低生存分析可信度、使 M/I 比失真；死亡证明回收延迟拖慢死亡补发病（DCN）闭环'], ['处理入口', '随访结局管理 · 随访任务列表']])
+        })) created++;
+      });
+    }
+
     return created;
   }
 
@@ -861,6 +939,36 @@
         }
       }
     });
+
+    /* C-QUARTER-PREVIEW：季度趋势预评——只产线索，强制 INFO、不升级、不结案 */
+    const qpRule = findRule('C-QUARTER-PREVIEW');
+    if (qpRule && qpRule.isEnabled) {
+      quarterPreview.forEach(function (q) {
+        if (q.cases < qpRule.minSampleSize || !q.sameQBaseline) return;
+        const dev = (q.cumRate - q.sameQBaseline) / q.sameQBaseline * 100;
+        if (Math.abs(dev) < qpRule.thresholdValue) return;
+        if (createWarning(qpRule, {
+          targetType: 'REGION_CANCER', targetId: q.region + '|' + q.cancer + '|季度预评',
+          targetLabel: PERIOD_YEAR + '年' + q.quarter + ' ' + q.region + ' ' + q.cancer + ' 累计率预评偏离 ' + percent(dev) + '（线索）',
+          period: PERIOD_YEAR + q.quarter,
+          metricValue: dev, metricLabel: '季度累计率偏离 ' + percent(dev) + '（仅线索）',
+          severity: 'INFO', /* 强制提示级：季度预评绝不自动升级为关注/紧急 */
+          snapshot: Object.assign({}, { 地区: q.region, 癌种: q.cancer, 层级: q.level }, {
+            统计口径: PERIOD_YEAR + '年' + q.quarter + ' 年内累计率',
+            年内累计率: n1(q.cumRate) + '/10万', 近3年同期均值: n1(q.sameQBaseline) + '/10万',
+            偏离幅度: percent(dev), 提示线: '±' + qpRule.thresholdDisplay(),
+            性质: '研判线索（非结论）', 处置约束: '不自动升级 · 不自动结案 · 不对外发布'
+          }),
+          evidence: makeEvidence([
+            ['判定依据', qpRule.basis],
+            ['年内累计率 vs 近3年同期', n1(q.cumRate) + ' vs ' + n1(q.sameQBaseline) + ' /10万'],
+            ['线索说明', q.note || '-'],
+            ['⚠ 处置红线', '季度数据不完整，本条仅为提示性线索；严禁据此结案或对外发布为疾病流行结论，须待年度数据齐备后由 C 层年度规则重新判定并经专家组论证']
+          ])
+        })) created++;
+      });
+    }
+
     return created;
   }
 
@@ -1072,11 +1180,11 @@
 
   /* ==================== 通用 UI 片段 ==================== */
   function waHeader(title, subtitle, actions) {
-    return '<div class="wa-head"><div><div class="wa-title">' + esc(title) + '</div><div class="wa-sub">' + subtitle + '</div></div><div class="wa-actions">' + actions.join('') + '</div></div>';
+    return '<div class="wa-head"><div><div class="wa-title">' + esc(title) + '</div>' + (subtitle ? '<div class="wa-sub">' + subtitle + '</div>' : '') + '</div><div class="wa-actions">' + actions.join('') + '</div></div>';
   }
   function waKpi(label, value, meta, tone, drill) {
     const clickable = drill ? ' wa-kpi-click' : '';
-    const hint = drill ? '<div class="wa-kpi-hint">查看明细 →</div>' : '';
+    const hint = '';
     const click = drill ? ' onclick="waKpiDrill(\'' + drill.group + "','" + drill.key + "','" + drill.value + "')\"" : '';
     return '<div class="wa-kpi' + clickable + '"' + click + '><div class="wa-kpi-label">' + esc(label) + '</div><div class="wa-kpi-value ' + (tone || '') + '">' + value + '</div><div class="wa-kpi-meta">' + esc(meta) + '</div>' + hint + '</div>';
   }
@@ -1194,21 +1302,14 @@
       '<div class="form-group"><label>级别</label><select onchange="waSetFilter(\'record\',\'severity\',this.value)">' + sevOptions + '</select></div>' +
       '<div class="form-group"><label>状态</label><select onchange="waSetFilter(\'record\',\'status\',this.value)">' + statusOptions + '</select></div>' +
       '<div class="form-group"><label>触发起始日</label><input type="date" value="' + esc(state.record.dateFrom) + '" onchange="waSetFilter(\'record\',\'dateFrom\',this.value)"></div>' +
-      '<div class="form-group" style="grid-column:span 2"><label>检索</label><input id="waKw-record" value="' + esc(state.record.keyword) + '" placeholder="预警ID / 规则 / 对象 / 指标" oninput="waOnKeyword(this,\'record\')"></div>' +
-      '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="waResetRecordFilter()">重置</button></div></div>';
+      '<div class="form-group"><label>检索</label><input id="waKw-record" value="' + esc(state.record.keyword) + '" placeholder="预警ID / 规则 / 对象 / 指标" oninput="waOnKeyword(this,\'record\')"></div>' +
+      '<div class="filter-actions" style="grid-column:span 2"><button class="btn btn-outline btn-sm" onclick="waResetRecordFilter()">重置</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="runAllEngines()">重跑三层</button>' +
+      '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'warning-tickets\')">处置工单</button></div></div>';
     const layerNote = activeMeta
       ? '<div class="wa-callout info" style="margin-bottom:12px"><strong>' + activeMeta.code + ' · ' + esc(activeMeta.label) + '</strong>（' + esc(activeMeta.window) + '）<br>' + esc(activeMeta.desc) + '<br>预警对象：' + esc(activeMeta.object) + ' · 数据来源：' + esc(activeMeta.source) + ' · 首办责任方：' + esc(activeMeta.firstOwner) + ' · 归口复核：' + esc(activeMeta.finalOwner) + '</div>'
       : '';
-    const recKpis = [
-      waKpi('本周期触发', warnings.length, '全部层级合计'),
-      waKpi('在办', warnings.filter(function (w) { return w.status !== 'CLOSED'; }).length, '待处理 · 处理中 · 已反馈 · 已升级', '', { group: 'record', key: 'status', value: 'PENDING' }),
-      waKpi('已闭环', warnings.filter(function (w) { return w.status === 'CLOSED'; }).length, '已确认关闭'),
-      waKpi('紧急级', warnings.filter(function (w) { return w.severity === 'URGENT'; }).length, '需优先处置', warnings.some(function (w) { return w.severity === 'URGENT'; }) ? 'danger' : '', { group: 'record', key: 'severity', value: 'URGENT' })
-    ].join('');
-    return '<div class="wa-page">' + waHeader('预警记录', '命中规则后自动生成；同一规则、对象、周期不重复建单，记录保留触发时的阈值与判定依据快照。', [
-      '<button class="btn btn-outline btn-sm" onclick="runAllEngines()">重跑三层</button>',
-      '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'warning-tickets\')">处置工单</button>'
-    ]) + '<div class="wa-kpis">' + recKpis + '</div><div class="wa-tabs">' + layerTabs(state.record.type, 'waSetRecordType') + '</div>' + layerNote + filter +
+    return '<div class="wa-page"><div class="wa-tabs">' + layerTabs(state.record.type, 'waSetRecordType') + '</div>' + layerNote + filter +
       '<div class="wa-table-wrap"><table class="wa-table"><thead><tr><th class="code">预警ID / 周期</th><th class="txt">层级 / 规则</th><th class="txt">预警对象</th><th class="code">实际值 / 阈值 / 判定依据</th><th class="code">级别</th><th class="code">状态</th><th class="code">触发时间</th><th class="ops">操作</th></tr></thead><tbody>' + (rows || '<tr><td colspan="8"><div class="wa-empty">暂无符合条件的预警记录</div></td></tr>') + '</tbody></table></div></div>';
   }
   function waResetRecordFilter() {

@@ -339,8 +339,14 @@ document.head.appendChild(cardDetailLayoutStyles);
 
 function cardDetailEscape(value){return String(value==null?'':value).replace(/[&<>"']/g,function(char){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]})}
 function cardDetailValue(value){return value==null||value===''?'-':cardDetailEscape(value)}
-function cardDetailField(label,value){return '<div class="card-detail-field"><span class="card-detail-field-label">'+label+'</span><span class="card-detail-field-value">'+cardDetailValue(value)+'</span></div>'}
-function cardDetailSection(id,title,fields){return '<section class="card-detail-section" id="'+id+'"><div class="card-detail-section-title">'+title+'</div><div class="card-detail-fields">'+fields.map(function(field){return cardDetailField(field[0],field[1])}).join('')+'</div></section>'}
+/* 字段组件统一：基本信息/随访信息原本走 .card-detail-field（标签左对齐 112px），
+   肿瘤报告信息走 .tumor-form-field（标签在上、四列格子），同一页两套语言。
+   这里让 cardDetailField 直接复用 tumorFormField，全站只剩一种字段外观。
+   顺带退役 .card-detail-field*：followup-death.js 在打开随访/死亡弹窗时会往 head 追加
+   第三套同名定义（带灰底方框），三套规则靠加载顺序互相覆盖，页面会在运行中突然变形。
+   不再产出这些类名后，那三套定义全部失效，样式不再受脚本顺序影响。 */
+function cardDetailField(label,value,opts){return tumorFormField(label,value,false,opts&&opts.wide)}
+function cardDetailSection(id,title,fields){return '<section class="card-detail-section" id="'+id+'"><div class="card-detail-section-title">'+title+'</div><div class="tumor-form-grid">'+fields.map(function(field){return cardDetailField(field[0],field[1],field[2])}).join('')+'</div></section>'}
 function cardDetailNavItem(id,label,count){return '<button type="button" data-section="'+id+'" onclick="scrollCardDetailSection(\''+id+'\')"><span>'+label+'</span>'+(count?'<span class="nav-count">'+count+'</span>':'')+'</button>'}
 function scrollCardDetailSection(id){var target=document.getElementById(id);if(target)target.scrollIntoView({behavior:'smooth',block:'start'});document.querySelectorAll('.card-detail-nav button').forEach(function(button){button.classList.toggle('active',button.dataset.section===id)})}
 

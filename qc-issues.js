@@ -140,7 +140,8 @@
       }
       return;
     }
-    if (a === 'qi:toPerf') { window.navigateTo('qc-performance'); return; }
+    /* 六维三级菜单化后无总览页，「返回六大绩效质控」回到第一维 */
+    if (a === 'qi:toPerf') { window.navigateTo('qc-pf-nq01'); return; }
   });
 
   window.qcIssues = {

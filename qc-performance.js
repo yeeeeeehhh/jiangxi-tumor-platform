@@ -1,64 +1,85 @@
 /* ============================================================================
- * qc-performance.js — 六大绩效质控
+ * qc-performance.js — 六大绩效质控（六维三级菜单 + 行×列交叉版，2026-10-12）
  *
  * 定位：对「地区（设区市）与医院（医疗机构）」的绩效考核，围绕国考六项
- *      肿瘤专业质控指标展开。原始数据（病例明细）与基本结果（指标值 / 分子分母 /
- *      达标判定）优先，趋势、总分等分析后置为辅助。
+ *      肿瘤专业质控指标展开。六个维度各算一个导航栏三级菜单页面
+ *      （qc-pf-nq01…nq06），无总览页；旧链接 qc-performance 兜底到第一维。
  *
  * 单一数据源：所有数字取自 window.qcSpine，不新建数据。
  * 关联关系：
  *   · 每项绩效对应一组判定规则（见 quality-control.js 的 qc-p1 … qc-p6）——
- *     本页「异常明细」下钻到病例后，可查看触发规则，配与看形成闭环；
- *   · 部分病例异常根因是报告卡字段缺陷，底部提供「前往报卡质量监测」出口，
+ *     被质控数据下钻到病例后，可查看触发规则，配与看形成闭环；
+ *   · 部分病例异常根因是报告卡字段缺陷，明细里提供「前往报卡质量监测」出口，
  *     交由登记条线在其页面内处置（报告卡质量本身不在本页管理）。
  *
- * 页面结构（同页纵向排列，不做视图切换）：
- *   [筛选条] 年度/设区市/医疗机构/癌种
- *   [指标切换] 六项 | 全部
- *   [覆盖癌种] 本指标适用癌种（可点选过滤）
- *   [地区考核] [医院考核] [分癌种考核] [异常明细（原始数据）+ 字段缺陷面板]
+ * 页面结构（每维一页）：
+ *   [筛选条] 年度 / 设区市 / 医疗机构 / 癌种   ← 范围：限定参与统计的数据
+ *   [概览 KPI] 当前值 · 达标判定 · 癌种达标 · 分子分母 · 异常病例
+ *   [交叉控制] 行 [设区市|医疗机构|癌种]   列 [无|癌种|设区市|医疗机构]
+ *   [交叉表 / 明细表]   行×列透视；列=无时退化为单维指标明细表
+ *   [被质控数据明细] 弹层（病例级证据链，带判定页签与分页）
  *
- * 癌种口径（关键）：六大绩效指标各由《国家三级公立医院绩效考核操作手册》
- *   规定其适用癌种，同一指标须按癌种分别判定达标，不能只看合计。
+ * 口径 vs 范围（关键设计）：
+ *   · 「范围」是要看哪些数据（年度 / 设区市 / 机构 / 癌种），由顶部筛选条收敛；
+ *   · 「口径」是要按什么维度看，且是**两个轴可交叉**的（行 × 列），不是互斥页签。
+ *     典型用法：行=设区市、列=癌种 → 直接得到「南昌市的每个癌种」这一矩阵；
+ *     单元格点击进入的明细同时带地区与癌种两个条件（不再只能"地区全部"或"癌种全部"）。
+ *
+ * 癌种口径：六大绩效指标各由《国家三级公立医院绩效考核操作手册》规定适用癌种，
+ *   同一指标须按癌种分别判定达标，不能只看合计。
  *   · 各指标适用癌种见 qc-data.js 的 L1_IND[].cancers（10/9/8/5/4/5 个）；
- *   · 合计值仅作参考，「癌种达标 n/m」才是考核口径；
- *   · 单指标模式给「分癌种考核」表，六项全览给「癌种 × 六项」矩阵（空格为不覆盖）。
- * 暴露：window.qcPerformance = { pageIds:['qc-performance'], render, state }
+ *   · 合计值仅作参考，「癌种达标 n/m」才是考核口径。
+ * 暴露：window.qcPerformance = { pageIds:[qc-pf-nq01…06, qc-performance], render, state }
  * ========================================================================== */
 (function () {
   'use strict';
   var S = window.qcSpine, U = window.qcUI;
 
   var P = {
-    year: '2026', ind: '',            /* ind='' 表示六项全览 */
-    city: '', org: '', cancer: '',
-    verdict: 'ALL',                   /* 异常明细过滤：ALL/ok/bad/miss/abn */
-    page: 1
+    year: '2026', ind: 'NQ-01',        /* 单指标页：ind 固定为当前维度，不再有六项全览 */
+    city: '', org: '', cancer: '',     /* 筛选条 = 唯一的口径入口（表格随之自动下钻） */
+    /* 被质控数据（独立页面 qc-pf-detail）的状态：scope 可同时带 {city?}{org?}{cancer?} */
+    scope: null, verdict: 'ALL', page: 1,
+    /* 病例质控详情（独立页面 qc-pf-case） */
+    caseKey: '', caseInd: ''
+  };
+  /* 2026-10-12 六大绩效质控改为三级菜单：六个维度各算一个页面（pageId qc-pf-nq01…06），
+     无总览页。PAGEMAP 把页面 id 映射到指标；未匹配的 id 兜底为第一维。 */
+  var PAGEMAP = {
+    'qc-pf-nq01': 'NQ-01', 'qc-pf-nq02': 'NQ-02', 'qc-pf-nq03': 'NQ-03',
+    'qc-pf-nq04': 'NQ-04', 'qc-pf-nq05': 'NQ-05', 'qc-pf-nq06': 'NQ-06',
+    'qc-performance': 'NQ-01'    /* 旧链接兜底 */
   };
 
-  function inds() { return S.L1_IND; }
   function curInd() { return S.ind(P.ind) || S.L1_IND[0]; }
-  function orgFilter() { return P.org ? [P.org] : null; }
+  /* 当前维度对应的菜单 pageId；六维以外的兜底到第一维 */
+  function pageOf(indId) {
+    var id = indId || P.ind;
+    for (var k in PAGEMAP) if (PAGEMAP[k] === id) return k;
+    return 'qc-pf-nq01';
+  }
+  function rerender() { window.renderPage(pageOf()); }
+
   function cancerFilter() { return P.cancer ? [P.cancer] : null; }
   function cityOrgIds() {
     if (!P.city) return null;
     return S.ORGS.filter(function (o) { return o.city === P.city; }).map(function (o) { return o.id; });
   }
-  /* 明细列表的有效机构范围：优先单机构，其次设区市，最后全省 */
+  /* 范围的有效机构：优先单机构，其次设区市，最后全省（null = 不限） */
   function effOrgIds() {
     if (P.org) return [P.org];
     if (P.city) return cityOrgIds();
     return null;
   }
+  function scopeName() {
+    if (P.org) return (S.org(P.org) || {}).name || P.org;
+    if (P.city) return S.cityName(P.city);
+    return '全省';
+  }
 
-  /* ---------- 癌种维度公共件（六大绩效本身按癌种分别考核） ---------- */
+  /* ---------- 公共小件 ---------- */
   function badge(p) { return p ? '<span class="badge badge-success">达标</span>' : '<span class="badge badge-danger">未达标</span>'; }
   function lineOf(i) { return (i.dir === 'down' ? '≤' : '≥') + i.base + '%'; }
-  /* 当前指标覆盖的癌种；六项全览时给全部 10 个癌种 */
-  function coveredCancerIds() {
-    var i = S.ind(P.ind);
-    return i ? i.cancers.slice() : S.CANCERS.map(function (c) { return c.id; });
-  }
   /* 指标在某机构范围内「达标癌种数 / 覆盖癌种数」——同一指标不同癌种分别判定 */
   function coverStat(indId, orgIds) {
     var i = S.ind(indId);
@@ -76,9 +97,57 @@
     return '<span style="color:' + tone + ';font-weight:600">' + st.n + '/' + st.m + '</span>';
   }
 
-  /* ---------- 考核口径：指标下拉 + 癌种联动 ----------
-     指标与癌种是"口径"（算哪个指标、算哪些癌种），与筛选栏的"范围"（年度/地区/机构）
-     分开。癌种选项由所选指标的适用癌种决定，选六项全览时给全部 10 个癌种。 */
+  /* ---------- 范围与轴的求交 ----------
+     轴单元格带 orgIds / cancerIds（null = 该轴不限定此维度）。两个轴 + 顶部范围
+     三者求交，才能算出"南昌市 × 肺癌"这种既限地区又限癌种的格子。
+     注意：交集为空必须返回 ['__none__'] 而不是 []——agg 把空数组当"不限"，
+     传 [] 会静默变成全省，这是最容易出错的地方。 */
+  function both(a, b) {
+    if (!a) return b || null;
+    if (!b) return a;
+    var out = a.filter(function (x) { return b.indexOf(x) >= 0; });
+    return out.length ? out : ['__none__'];
+  }
+  /* 单元格：行轴 × 列轴 × 顶部范围 */
+  function crossAgg(r, c) {
+    return S.agg(curInd().id,
+      both(both(r && r.orgIds, c && c.orgIds), effOrgIds()),
+      both(both(r && r.cancerIds, c && c.cancerIds), cancerFilter()));
+  }
+
+  /* ---------- 轴定义：把一个维度展开成若干可交叉的单元格 ---------- */
+  var AXIS_LABEL = { city: '设区市', org: '医疗机构', cancer: '癌种' };
+  function buildAxis(dim) {
+    var i = curInd();
+    if (dim === 'city') {
+      var cs = S.CITIES;
+      if (P.city) cs = cs.filter(function (c) { return c.code === P.city; });
+      return cs.map(function (c) {
+        return {
+          key: c.code, label: c.name, scope: { city: c.code }, cancerIds: null,
+          orgIds: S.ORGS.filter(function (o) { return o.city === c.code; }).map(function (o) { return o.id; })
+        };
+      });
+    }
+    if (dim === 'org') {
+      var os = S.ORGS.filter(function (o) { return !P.city || o.city === P.city; });
+      if (P.org) os = os.filter(function (o) { return o.id === P.org; });
+      return os.map(function (o) {
+        return { key: o.id, label: o.name, sub: o.level, scope: { org: o.id }, cancerIds: null, orgIds: [o.id] };
+      });
+    }
+    if (dim === 'cancer') {
+      var ids = i.cancers.slice();
+      if (P.cancer) ids = ids.filter(function (x) { return x === P.cancer; });
+      return ids.map(function (cid) {
+        var c = S.cancer(cid);
+        return { key: cid, label: c.name, sub: c.icd, scope: { cancer: cid }, orgIds: null, cancerIds: [cid] };
+      });
+    }
+    return [];
+  }
+
+  /* ---------- 口径：癌种下拉（选项由当前指标的适用癌种决定） ---------- */
   function cancerOptionsForInd() {
     var i = S.ind(P.ind);
     var ids = i ? i.cancers : S.CANCERS.map(function (c) { return c.id; });
@@ -91,14 +160,8 @@
       return '<option value="' + S.esc(o.v) + '"' + (String(cur) === String(o.v) ? ' selected' : '') + '>' + S.esc(o.l) + '</option>';
     }).join('');
   }
-  /* 筛选条：五个字段一行排完，不换行。
-     宽度分配按「内容长度」而非等分——年度 96px，设区市 / 医疗机构 / 癌种
-     各按 1 份伸缩，质控指标名称最长给 1.6 份；五项合计 min-width 约 1140px，
-     减去左侧导航后 1600px 视口仍有余量，1600 以下由 flex-shrink 平滑收缩。 */
+  /* 顶部筛选条：年度/设区市/医疗机构/癌种。指标由三级菜单的 pageId 决定。 */
   function scopeBar() {
-    var indOpts = [{ v: '', l: '六项全览' }].concat(S.L1_IND.map(function (i) {
-      return { v: i.id, l: i.name };
-    }));
     var yearOpts = ['2026', '2025', '2024'].map(function (y) { return { v: y, l: y }; });
     var orgOpts = [{ v: '', l: '全部机构' }].concat(S.orgOptions());
     function sel(key, label, list, cur, style, attr) {
@@ -109,7 +172,6 @@
       sel('year', '统计年度', yearOpts, P.year, 'w-year', 'data-qcf') +
       sel('city', '设区市', S.cityOptions(), P.city, 'w-mid', 'data-qcf') +
       sel('org', '医疗机构', orgOpts, P.org, 'w-mid', 'data-qcf') +
-      sel('ind', '质控指标', indOpts, P.ind, 'w-wide') +
       sel('cancer', '癌种', cancerOptionsForInd(), P.cancer, 'w-mid') +
       '<div class="acts">' +
       '<button class="btn btn-ghost btn-sm" data-qc="filter:reset:pf">重置</button>' +
@@ -118,170 +180,195 @@
       '</div>';
   }
 
-  /* ==================== 地区考核 ==================== */
-  function cityRowForInd(indId) {
-    return S.CITIES.map(function (ct) {
-      var ids = S.ORGS.filter(function (o) { return o.city === ct.code; }).map(function (o) { return o.id; });
-      var a = S.agg(indId, ids.length ? ids : ['__none__'], cancerFilter());
-      var pass = S.l1Pass(indId, a.value);
-      var abn = S.abnCount(indId, null, ids.length ? ids : ['__none__']);
-      var yoy = S.yoy(indId, ids.length ? ids : ['__none__'], cancerFilter());
-      var cov = ids.length ? coverStat(indId, ids) : { n: 0, m: (S.ind(indId) || { cancers: [] }).cancers.length };
-      return { code: ct.code, name: ct.name, a: a, pass: pass, abn: abn, yoy: yoy, cov: cov };
-    });
+  /* ---------- 表格规范 ----------
+     列宽不再写死：交给 qcUI.table 的 fit 模式按内容测算（含表头与全部单元格）。
+     之前写死 110px 装不下「首次治疗前临床分期评估率」（13 字 ≈ 198px），
+     表头 nowrap 溢出压到「达标线」列上——这类错只要指标名长一点就复现，
+     因此统一改为内容自适应；容器过窄时由 min-width 触发横向滚动。 */
+  /* 操作列的链接：表头「操作」会自动右对齐，单元格用同一对齐类 */
+  function actLink(text, action) {
+    return { h: U.link(text, action), cls: 'num act' };
   }
 
-  function regionSingle() {
+  /* ---------- 自动下钻：表格形态完全由筛选条决定，不再有「行/列」控件 ----------
+     下钻链 设区市 → 医疗机构 → 癌种：筛选选到哪一级，就展开它的下一级。
+       全省            → 行=设区市，列=癌种（11 市 × 癌种矩阵）
+       设区市=南昌市   → 行=南昌市各机构，列=癌种（机构 × 癌种矩阵）
+       再选定某机构    → 行=该机构各癌种（单维表，癌种已无法再细分）
+       选了具体癌种    → 矩阵退化：列塌掉，行按上一级展开（单维表）
+     返回 { row: 'city'|'org'|'cancer', col: 'none'|'cancer', cols: [维度 id] } */
+  function autoAxis() {
+    /* 癌种一旦被筛选条锁定，列轴就没有可拆分的余地了 */
+    var cancerLocked = !!P.cancer;
+    /* 机构锁定后行轴落到癌种（机构内部只剩癌种可拆） */
+    if (P.org) return { row: 'cancer', col: 'none' };
+    /* 设区市锁定 → 行=该市机构，列=癌种（保留交叉能力） */
+    if (P.city) return { row: 'org', col: cancerLocked ? 'none' : 'cancer' };
+    /* 全省 → 行=设区市，列=癌种 */
+    return { row: 'city', col: cancerLocked ? 'none' : 'cancer' };
+  }
+  /* 行维的中文标题（矩阵表头用） */
+  function axisTitle(dim) { return AXIS_LABEL[dim]; }
+  /* 表格标题：随下钻层级变化，让用户一眼知道当前在看哪一级 */
+  function tableTitle(ax) {
     var i = curInd();
-    var rows = cityRowForInd(i.id);
+    if (P.org) return '分癌种考核 · ' + (S.org(P.org) || {}).name;
+    if (P.city) return ax.col === 'cancer'
+      ? '机构 × 癌种 · ' + S.cityName(P.city)
+      : '医院考核 · ' + S.cityName(P.city);
+    return ax.col === 'cancer' ? '设区市 × 癌种 · 全省' : '地区考核 · 全省';
+  }
+
+  /* ---------- 交叉矩阵：行 × 列，单元格同时受两轴约束 ---------- */
+  function valHtml(a, i, bold) {
+    if (!a.den) return '<span style="color:#cbd5e1">—</span>';
+    var pass = S.l1Pass(i.id, a.value);
+    return '<span style="font-weight:' + (bold ? '700' : '600') + ';color:' +
+      (pass ? '#2e7d32' : '#b42335') + ';font-variant-numeric:tabular-nums">' + S.f1(a.value) + '%</span>';
+  }
+  /* 单元格可点：带着「本行 + 本列」的双重条件打开明细 */
+  function crossCell(a, i, r, c) {
+    if (!a.den) return '<span style="color:#cbd5e1">—</span>';
+    var pass = S.l1Pass(i.id, a.value);
+    var col = pass ? '#2e7d32' : '#b42335';
+    var sc = encScope(mergeScope(r.scope, c.scope));
+    return '<button class="qc-link" style="color:' + col + ';font-variant-numeric:tabular-nums" ' +
+      'data-qc="pf:x:' + sc + '" title="查看该行列交叉下的被质控数据">' + S.f1(a.value) + '%</button>';
+  }
+  function rowHead(r, dim) {
+    var html = S.esc(r.label);
+    if (r.sub) html += '<span style="color:#94a3b8;font-size:11px"> ' + S.esc(r.sub) + '</span>';
+    return html;
+  }
+
+  /* 交叉矩阵：行 × 列，单元格同时受两轴约束（轴由筛选条自动决定） */
+  function matrixTable(ax) {
+    var i = curInd();
+    var rows = buildAxis(ax.row), cols = buildAxis(ax.col);
+    var head = [axisTitle(ax.row)]
+      .concat(cols.map(function (c) { return '#' + c.label; }))
+      .concat(['#合计', '操作']);
+    /* 矩阵列数随癌种数变化，交给 fit 按内容测算（癌种名 + 百分比格子都算进去） */
+    var body = rows.map(function (r) {
+      var cells = [{ h: rowHead(r), cls: 'txt' }];
+      cols.forEach(function (cc) {
+        cells.push({ h: crossCell(crossAgg(r, cc), i, r, cc), cls: 'num' });
+      });
+      cells.push({ h: valHtml(S.agg(i.id, both(r.orgIds, effOrgIds()), cancerFilter()), i, true), cls: 'num' });
+      cells.push(actLink('被质控数据', 'pf:x:' + encScope(r.scope)));
+      return { cells: cells };
+    });
+    /* 列合计行：该列在所有行上的汇总 */
+    var tCells = [{ h: '合计', cls: 'txt' }];
+    cols.forEach(function (cc) {
+      tCells.push({ h: valHtml(S.agg(i.id, both(cc.orgIds, effOrgIds()), both(cc.cancerIds, cancerFilter())), i, true), cls: 'num' });
+    });
+    tCells.push({ h: valHtml(S.agg(i.id, effOrgIds(), cancerFilter()), i, true), cls: 'num' });
+    tCells.push({ h: '', cls: 'num act' });
+    body.push({ cls: 'sum-row', cells: tCells });
+
+    return U.card(tableTitle(ax),
+      U.note('范围：' + S.esc(scopeName()) + '。行 = ' + axisTitle(ax.row) + '，列 = ' + axisTitle(ax.col) +
+        '；每格为该行该列<b>交叉条件</b>下的指标值，绿=达标、红=未达标、「—」=该癌种不适用本指标。' +
+        '格子可点，进入的被质控数据<b>同时带行、列两个条件</b>。') +
+      U.table(head, body, { compact: true, fit: true }),
+      '行 ' + rows.length + ' × 列 ' + cols.length + '；点行末「被质控数据」看该行全部病例');
+  }
+
+  /* ==================== 单维指标明细表 ==================== */
+  /* 三个单维表：设区市明细 / 机构明细 / 癌种明细。轴由筛选条自动决定。 */
+  function regionTable(ax) {
+    var i = curInd();
+    var rows = buildAxis('city');
     var total = S.agg(i.id, cityOrgIds(), cancerFilter());
     var totalPass = S.l1Pass(i.id, total.value);
     function valCell(v) { return '<span style="font-variant-numeric:tabular-nums;font-weight:600">' + S.f1(v) + '%</span>'; }
     var bodyRows = rows.map(function (r) {
+      var ct = { code: r.key, name: r.label };
+      var a = S.agg(i.id, r.orgIds, cancerFilter());
+      var pass = S.l1Pass(i.id, a.value);
+      var abn = S.abnCount(i.id, null, r.orgIds);
+      var yoy = S.yoy(i.id, r.orgIds, cancerFilter());
+      var cov = coverStat(i.id, r.orgIds);
       return {
         cells: [
-          { h: U.link(r.name, 'pf:region:' + r.code), cls: 'txt' },
-          { h: valCell(r.a.value), cls: 'num' },
+          { h: S.esc(ct.name), cls: 'txt' },
+          { h: valCell(a.value), cls: 'num' },
           { h: '<span style="color:#94a3b8">' + lineOf(i) + '</span>', cls: 'num' },
-          { h: badge(r.pass) },
-          { h: covCell(r.cov), cls: 'num', title: '该地区覆盖的 ' + r.cov.m + ' 个癌种中已达标数' },
-          { h: S.fmt(r.a.num), cls: 'num' },
-          { h: S.fmt(r.a.den), cls: 'num' },
-          { h: S.fmt(r.abn), cls: 'num' },
-          { h: (r.yoy >= 0 ? '+' : '') + r.yoy + '%', cls: 'num' },
-          { h: U.link('明细', 'pf:detail:' + i.id + ':' + r.code), cls: 'num' }
+          { h: badge(pass), cls: 'center' },
+          { h: covCell(cov), cls: 'num', title: '该地区覆盖的 ' + cov.m + ' 个癌种中已达标数' },
+          { h: S.fmt(a.num), cls: 'num' },
+          { h: S.fmt(a.den), cls: 'num' },
+          { h: S.fmt(abn), cls: 'num' },
+          { h: (yoy >= 0 ? '+' : '') + yoy + '%', cls: 'num' },
+          actLink('被质控数据', 'pf:x:city=' + r.key)
         ],
-        cls: r.pass ? '' : 'abn-row'
+        cls: pass ? '' : 'abn-row'
       };
     });
     var totalRow = {
       cls: 'sum-row',
       cells: [
-        { h: '全省合计', cls: 'txt' },
+        { h: P.city ? S.cityName(P.city) + ' 合计' : '全省合计', cls: 'txt' },
         { h: valCell(total.value), cls: 'num' },
         { h: '<span style="color:#94a3b8">达标线</span>', cls: 'num' },
-        { h: badge(totalPass) },
+        { h: badge(totalPass), cls: 'num' },
         { h: covCell(coverStat(i.id, cityOrgIds())), cls: 'num' },
         { h: S.fmt(total.num), cls: 'num' },
         { h: S.fmt(total.den), cls: 'num' },
         { h: S.fmt(S.abnCount(i.id, null, cityOrgIds())), cls: 'num' },
         { h: '—', cls: 'num' },
-        { h: '', cls: 'num' }
+        { h: '', cls: 'num act' }
       ]
     };
-    var table = U.table(
-      ['设区市', '#' + i.name, '#达标线', '达标', '癌种达标', '#分子', '#分母', '#异常病例', '#同比', '操作'],
-      bodyRows.concat([totalRow]), { compact: true });
-    var card = U.card('地区考核 · ' + i.name,
+    return U.card(tableTitle(ax) + ' · ' + i.name,
       U.note('适用癌种：' + i.cancers.map(function (c) { return S.esc(S.cancer(c).name); }).join('、') +
-        '；分子/分母口径：' + S.esc(i.num) + ' / ' + S.esc(i.den) + '。') + table,
-      '「癌种达标」为该地区已达标癌种数 / 覆盖癌种数；点癌种可下钻');
-    return card;
+        '；分子/分母口径：' + S.esc(i.num) + ' / ' + S.esc(i.den) + '。') +
+      U.table(['设区市', '#' + i.name, '#达标线', '达标', '癌种达标', '#分子', '#分母', '#异常病例', '#同比', '操作'],
+        bodyRows.concat([totalRow]), { compact: true, fit: true, align: { 3: 'center' } }),
+      '共 ' + rows.length + ' 个设区市；选一个设区市即可下钻到该市的机构 × 癌种');
   }
 
-  function regionAll() {
-    var cols = S.L1_IND.map(function (i) { return i; });
-    var bodyRows = S.CITIES.map(function (ct) {
-      var ids = S.ORGS.filter(function (o) { return o.city === ct.code; }).map(function (o) { return o.id; });
-      var passN = 0, abnTot = 0;
-      var cells = cols.map(function (i) {
-        var a = S.agg(i.id, ids.length ? ids : ['__none__'], cancerFilter());
-        var pass = S.l1Pass(i.id, a.value);
-        if (pass) passN++;
-        abnTot += S.abnCount(i.id, null, ids.length ? ids : ['__none__']);
-        var tone = pass ? '#2e7d32' : '#b42335';
-        return { h: '<div style="line-height:1.25"><div style="font-weight:700;color:' + tone + '">' + S.f1(a.value) + '%</div>' +
-          '<div style="font-size:11px;color:#94a3b8">' + (pass ? '达标' : '未达标') + '</div></div>', cls: 'num', title: i.name };
-      });
-      return {
-        cells: [{ h: U.link(ct.name, 'pf:region:' + ct.code), cls: 'txt' }]
-          .concat(cells)
-          .concat([
-            { h: '<b>' + passN + '/6</b>', cls: 'num' },
-            { h: S.fmt(abnTot), cls: 'num' },
-            { h: U.link('明细', 'pf:detailAll:' + ct.code), cls: 'num' }
-          ])
-      };
-    });
-    var header = ['设区市'].concat(cols.map(function (i) { return '#' + i.short; }))
-      .concat(['#达标', '#异常病例', '操作']);
-    var card = U.card('地区考核 · 六项全览',
-      U.note('每格为该设区市对应指标的当前值；绿色已达标、红色未达标。点击「明细」查看该地区异常病例。') +
-      U.table(header, bodyRows, { compact: true }),
-      '六项国考指标 11 个设区市 一屏对照');
-    return card;
-  }
-
-  /* ==================== 医院考核 ==================== */
-  function orgRows(indId) {
-    var list = S.ORGS.filter(function (o) { return !P.city || o.city === P.city; });
-    return list.map(function (o) {
-      var a = S.agg(indId, [o.id], cancerFilter());
-      var pass = S.l1Pass(indId, a.value);
-      var abn = S.abnCount(indId, null, [o.id]);
-      return { o: o, a: a, pass: pass, abn: abn, cov: coverStat(indId, [o.id]) };
-    }).sort(function (x, y) { return (S.ind(indId).dir === 'down' ? 1 : -1) * (x.a.value - y.a.value); });
-  }
-
-  function orgSingle() {
+  function orgTable(ax) {
     var i = curInd();
-    var rows = orgRows(i.id);
+    var rows = buildAxis('org').map(function (r) {
+      var o = S.org(r.key);
+      var a = S.agg(i.id, [r.key], cancerFilter());
+      return { o: o, a: a, pass: S.l1Pass(i.id, a.value), abn: S.abnCount(i.id, null, [r.key]), cov: coverStat(i.id, [r.key]) };
+    }).sort(function (x, y) { return (i.dir === 'down' ? 1 : -1) * (x.a.value - y.a.value); });
     var bodyRows = rows.map(function (r) {
       return {
         cells: [
-          r.o.name, r.o.level, S.cityName(r.o.city),
+          { h: S.esc(r.o.name), cls: 'txt' },
+          { h: S.esc(r.o.level), cls: 'txt' },
+          { h: S.cityName(r.o.city), cls: 'txt' },
           { h: '<b>' + S.f1(r.a.value) + '%</b>', cls: 'num' },
-          { h: badge(r.pass) },
+          { h: badge(r.pass), cls: 'center' },
           { h: covCell(r.cov), cls: 'num', title: '该机构覆盖的 ' + r.cov.m + ' 个癌种中已达标数' },
           { h: S.fmt(r.a.num), cls: 'num' },
           { h: S.fmt(r.a.den), cls: 'num' },
           { h: S.fmt(r.abn), cls: 'num' },
-          { h: U.link('明细', 'pf:detail:' + i.id + '::' + r.o.id), cls: 'num' }
+          actLink('被质控数据', 'pf:x:org=' + r.o.id)
         ],
         cls: r.pass ? '' : 'abn-row'
       };
     });
-    var card = U.card('医院考核 · ' + i.name,
-      U.note('筛选范围：' + (P.city ? S.cityName(P.city) : '全省 ' + S.ORGS.length + ' 家') +
-        '；按指标值' + (i.dir === 'down' ? '从低到高' : '从高到低') + '排序。适用癌种：' +
+    return U.card(tableTitle(ax) + ' · ' + i.name,
+      U.note('筛选范围：' + S.esc(scopeName()) + '，' + rows.length + ' 家机构；按指标值' +
+        (i.dir === 'down' ? '从低到高' : '从高到低') + '排序。适用癌种：' +
         i.cancers.map(function (c) { return S.esc(S.cancer(c).name); }).join('、') + '。') +
-      U.table(['医疗机构', '级别', '设区市', '#' + i.name, '达标', '癌种达标', '#分子', '#分母', '#异常病例', '操作'], bodyRows, { compact: true }),
+      U.table(['医疗机构', '级别', '设区市', '#' + i.name, '达标', '癌种达标', '#分子', '#分母', '#异常病例', '操作'],
+        bodyRows, { compact: true, fit: true, align: { 4: 'center' } }),
       '未达标机构标红');
-    return card;
   }
 
-  function orgAll() {
-    var cols = S.L1_IND;
-    var list = S.ORGS.filter(function (o) { return !P.city || o.city === P.city; });
-    var bodyRows = list.map(function (o) {
-      var passN = 0, abnTot = 0;
-      var cells = cols.map(function (i) {
-        var a = S.agg(i.id, [o.id], cancerFilter());
-        var pass = S.l1Pass(i.id, a.value);
-        if (pass) passN++;
-        abnTot += S.abnCount(i.id, null, [o.id]);
-        return { h: '<span style="font-weight:600;color:' + (pass ? '#2e7d32' : '#b42335') + '">' + S.f1(a.value) + '%</span>', cls: 'num' };
-      });
-      return { cells: [o.name, o.level, S.cityName(o.city)].map(function (x) { return { h: x, cls: 'txt' }; })
-        .concat(cells).concat([{ h: '<b>' + passN + '/6</b>', cls: 'num' }, { h: S.fmt(abnTot), cls: 'num' }, { h: U.link('明细', 'pf:orgAll:' + o.id), cls: 'num' }]) };
-    });
-    var header = ['医疗机构', '级别', '设区市'].concat(cols.map(function (i) { return '#' + i.short; })).concat(['#达标', '#异常病例', '操作']);
-    var card = U.card('医院考核 · 六项全览',
-      U.note('每格为该机构对应指标的当前值；绿色已达标、红色未达标。') +
-      U.table(header, bodyRows, { compact: true }),
-      '六项指标 ' + list.length + ' 家机构一屏对照');
-    return card;
-  }
-
-  /* ==================== 分癌种考核 ==================== */
-  /* 单指标：该指标覆盖的每个癌种分别判定达标 */
-  function cancerTable() {
+  function cancerTable(ax) {
     var i = curInd();
+    var ids = buildAxis('cancer');
     var ofs = effOrgIds();
-    var ids = i.cancers.slice();
     var nPass = 0;
-    var bodyRows = ids.map(function (cid) {
-      var c = S.cancer(cid);
+    var bodyRows = ids.map(function (r) {
+      var cid = r.key;
       var a = S.agg(i.id, ofs, [cid]);
       var pass = S.l1Pass(i.id, a.value);
       if (pass) nPass++;
@@ -289,199 +376,364 @@
       var on = P.cancer === cid;
       return {
         cells: [
-          { h: (on ? '<b>' : '') + S.esc(c.name) + '<span style="color:#94a3b8;font-size:11px"> ' + S.esc(c.icd) + '</span>' + (on ? '</b>' : ''), cls: 'txt' },
+          { h: (on ? '<b>' : '') + S.esc(r.label) + '<span style="color:#94a3b8;font-size:11px"> ' + S.esc(r.sub) + '</span>' + (on ? '</b>' : ''), cls: 'txt' },
           { h: '<b>' + S.f1(a.value) + '%</b>', cls: 'num' },
           { h: '<span style="color:#94a3b8">' + lineOf(i) + '</span>', cls: 'num' },
-          { h: badge(pass) },
+          { h: badge(pass), cls: 'center' },
           { h: S.fmt(a.num), cls: 'num' },
           { h: S.fmt(a.den), cls: 'num' },
           { h: S.fmt(abn), cls: 'num' },
-          { h: U.link('明细', 'pf:cancer:' + cid), cls: 'num' }
+          actLink('被质控数据', 'pf:x:cancer=' + cid)
         ],
         cls: pass ? '' : 'abn-row'
       };
     });
-    var tot = S.agg(i.id, ofs, P.cancer ? [P.cancer] : null);
+    var tot = S.agg(i.id, ofs, cancerFilter());
     bodyRows.push({
       cls: 'sum-row',
       cells: [
         { h: '合计（当前筛选）', cls: 'txt' },
         { h: '<b>' + S.f1(tot.value) + '%</b>', cls: 'num' },
         { h: '<span style="color:#94a3b8">' + lineOf(i) + '</span>', cls: 'num' },
-        { h: badge(S.l1Pass(i.id, tot.value)) },
+        { h: badge(S.l1Pass(i.id, tot.value)), cls: 'center' },
         { h: S.fmt(tot.num), cls: 'num' },
         { h: S.fmt(tot.den), cls: 'num' },
         { h: S.fmt(S.abnCount(i.id, P.cancer || null, ofs)), cls: 'num' },
-        { h: '', cls: 'num' }
+        { h: '', cls: 'num act' }
       ]
     });
-    var scope = P.org ? ((S.org(P.org) || {}).name || P.org) : (P.city ? S.cityName(P.city) : '全省');
-    return U.card('分癌种考核 · ' + i.name,
-      U.note('当前范围：' + S.esc(scope) + '。判定口径：达标线 ' + lineOf(i) +
-        ' 作用于该指标的<b>合计率</b>（合计达标即该项通过）；下表按癌种拆分，用于定位拉低合计的短板癌种。点行末「明细」把下方病例明细收敛到该癌种。') +
-      U.table(['癌种', '#' + i.name, '#达标线', '达标', '#分子', '#分母', '#异常病例', '操作'], bodyRows, { compact: true }),
+    return U.card('分癌种考核 · ' + (P.org ? ((S.org(P.org) || {}).name || '') : i.name),
+      U.note('当前范围：' + S.esc(scopeName()) + '。判定口径：达标线 ' + lineOf(i) +
+        ' 作用于该指标的<b>合计率</b>；下表按癌种拆分，用于定位拉低合计的短板癌种。') +
+      U.table(['癌种', '#' + i.name, '#达标线', '达标', '#分子', '#分母', '#异常病例', '操作'],
+        bodyRows, { compact: true, fit: true, align: { 3: 'center' } }),
       '已达标 ' + nPass + ' / ' + ids.length + ' 个癌种');
   }
 
-  /* 六项全览：癌种 × 六项矩阵，空格表示该指标不覆盖 */
-  function cancerMatrixAll() {
-    var ofs = effOrgIds();
-    var bodyRows = S.CANCERS.map(function (c) {
-      var n = 0, m = 0;
-      var cells = S.L1_IND.map(function (i) {
-        if (i.cancers.indexOf(c.id) < 0) {
-          return { h: '<span style="color:#cbd5e1">—</span>', cls: 'num', title: '该指标不覆盖' + c.name };
-        }
-        m++;
-        var a = S.agg(i.id, ofs, [c.id]);
-        var pass = S.l1Pass(i.id, a.value);
-        if (pass) n++;
-        return { h: '<span style="font-weight:600;color:' + (pass ? '#2e7d32' : '#b42335') + '">' + S.f1(a.value) + '%</span>', cls: 'num', title: i.name };
-      });
-      return {
-        cells: [{ h: S.esc(c.name), cls: 'txt' }].concat(cells).concat([
-          { h: '<b>' + n + '/' + m + '</b>', cls: 'num' },
-          { h: U.link('明细', 'pf:cancer:' + c.id), cls: 'num' }
-        ])
-      };
-    });
-    var header = ['癌种'].concat(S.L1_IND.map(function (i) { return '#' + i.short; })).concat(['#达标', '操作']);
-    return U.card('分癌种考核 · 六项对照',
-      U.note('行 = 癌种，列 = 指标；「—」表示该指标不覆盖此癌种。绿 = 已达标、红 = 未达标；六项指标各自适用的癌种范围不同，因此同一癌种只参与其被覆盖的指标判定。') +
-      U.table(header, bodyRows, { compact: true }),
-      '六大绩效按癌种分别考核');
+  /* 单维表：轴由筛选条自动决定（癌种锁定/机构锁定都会落到单维表） */
+  function singleTable(ax) {
+    return ax.row === 'org' ? orgTable(ax)
+      : ax.row === 'cancer' ? cancerTable(ax)
+        : regionTable(ax);
   }
 
-  /* ==================== 异常明细（原始数据） ==================== */
-  function detailNote() {
+  /* ==================== 被质控数据（独立页面 qc-pf-detail） ==================== */
+  /* scope 可同时带 city / org / cancer —— 这才是"既按地区又按癌种"的落点。
+     行内下钻传的 scope 存在页面状态里（不污染顶部筛选条）；null = 沿用筛选条。 */
+  function mergeScope(a, b) {
+    var o = {};
+    for (var k in (a || {})) if (a[k]) o[k] = a[k];
+    for (var k2 in (b || {})) if (b[k2]) o[k2] = b[k2];
+    return o;
+  }
+  function encScope(sc) {
+    var parts = [];
+    for (var k in (sc || {})) if (sc[k]) parts.push(k + '=' + sc[k]);
+    return parts.join(';');
+  }
+  function parseScope(s) {
+    var o = {};
+    String(s == null ? '' : s).split(';').forEach(function (kv) {
+      if (!kv) return;
+      var p = kv.split('=');
+      if (p[0] && p[1]) o[p[0]] = p[1];
+    });
+    return o;
+  }
+  function scopeOrgIds(scope) {
+    scope = scope || {};
+    if (scope.org) return [scope.org];
+    if (scope.city) return S.ORGS.filter(function (o) { return o.city === scope.city; }).map(function (o) { return o.id; });
+    return effOrgIds();
+  }
+  function scopeCancerIds(scope) {
+    scope = scope || {};
+    if (scope.cancer) return [scope.cancer];
+    return cancerFilter();
+  }
+  function scopeLabel(scope) {
+    scope = scope || {};
+    var parts = [];
+    if (scope.org) parts.push((S.org(scope.org) || {}).name || scope.org);
+    else if (scope.city) parts.push(S.cityName(scope.city));
+    if (scope.cancer) parts.push(S.cancer(scope.cancer).name);
+    return parts.length ? parts.join(' · ') : scopeName();
+  }
+
+  function abnStrip() {
     var i = curInd();
-    /* 字段缺陷聚类 = 异常原因分布（登记报告卡字段口径），并提示其对绩效的影响 */
     var types = S.abnTypes(i.id);
-    var rows = types.map(function (t) {
-      return { cells: [t.type, { h: S.fmt(t.count), cls: 'num' }] };
-    });
-    return U.card('异常原因结构 · ' + i.name,
-      '<div style="display:flex;gap:20px;align-items:flex-end;flex-wrap:wrap">' +
-      '<div style="flex:1;min-width:260px">' + U.table(['异常原因', '#病例数'], rows, { compact: true }) + '</div>' +
-      '<div style="flex:0 0 260px;font-size:12.5px;color:#475569;line-height:1.8">这些病例多为<b>报告卡字段缺陷</b>导致，直接影响「' + S.esc(i.name) + '」达标。<br>' +
-      '<button class="qc-link" data-qc="pf:toReport">前往报卡质量监测（登记条线）→</button></div>' +
-      '</div>');
+    var html = '<b>异常原因结构</b>：' + types.map(function (t) {
+      return S.esc(t.type) + ' <b>' + S.fmt(t.count) + '</b>';
+    }).join(' · ') + '　—　这些病例多为<b>报告卡字段缺陷</b>导致，直接影响本指标达标。' +
+      '<button class="qc-link" data-qc="pf:toReport">前往报卡质量监测 →</button>';
+    return U.note(html, true);
   }
 
-  function detailList() {
+  /* 打开被质控数据页：scope 为对象则用该交叉口径，null 则沿用筛选条 */
+  function openDetail(scope) {
+    P.scope = scope || null;
+    P.verdict = 'ALL'; P.page = 1;
+    window.navigateTo('qc-pf-detail');
+  }
+
+  /* 明细页的条件条：可在页内改设区市/机构/癌种（保持交叉口径），
+     与考核页筛选条同风格（.qc-filter），但独立于 P.city/org/cancer，写在 P.scope 上。 */
+  function detailScopeBar() {
     var i = curInd();
-    var ofs = effOrgIds();
-    var vc = S.verdictCounts(i.id, { orgIds: ofs, cancerIds: cancerFilter() });
+    var sc = P.scope || {};
+    var cityOpts = [{ v: '', l: '全部设区市' }].concat(S.CITIES.map(function (c) { return { v: c.code, l: c.name }; }));
+    var orgOpts = [{ v: '', l: '全部机构' }].concat(S.orgOptions().filter(function (o) {
+      if (!sc.city) return true;
+      var org = S.ORGS.filter(function (x) { return x.id === o.v; })[0];
+      return org && org.city === sc.city;
+    }));
+    var canOpts = [{ v: '', l: '全部癌种' }].concat(i.cancers.map(function (c) {
+      return { v: c, l: S.cancer(c).name };
+    }));
+    function sel(key, label, list, cur, style) {
+      var opts = list.map(function (o) {
+        return '<option value="' + S.esc(o.v) + '"' + (String(cur) === String(o.v) ? ' selected' : '') + '>' + S.esc(o.l) + '</option>';
+      }).join('');
+      return '<div class="fg' + (style ? ' ' + style : '') + '"><label>' + S.esc(label) + '</label>' +
+        '<select data-qcs="' + S.esc(key) + '">' + opts + '</select></div>';
+    }
+    return '<div class="qc-filter qc-scope" data-qcscope="1">' +
+      sel('city', '设区市', cityOpts, sc.city || '', 'w-mid') +
+      sel('org', '医疗机构', orgOpts, sc.org || '', 'w-mid') +
+      sel('cancer', '癌种', canOpts, sc.cancer || '', 'w-mid') +
+      '<div class="acts">' +
+      '<button class="btn btn-ghost btn-sm" data-qc="pf:scope:reset">重置条件</button>' +
+      '<button class="btn btn-primary btn-sm" data-qc="pf:scope:apply">应用</button>' +
+      '</div>' +
+      '</div>';
+  }
+
+  /* 页面：被质控数据（某指标在某个/某几个交叉条件下列出的病例） */
+  function renderDetailPage() {
+    var i = curInd();
+    var ofs = scopeOrgIds(P.scope);
+    var cfs = scopeCancerIds(P.scope);
+    var vc = S.verdictCounts(i.id, { orgIds: ofs, cancerIds: cfs });
+    /* 判定页签：沿用站内既有 .qc-tabs 风格（与「指标分析」页一致） */
     var tabs = [
-      ['ALL', '全部', vc.ALL], ['ok', '符合', vc.ok],
-      ['bad', '不符合', vc.bad], ['miss', '数据缺失', vc.miss], ['abn', '数据异常', vc.abn]
+      ['ALL', '全部数据', vc.ALL], ['ok', '符合', vc.ok], ['bad', '不符合', vc.bad],
+      ['miss', '数据缺失', vc.miss], ['abn', '数据异常', vc.abn]
     ];
-    var tabHtml = '<div class="qc-pf-seg" style="margin-bottom:8px">' + tabs.map(function (t) {
-      return '<button class="' + (P.verdict === t[0] ? 'on' : '') + '" data-qc="pf:verdict:' + t[0] + '">' + t[1] + '（' + t[2] + '）</button>';
+    var tabHtml = '<div class="qc-tabs">' + tabs.map(function (t) {
+      return '<button class="' + (P.verdict === t[0] ? 'on' : '') + '" data-qc="pf:verdict:' + t[0] + '">' +
+        t[1] + '（' + S.fmt(t[2] || 0) + '）</button>';
     }).join('') + '</div>';
 
-    var want = P.verdict === 'ALL' ? 'ALL' : P.verdict;
-    /* 只构造当前这一页要显示的 20 条完整病例：
-       旧写法 limit 给了 100 万，一次渲染要先把 1 万多条病例的证据链
-       全构造出来（再在上面对着页签计数又构造一遍），这是本页卡顿的主因。
-       条数与页签计数来自同一份病例索引，显示的数字不变。 */
-    var data = S.cases(i.id, { orgIds: ofs, cancerIds: cancerFilter(), verdict: want, limit: P.page * 20 });
-    var pg = U.slice(data.rows, P.page, 20);
-    var rows = pg.rows.map(function (r) {
-      var vLabel = S.V_LABEL[r.v] || r.v;
-      var vTone = S.V_TONE[r.v] || 'neutral';
+    /* 只构造当前页要显示的 20 条：上限 = 页码 × 20，避免整范围构造证据链 */
+    var data = S.cases(i.id, { orgIds: ofs, cancerIds: cfs, verdict: P.verdict, limit: P.page * 20 });
+    var sl = U.slice(data.rows, P.page, 20);
+    var rows = sl.rows.map(function (r) {
       var bad = r.v !== 'ok';
       return {
+        cls: bad ? 'abn-row' : '',
         cells: [
-          { h: '<code>' + S.esc(r.id) + '</code>' },
-          S.esc(r.name),
-          r.sex + '/' + r.age,
-          r.orgName,
-          r.cancerName,
-          { h: U.badge(vLabel, vTone) },
-          { h: bad ? '<span style="color:#b42335">' + S.esc(r.reason || '—') + '</span>' : '—' },
-          { h: U.link('证据', 'pf:case:' + i.id + ':' + r.key) },
-          { h: bad ? U.link('发起整改', 'pf:fix:' + r.key) : '—' }
-        ],
-        cls: bad ? 'abn-row' : ''
+          { h: U.link(r.name + '（' + S.esc(r.id) + '）', 'pf:case:' + i.id + ':' + r.key), cls: 'txt' },
+          { h: S.cityName(r.city), cls: 'txt' },
+          { h: S.esc(r.orgName), cls: 'txt' },
+          { h: S.esc(r.cancerName), cls: 'txt' },
+          { h: U.verdictBadge(r.v), cls: 'center' },
+          { h: bad ? '<span style="color:#b42335">' + S.esc(r.reason || '—') + '</span>' : '—', cls: 'txt' },
+          { h: U.link('病例详情', 'pf:case:' + i.id + ':' + r.key), cls: 'num act' },
+          { h: bad ? U.link('纳入整改', 'pf:fix:' + r.key) : '—', cls: 'num act' }
+        ]
       };
     });
-    var table = U.table(
-      ['病例号', '患者', '性别/年龄', '医疗机构', '癌种', '判定', '异常原因', '证据', '操作'],
-      rows, { compact: true, empty: '暂无符合筛选的病例' });
-    return '<div class="qc-card"><div class="hd"><span class="t">被质控数据明细 · ' + S.esc(i.name) +
-      '<span class="sub">共 ' + S.fmt(data.total) + ' 条（抽样）</span></span></div><div class="bd">' +
-      tabHtml + table + U.pager(data.total, P.page, 20, 'pf') + '</div></div>';
-  }
 
-  /* 病例证据弹窗 */
-  function caseModal(indId, key) {
-    /* 按键直接定位这一条病例（旧写法是先把该机构该癌种的全部病例
-       构造出来再线性比对） */
-    var r = S.caseByKey(indId, key);
-    if (!r) { U.toast('未找到该病例'); return; }
-    var rule = r.rule || S.ruleOf(indId, r.v) || {};
-    var kvs = [
-      ['病例号', r.id], ['患者', r.name + '（' + r.sex + '/' + r.age + '）'],
-      ['就诊机构', r.orgName], ['癌种', r.cancerName],
-      ['诊断日期', r.diagDate],
-      ['临床分期', r.stageVal || '（空）'], ['病理诊断', r.pathology || '（空）'],
-      ['pTNM', r.ptnm || '（空）'], ['淋巴结清扫', r.lymph || '（空）'],
-      ['分子检测', r.mol || '（空）'], ['手术日期', r.surgDate || '—'],
-      ['死亡日期', r.deathDate || '—']
-    ];
-    var body = '<div class="qc-kv c3">' + kvs.map(function (kv) {
-      return '<div class="kv"><span class="k">' + S.esc(kv[0]) + '</span><span class="v">' + S.esc(kv[1]) + '</span></div>';
-    }).join('') + '</div>';
-    body += '<div style="margin-top:10px;font-size:12.5px;color:#475569">' +
-      '<b>触发规则</b>：' + S.esc((rule.code || '') + ' ' + (rule.name || '')) +
-      '<br><b>判定条件</b>：' + S.esc(rule.cond || '') +
-      '<br><b>校验字段</b>：' + S.esc(rule.field || '') + '</div>';
-    U.modal('被质控数据 · ' + S.esc(r.name), body);
-  }
-
-  /* ==================== 主渲染 ==================== */
-  function render(pageId) {
-    /* 三块内容同页纵向排列，不再用切换栏 */
-    var body = (P.ind ? regionSingle() : regionAll()) +
-      (P.ind ? orgSingle() : orgAll()) +
-      (P.ind ? cancerTable() : cancerMatrixAll()) +
-      detailNote() + detailList();
+    var card = U.card('被质控数据明细',
+      abnStrip() +
+      '<div style="height:10px"></div>' +
+      tabHtml +
+      U.note('本表是本指标在 <b>' + S.esc(scopeLabel(P.scope)) + '</b> 条件下<b>实际纳入计算的全部病例</b>：' +
+        '既含判定「符合」的病例，也含判定异常的病例。点击患者可进入病例质控详情。', true) +
+      '<div style="height:10px"></div>' +
+      U.table(['患者', '设区市', '医疗机构', '癌种', '质控结果', '问题原因', '病例详情', '操作'], rows,
+        { compact: true, fit: true, align: { 4: 'center' }, empty: '该交叉条件下暂无被质控数据' }) +
+      U.pager(sl.total, sl.page, 20, 'pf'));
 
     return '<div class="qc-page">' +
-      U.head('六大绩效质控', '国考六项肿瘤专业质控指标的设区市 / 医疗机构考核；六项指标各自适用不同癌种。',
-        '', '质控管理',
+      U.head('被质控数据明细',
+        i.name + ' · ' + scopeLabel(P.scope) + '，共 ' + S.fmt(data.total) + ' 条（抽样）',
+        '', '六大绩效质控 · ' + S.esc(i.short),
+        '<button class="btn btn-ghost btn-sm" data-qc="pf:back">← 返回考核表</button>' +
+        '<button class="btn btn-ghost btn-sm" data-qc="pf:toReport">前往报卡质量监测</button>') +
+      detailScopeBar() +
+      card +
+      '</div>';
+  }
+
+  /* 与指标相关的关键字段（按指标裁剪，不做全病历展示） */
+  function keyFieldsOf(r) {
+    var src = '云健康';
+    if (r.ind === 'NQ-01') {
+      return [['初次诊断日期', r.diagDate, src], ['临床分期', r.stageVal, src],
+        ['分期评估日期', r.stageDate, src], ['首次治疗日期', r.treatDate, src]];
+    }
+    if (r.ind === 'NQ-02') {
+      return [['首次治疗日期', r.treatDate, src], ['首次治疗方式', '非手术治疗', src],
+        ['病理诊断', r.pathology, '病理系统'], ['病理报告日期', r.pathDate, '病理系统']];
+    }
+    if (r.ind === 'NQ-03') {
+      return [['手术日期', r.surgDate, src], ['术后病理 pTNM', r.ptnm, '病理系统'],
+        ['病理诊断', r.pathology, '病理系统']];
+    }
+    if (r.ind === 'NQ-04') {
+      return [['手术日期', r.surgDate, src], ['死亡日期', r.deathDate, '死因监测'],
+        ['术后 30 日内死亡', r.deathDate ? '是' : '否', '死因监测']];
+    }
+    if (r.ind === 'NQ-05') {
+      return [['首次治疗日期', r.treatDate, src], ['首次治疗方式', '靶向/免疫治疗', src],
+        ['分子病理检测', r.mol, '分子病理实验室'], ['检测报告日期', r.pathDate, '分子病理实验室']];
+    }
+    return [['手术日期', r.surgDate, src], ['淋巴结清扫数目', r.lymph, '病理报告'],
+      ['病理诊断', r.pathology, '病理系统']];
+  }
+
+  /* 页面：病例质控详情（某一条病例的证据链） */
+  function renderCasePage() {
+    var indId = P.caseInd || P.ind;
+    var i = S.ind(indId) || curInd();
+    var r = S.caseByKey(indId, P.caseKey);
+    if (!r) {
+      return '<div class="qc-page">' +
+        U.head('病例质控详情', '病例级质控证据', '', '六大绩效质控 · ' + S.esc(i.short),
+          '<button class="btn btn-ghost btn-sm" data-qc="pf:backList">← 返回被质控数据</button>') +
+        U.card('未找到病例', '<div class="qc-empty">请从「被质控数据明细」点击患者进入。</div>') +
+        '</div>';
+    }
+    var rule = r.rule || S.ruleOf(indId, r.v) || {};
+    var ok = r.v === 'ok';
+
+    var baseCard = U.card('基础信息', U.kv([
+      ['病例号', S.esc(r.id)], ['姓名', S.esc(r.name)],
+      ['性别', r.sex], ['年龄', r.age + ' 岁'],
+      ['医疗机构', S.esc(r.orgName)], ['设区市', S.cityName(r.city)],
+      ['科室', S.esc(r.dept)], ['主管医生', S.esc(r.doctor)],
+      ['癌种', S.esc(r.cancerName)], ['首次诊断日期', r.diagDate],
+      ['住院号', S.esc(r.ipNo)], ['病案号', S.esc(r.mrn)]
+    ], 3), '与本次质控相关的患者与就诊信息');
+
+    var tl = [
+      { title: '首次诊断', date: r.diagDate, desc: '确诊为 ' + S.esc(r.cancerName), state: 'ok' },
+      { title: '病理诊断', date: r.pathDate, desc: r.pathology ? S.esc(r.pathology) : '<span style="color:#d98b2b">未记录病理结果</span>', state: r.pathology ? 'ok' : 'miss' },
+      {
+        title: '临床分期评估', date: r.stageDate || '未记录',
+        desc: r.stageVal ? '临床分期 ' + S.esc(r.stageVal) : '<span style="color:#d98b2b">分期或评估日期缺失</span>',
+        state: r.stageVal && r.stageDate ? 'ok' : 'miss'
+      },
+      { title: '首次抗肿瘤治疗', date: r.treatDate, desc: '治疗方式：' + (S.seedOf(r.key) % 2 ? '手术治疗' : '药物治疗'), state: 'ok' }
+    ];
+    if (r.surgDate) tl.push({ title: '手术', date: r.surgDate, desc: '术后病理 pTNM ' + (S.esc(r.ptnm) || '未记录'), state: r.ptnm ? 'ok' : 'miss' });
+    if (r.deathDate) tl.push({ title: '死亡', date: r.deathDate, desc: '术后 30 日内死亡', state: 'bad' });
+    tl.push({ title: '后续治疗', date: r.nextDate, desc: '按方案继续治疗与随访', state: 'ok' });
+    var tlCard = U.card('诊疗过程', U.timeline(tl), '诊断 → 病理 → 分期 → 首次治疗 → 手术/药物治疗 → 后续治疗');
+
+    var fields = keyFieldsOf(r);
+    function v(x) {
+      return x == null || x === '' ? '<span style="color:#b42335">（空）</span>' : S.esc(x);
+    }
+    var relCard = U.card('质控相关数据',
+      U.note('按方案要求，本页<b>只展示与当前指标「' + S.esc(i.name) + '」有关的数据字段</b>，不提供完整病历浏览器。') +
+      '<div style="height:10px"></div>' +
+      U.table(['数据项', '数据值', '数据来源'],
+        fields.map(function (f) { return { cells: [f[0], { h: v(f[1]) }, f[2]] }; }), { compact: true }));
+
+    var judgeCard = U.card('规则判定',
+      U.judgeBlock(rule, '<div>' + fields.slice(0, 3).map(function (f) {
+        return '<div style="font-size:12.5px;line-height:1.7">· <b>' + S.esc(f[0]) + '</b>：' + v(f[1]) + '</div>';
+      }).join('') + '</div>', r.verdictText, ok ? '' : r.reason) +
+      '<div style="height:12px"></div>' +
+      U.note(ok
+        ? '本病例符合质控规则要求，判定为「符合」，无需整改。'
+        : '本病例判定为「' + S.esc(r.verdictText) + '」，原因：<b>' + S.esc(r.reason) + '</b>。' +
+          '可点击下方「纳入整改」将本问题推送至质控问题中心。', !ok));
+
+    return '<div class="qc-page">' +
+      U.head('病例质控详情', i.name + ' · ' + S.esc(r.name) + '（' + S.esc(r.orgName) + ' · ' + S.esc(r.cancerName) + '）',
+        '', '六大绩效质控 · ' + S.esc(i.short),
+        '<button class="btn btn-ghost btn-sm" data-qc="pf:backList">← 返回被质控数据</button>' +
+        '<button class="btn btn-ghost btn-sm" data-qc="pf:mark">标记质控问题</button>' +
+        '<button class="btn btn-primary btn-sm" data-qc="pf:fix:' + S.esc(r.key) + '">纳入整改</button>') +
+      baseCard + tlCard + relCard + judgeCard +
+      '</div>';
+  }
+
+  /* ==================== 下钻指示条 ==================== */
+  /* 不再有「行/列」控件：表格形态由筛选条自动决定。这条只负责让用户知道
+     当前处于哪一级下钻，并提供返回上一级 + 明细入口。 */
+  function drillBar() {
+    var trail = '<span class="qc-pf-trail"><span class="lb">统计口径</span>' +
+      '<span class="lv on">全省</span>';
+    if (P.city) trail += '<span class="sep">▸</span><span class="lv on">' + S.esc(S.cityName(P.city)) + '</span>';
+    if (P.org) trail += '<span class="sep">▸</span><span class="lv on">' + S.esc((S.org(P.org) || {}).name || P.org) + '</span>';
+    if (P.cancer) trail += '<span class="sep">▸</span><span class="lv on">' + S.esc(S.cancer(P.cancer).name) + '</span>';
+    trail += '</span>';
+    var back = (P.org || P.city || P.cancer)
+      ? '<button class="btn btn-ghost btn-sm" data-qc="pf:upOne">← 返回上一级</button>' +
+        '<button class="btn btn-ghost btn-sm" data-qc="filter:reset:pf2">回到全省</button>'
+      : '';
+    return '<div class="qc-pf-dimbar">' + trail +
+      '<span class="qc-pf-db-acts">' + back +
+      '<button class="btn btn-ghost btn-sm" data-qc="pf:detailOpen">被质控数据明细</button></span>' +
+      '</div>';
+  }
+
+  /* ==================== 主渲染（三页共用入口） ==================== */
+  /* qc-pf-nq0x：考核页（表格形态随筛选条自动下钻）
+   * qc-pf-detail：被质控数据明细（独立页面）
+   * qc-pf-case：病例质控详情（独立页面）
+   * 三个页面同属本模块，pageId→指标由 P.ind 贯穿（明细/详情页沿用来源指标）。 */
+  function render(pageId) {
+    if (pageId && PAGEMAP[pageId]) P.ind = PAGEMAP[pageId];
+    if (!P.ind) P.ind = 'NQ-01';
+    U.closeModal();
+
+    if (pageId === 'qc-pf-detail') return renderDetailPage();
+    if (pageId === 'qc-pf-case') return renderCasePage();
+
+    /* 表格形态由筛选条自动决定（设区市 → 医疗机构 → 癌种 自动下钻） */
+    var i = curInd();
+    var ax = autoAxis();
+    var table = ax.col === 'none' ? singleTable(ax) : matrixTable(ax);
+
+    return '<div class="qc-page">' +
+      U.head(i.name, '国考指标「' + S.esc(i.short) + '」：' + S.esc(i.def) +
+        ' 分子 ' + S.esc(i.num) + '；分母 ' + S.esc(i.den) + '。',
+        '', '六大绩效质控 · ' + S.esc(i.short),
         '<button class="btn btn-ghost btn-sm" data-qc="pf:toRules">查看判定规则</button>') +
       scopeBar() +
-      body +
+      drillBar() +
+      table +
       '</div>';
   }
 
   /* ==================== 样式 ==================== */
   var CSS = [
-    /* 筛选条改成 flex 单行：五项字段 + 重置/查询必须挤在同一行，禁止换行。
-       用 flex-basis 按内容长短分配宽度，比 grid 等分更省空间，也更容易
-       在 1400~1600px 之间平滑收缩而不折行。 */
+    /* 筛选条 flex 单行：四项字段 + 重置/查询挤在同一行，禁止换行。 */
     '#pageContainer .qc-scope{display:flex;flex-wrap:nowrap;align-items:flex-end;gap:10px;overflow-x:auto}',
     '#pageContainer .qc-scope .fg{flex:1 1 0;min-width:0}',
     '#pageContainer .qc-scope .fg.w-year{flex:0 0 92px}',
     '#pageContainer .qc-scope .fg.w-mid{flex:1.15 1 150px}',
-    '#pageContainer .qc-scope .fg.w-wide{flex:1.9 1 210px}',
     '#pageContainer .qc-scope .acts{flex:0 0 auto;grid-column:auto;white-space:nowrap}',
     '#pageContainer .qc-scope select{text-overflow:ellipsis}',
-    '#pageContainer .qc-pf-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 10px}',
-    '#pageContainer .qc-pf-seg{display:inline-flex;border:1px solid #d1d8e0;border-radius:6px;overflow:hidden;margin-bottom:12px}',
-    '#pageContainer .qc-pf-seg button{height:32px;padding:0 14px;border:0;background:#fff;font-size:12.5px;font-weight:600;color:#475569;cursor:pointer;font-family:inherit;border-right:1px solid #e6edf5}',
-    '#pageContainer .qc-pf-seg button:last-child{border-right:0}',
-    '#pageContainer .qc-pf-seg button.on{background:var(--primary);color:#fff}',
-    '#pageContainer .qc-pf-seg button.on:hover{background:var(--primary)}',
+    /* 下钻指示条：口径面包屑 + 返回上一级 + 明细入口（无「行/列」控件） */
+    '#pageContainer .qc-pf-dimbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}',
+    '#pageContainer .qc-pf-trail{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:#475569}',
+    '#pageContainer .qc-pf-trail .lb{font-size:12px;color:#94a3b8;font-weight:600}',
+    '#pageContainer .qc-pf-trail .lv{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:13px;background:#eef4fb;color:#244765;font-weight:600}',
+    '#pageContainer .qc-pf-trail .sep{color:#cbd5e1}',
+    '#pageContainer .qc-pf-db-acts{display:inline-flex;align-items:center;gap:8px;margin-left:auto}',
+    /* 明细页判定页签沿用站内 .qc-tabs，这里只需保证与卡片间距 */
+    '#pageContainer .qc-tabs+.qc-note{margin-top:0}',
     '#pageContainer .qc-tbl .abn-row td{background:#fdf3f4}',
     '#pageContainer .qc-tbl .sum-row td{background:#f8fafc;font-weight:600;border-top:2px solid #e2e8f0}',
-    '#pageContainer .qc-pf-cancers{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 12px}',
-    '#pageContainer .qc-pf-cancers .lb{font-size:12px;color:#64748b;margin-right:2px}',
-    '#pageContainer .qc-pf-cancers .chip{height:26px;padding:0 10px;border:1px solid #dbe3ec;border-radius:13px;background:#fff;color:#475569;font-size:12px;cursor:pointer;font-family:inherit;line-height:24px}',
-    '#pageContainer .qc-pf-cancers .chip:hover{border-color:var(--primary);color:var(--primary)}',
-    '#pageContainer .qc-pf-cancers .chip.on{background:var(--primary);border-color:var(--primary);color:#fff}'
+    /* 交叉矩阵：单元格是链接按钮，去掉默认内边距让它贴着列头右对齐 */
+    '#pageContainer .qc-tbl td.num .qc-link{padding:2px 0}'
   ].join('\n');
   var styleEl = document.createElement('style');
   styleEl.textContent = CSS;
@@ -494,13 +746,14 @@
     var a = el.getAttribute('data-qc');
     if (a.indexOf('pf:') !== 0 && a.indexOf('filter:') !== 0) return;
 
-    /* 筛选条（统一读取）
-       year/city/org 走 data-qcf（与其他质控页一致），ind/cancer 走 data-qcp。
-       历史遗留：qc-scope 的「质控指标 / 癌种」两个 select 一直没有监听，
-       点查询只读 data-qcf，改了指标或癌种会被静默丢弃；现一并读取。 */
+    /* 筛选条（统一读取）：year/city/org 走 data-qcf，cancer 走 data-qcp。
+       表格形态随筛选条自动下钻，所以这里不需要再管任何「轴」状态。
+       注意：「回到全省」用的 filter:reset:pf2 只清范围，不碰 P.ind。 */
     if (a.indexOf('filter:') === 0) {
-      if (a.indexOf('reset') > 0) { P.city = ''; P.org = ''; P.cancer = ''; P.year = '2026'; P.ind = ''; }
-      else {
+      if (a.indexOf('reset') > 0) {
+        P.city = ''; P.org = ''; P.cancer = ''; P.year = '2026';
+        /* P.ind 不重置（维度由菜单页决定）；表格形态会随范围自动回落 */
+      } else {
         var box = el.closest('.qc-filter');
         var reads = box ? box.querySelectorAll('[data-qcf],[data-qcp]') : [];
         for (var k = 0; k < reads.length; k++) {
@@ -510,42 +763,99 @@
           P[kk] = vv === '' || vv === '全部' || vv === '全部机构' || vv === '全部癌种' ? '' : vv;
         }
       }
-      P.page = 1;
-      window.renderPage('qc-performance');
+      rerender();
       return;
     }
 
-    if (a.indexOf('pf:ind:') === 0) { P.ind = a.slice('pf:ind:'.length) === 'ALL' ? '' : a.slice('pf:ind:'.length); P.page = 1; window.renderPage('qc-performance'); return; }
-    if (a.indexOf('pf:verdict:') === 0) { P.verdict = a.slice('pf:verdict:'.length); P.page = 1; window.renderPage('qc-performance'); return; }
-    if (a.indexOf('pf:cancer:') === 0) { P.cancer = a.slice('pf:cancer:'.length) === 'ALL' ? '' : a.slice('pf:cancer:'.length); P.page = 1; window.renderPage('qc-performance'); return; }
-    if (a.indexOf('pf:page:') === 0) { P.page = parseInt(a.slice('pf:page:'.length), 10) || 1; window.renderPage('qc-performance'); return; }
-
-    /* 行内下钻：设置地区/机构筛选，下方「异常明细」随之收敛 */
-    if (a.indexOf('pf:region:') === 0) { P.city = a.slice('pf:region:'.length); P.org = ''; P.page = 1; window.renderPage('qc-performance'); return; }
-    if (a.indexOf('pf:detail:') === 0) {
-      /* pf:detail:<ind>:<cityCode>:<orgId>（city/org 可空） */
-      var parts = a.split(':');
-      P.ind = parts[2] || ''; P.city = parts[3] || ''; P.org = parts[4] || '';
-      P.verdict = 'ALL'; P.page = 1;
-      window.renderPage('qc-performance'); return;
+    /* 返回上一级：按 癌种 → 机构 → 设区市 的顺序逐级退（表格随之自动聚合） */
+    if (a === 'pf:upOne') {
+      if (P.cancer) P.cancer = '';
+      else if (P.org) P.org = '';
+      else if (P.city) P.city = '';
+      rerender(); return;
     }
-    if (a.indexOf('pf:detailAll:') === 0) { P.city = a.slice('pf:detailAll:'.length); P.org = ''; P.verdict = 'ALL'; P.page = 1; window.renderPage('qc-performance'); return; }
-    if (a.indexOf('pf:orgAll:') === 0) { P.org = a.slice('pf:orgAll:'.length); P.verdict = 'ALL'; P.page = 1; window.renderPage('qc-performance'); return; }
 
+    /* 跳转被质控数据（独立页面 qc-pf-detail）：
+       不带条件 → 沿用当前筛选条范围；核对条件 → 用该行的交叉条件
+       （如 city=3601;cancer=C34 = "南昌市 × 肺癌"）。 */
+    if (a === 'pf:detailOpen') { openDetail(null); return; }
+    if (a.indexOf('pf:x:') === 0) { openDetail(parseScope(a.slice('pf:x:'.length))); return; }
+    /* 明细页内的判定页签 / 分页：只改状态重绘，不重置口径 */
+    if (a.indexOf('pf:verdict:') === 0) {
+      P.verdict = a.slice('pf:verdict:'.length); P.page = 1;
+      window.qcRender('qc-pf-detail'); return;
+    }
+    if (a.indexOf('pf:page:') === 0) {
+      P.page = parseInt(a.slice('pf:page:'.length), 10) || 1;
+      window.qcRender('qc-pf-detail'); return;
+    }
+    if (a === 'pf:backList') { window.navigateTo('qc-pf-detail'); return; }
+    if (a === 'pf:back') { window.navigateTo(pageOf()); return; }
+
+    /* 病例质控详情（独立页面 qc-pf-case） */
     if (a.indexOf('pf:case:') === 0) {
       var p = a.split(':');
-      caseModal(p[2], p.slice(3).join(':'));
+      P.caseInd = p[2]; P.caseKey = p.slice(3).join(':');
+      window.navigateTo('qc-pf-case');
       return;
     }
+    if (a === 'pf:mark') { U.toast('已标记质控问题（演示）'); return; }
     if (a.indexOf('pf:fix:') === 0) { U.toast('已将问题纳入整改清单，前往「整改问题」处理'); return; }
+
+    /* 明细页条件条：应用/重置（设区市→机构联动由 change 事件即时重绘） */
+    if (a === 'pf:scope:apply') { readDetailScope(el); window.qcRender('qc-pf-detail'); return; }
+    if (a === 'pf:scope:reset') { P.scope = null; P.verdict = 'ALL'; P.page = 1; window.qcRender('qc-pf-detail'); return; }
 
     if (a === 'pf:toRules') { window.navigateTo('qc-rules'); return; }
     if (a === 'pf:toReport') { window.navigateTo('analysis-quality'); return; }
   });
 
+  /* 读取明细页条件条（设区市/机构/癌种）写回 P.scope */
+  function readDetailScope() {
+    var box = document.querySelector('[data-qcscope]');
+    if (!box) return;
+    var sc = {};
+    var sels = box.querySelectorAll('[data-qcs]');
+    for (var k = 0; k < sels.length; k++) {
+      var key = sels[k].getAttribute('data-qcs');
+      var val = sels[k].value;
+      if (val) sc[key] = val;
+    }
+    P.scope = Object.keys(sc).length ? sc : null;
+    P.page = 1;
+  }
+  /* 明细页条件条：设区市变更后重绘（机构下拉要按市过滤），机构/癌种只暂存 */
+  document.addEventListener('change', function (ev) {
+    var el = ev.target;
+    if (!el || !el.getAttribute || el.getAttribute('data-qcs') !== 'city') return;
+    if (!document.querySelector('[data-qcscope]')) return;
+    readDetailScope();
+    /* 换了市，原机构可能不属于该市 → 清掉避免空结果 */
+    if (P.scope && P.scope.org) {
+      var org = S.org(P.scope.org);
+      if (org && P.scope.city && org.city !== P.scope.city) delete P.scope.org;
+    }
+    if (window.qcRender) window.qcRender('qc-pf-detail');
+  });
+
   window.qcPerformance = {
-    pageIds: ['qc-performance'],
+    pageIds: [
+      'qc-pf-nq01', 'qc-pf-nq02', 'qc-pf-nq03', 'qc-pf-nq04', 'qc-pf-nq05', 'qc-pf-nq06',
+      'qc-performance',
+      'qc-pf-detail', 'qc-pf-case'
+    ],
     render: render,
-    state: P
+    state: P,
+    /* 隐藏页的面包屑锚点：挂在"来源指标"那一页下，extra 为当前条件/病例。
+       app.html 的 updateBreadcrumb 包装层调用它（找不到返回 null 走默认逻辑）。 */
+    crumb: function (id) {
+      var indPage = pageOf(P.ind);
+      if (id === 'qc-pf-detail') return { menuId: indPage, extra: scopeLabel(P.scope) };
+      if (id === 'qc-pf-case') {
+        var i = S.ind(P.caseInd || P.ind) || curInd();
+        return { menuId: indPage, extra: i.short + ' · 病例详情' };
+      }
+      return null;
+    }
   };
 })();

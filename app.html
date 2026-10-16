@@ -646,6 +646,8 @@ button,input,select,textarea{font-family:inherit}
     .entry-guide-list .opt{color:var(--color-primary-600)}
     .entry-guide-list .caution{color:var(--color-caution-fg)}
     @media(max-width:760px){.entry-guide-row{grid-template-columns:1fr;gap:6px}}
+    /* 安全网：强制隐藏 KPI 钻取提示行（查看明细 →），即便旧缓存 JS 仍渲染该元素 */
+    .wa-kpi-hint{display:none !important}
 </style>
 </head>
 <body>
@@ -684,13 +686,14 @@ const menuData=[
   {id:'collection',label:'报告卡管理',icon:'●',children:[/* 报告卡录入入口暂时隐藏（页面保留，只能经「批量登记」collection-batch 及首页快捷入口进入；报告卡列表 / 上报数据管理已移除「+ 添加」「批量添加」按钮） */{id:'collection-batch',label:'批量登记'},{id:'datamgmt-card',label:'报告卡列表'},{id:'datamgmt-card-migrate',label:'报告卡迁移'},{id:'datamgmt-source',label:'上报数据管理'},{id:'collection-death',label:'作废卡管理'},{id:'quality-dup-card',label:'报卡查重'}]},
   {id:'followup',label:'随访结局管理',icon:'●',children:[{id:'followup-tasks',label:'随访任务列表'},{id:'followup',label:'随访信息管理'},{id:'followup-cycle',label:'随访周期管理'},{id:'death-info',label:'死亡信息列表'}]},
   {id:'analysis',label:'数据统计',icon:'●',children:[
-    /* 「预警总览」原挂「预警监测」下，2026-10-10 按需求迁到「数据统计」并排第一位。
+    /* 「数据看板」原名「预警总览」，原挂「预警监测」下，2026-10-10 按需求迁到「数据统计」并排第一位，
+       2026-10-12 更名（页面 id 仍为 cockpit）。
        注意：本清单会被 analysis.js 加载时整体覆盖，两处必须同时改（见 analysis.js 注释）。 */
-    {id:'cockpit',label:'预警总览'},
+    {id:'cockpit',label:'数据看板'},
     {id:'analysis-stats',label:'统计分析'},
     {id:'analysis-progress',label:'报卡工作量'},
     {id:'analysis-quality',label:'报卡质量监测'},
-    {id:'registry-ops',label:'登记运营监测'},
+    /* 「登记运营监测」2026-10-10 按需求删除整页（菜单项 + registry-ops.js）。 */
     {id:'report-files',label:'报表文件库'},
   ]},
   {id:'nccr',label:'国家肿瘤数据上报',icon:'●',children:[
@@ -706,12 +709,12 @@ const menuData=[
   {id:'monitor',label:'预警监测',icon:'●',children:[
     /* 「预警总览」已迁到「数据统计」下（2026-10-10），本菜单不再保留该入口。 */
     {id:'warning-records',label:'预警记录'},
-    {id:'mon-model',label:'预警模型构建',children:[
-      {id:'mdl-features',label:'多源特征数据仓库'},
-      {id:'mdl-registry',label:'预警模型元信息注册'},
-      {id:'mdl-training',label:'模型训练与超参记录'},
-      {id:'mdl-predictions',label:'风险预测结果快照'},
-      {id:'mdl-evaluation',label:'模型验证与评估报告'}
+    {id:'mon-model',label:'处置督导分析',children:[
+      {id:'mdl-features',label:'处置总览'},
+      {id:'mdl-registry',label:'责任方督导'},
+      {id:'mdl-training',label:'时限达成管理'},
+      {id:'mdl-predictions',label:'结论与整改成效'},
+      {id:'mdl-evaluation',label:'规则命中与误报'}
     ]},
     {id:'warning-tickets',label:'处置工单'},
     {id:'warning-rules',label:'预警规则配置'}
@@ -719,7 +722,16 @@ const menuData=[
   {id:'health-consult',label:'科普与培训',icon:'📚',children:[{id:'kb-sci',label:'科普内容'},{id:'kb-train',label:'培训内容'},{id:'kb-mine',label:'我的内容'},{id:'kb-dict',label:'分类维护'}]},
   {id:'specialty-portrait',label:'专科画像',icon:'●',children:[{id:'sp-patients',label:'患者专科画像'},{id:'sp-overview',label:'画像指标汇总'},{id:'sp-config',label:'画像配置'},{id:'cap-group',label:'肿瘤专科能力分析',children:[{id:'cap-catalog',label:'肿瘤诊疗技术目录'},{id:'cap-records',label:'机构技术开展记录'},{id:'cap-quality',label:'医疗质量核心指标明细'},{id:'cap-complex',label:'疑难病例收治特征库'}]}]},
   {id:'quality-control',label:'质控管理',icon:'●',children:[
-    {id:'qc-performance',label:'六大绩效质控'},
+    /* 2026-10-12 六大绩效质控改为三级菜单：六个维度各算一个页面，无总览。
+       pageId qc-pf-nq01…nq06 与 qc-performance.js 的 PAGEMAP 一一对应。 */
+    {id:'qc-performance',label:'六大绩效质控',icon:'●',children:[
+      {id:'qc-pf-nq01',label:'临床分期评估率'},
+      {id:'qc-pf-nq02',label:'病理学诊断率'},
+      {id:'qc-pf-nq03',label:'术后病理分期率'},
+      {id:'qc-pf-nq04',label:'围手术期死亡率'},
+      {id:'qc-pf-nq05',label:'分子病理检测率'},
+      {id:'qc-pf-nq06',label:'淋巴结清扫规范率'}
+    ]},
     {id:'qc-rules',label:'质控规则配置'},
     {id:'qc-issues',label:'整改问题'}
   ]}
@@ -743,7 +755,9 @@ if(id==='notice-center'){noticeCenterState.selectedId=null;setActiveMenu(id);doc
 if(id==='notice-center-detail'){const noticeItem=newsData.find(r=>r.id===noticeCenterState.selectedId);if(noticeItem){setActiveMenu('notice-center');document.getElementById('pageContainer').innerHTML=renderNoticeCenter();autoSizeSelects();const noticeDetailMain=document.getElementById('mainContent');if(noticeDetailMain)noticeDetailMain.scrollTop=0;updateBreadcrumb('notice-center',noticeItem.title);return}}
 if(id==='collection-batch'&&!window.entryFlowKeepPicked)window.entryFlowPicked=false;else if(id!=='collection-batch')window.entryFlowKeepPicked=false;setActiveMenu(id);renderPage(id);updateBreadcrumb(id)}
 function toast(msg,type='success'){const box=document.getElementById('toastContainer');const el=document.createElement('div');el.className='toast '+(type==='error'?'error':'');el.textContent=msg;box.appendChild(el);setTimeout(()=>el.remove(),2400)}
-function showConfirm(title,message,onConfirm){const modal=document.createElement('div');modal.className='news-confirm-modal';modal.innerHTML='<div class="news-confirm-box"><div class="news-confirm-title">'+title+'</div><div class="news-confirm-body">'+message+'</div><div class="news-confirm-actions"><button class="btn btn-ghost" id="__confirmCancel">取消</button><button class="btn btn-danger" id="__confirmOk">确认</button></div></div>';document.body.appendChild(modal);modal.querySelector('#__confirmCancel').onclick=function(){modal.remove()};modal.querySelector('#__confirmOk').onclick=function(){modal.remove();if(onConfirm)onConfirm()};modal.addEventListener('click',e=>{if(e.target===modal)modal.remove()})}
+/* message 可为普通文本或 HTML 片段（自定义弹窗正文，如带表单的确认）。
+   onConfirm 收到 modal 元素本身，便于读取弹窗内表单值；返回 false 表示校验不过、不关闭弹窗。 */
+function showConfirm(title,message,onConfirm){const modal=document.createElement('div');modal.className='news-confirm-modal';modal.innerHTML='<div class="news-confirm-box"><div class="news-confirm-title">'+title+'</div><div class="news-confirm-body">'+message+'</div><div class="news-confirm-actions"><button class="btn btn-ghost" id="__confirmCancel">取消</button><button class="btn btn-danger" id="__confirmOk">确认</button></div></div>';document.body.appendChild(modal);modal.querySelector('#__confirmCancel').onclick=function(){modal.remove()};modal.querySelector('#__confirmOk').onclick=function(){if(onConfirm&&onConfirm(modal)===false)return;modal.remove()};modal.addEventListener('click',e=>{if(e.target===modal)modal.remove()})}
 function handleLogout(){navigateTo('dashboard');toast('已返回首页')}
 function requiredMark(){return '<span class="required">*</span>'}
 
@@ -1358,7 +1372,7 @@ window.reportCardListData=cardRows;
 window.reportCardFollowup={'JX-2026-000091':{dlc:'2026-06-15',state:'存活',deadplace:'-',caus:'-',causicd:'-',deathda:'-',deadDoct:'-'},'JX-2026-000092':{dlc:'2026-06-15',state:'存活',deadplace:'-',caus:'-',causicd:'-',deathda:'-',deadDoct:'-'},'JX-2026-000093':{dlc:'2026-06-15',state:'存活',deadplace:'-',caus:'-',causicd:'-',deathda:'-',deadDoct:'-'},'JX-2026-000102':{dlc:'2026-06-14',state:'存活',deadplace:'-',caus:'-',causicd:'-',deathda:'-',deadDoct:'-'},'JX-2026-000118':{dlc:'2026-06-12',state:'存活',deadplace:'-',caus:'-',causicd:'-',deathda:'-',deadDoct:'-'},'JX-2026-000125':{dlc:'2026-06-10',state:'死亡',deadplace:'医院',caus:'肝恶性肿瘤',causicd:'C22.0',deathda:'2026-06-28',deadDoct:'吴医生'},'JX-2026-000133':{dlc:'2026-06-08',state:'存活',deadplace:'-',caus:'-',causicd:'-',deathda:'-',deadDoct:'-'}};
 const sourceFilter=window.cardSourceFilter||'';const cardTypeFilter=window.cardTypeFilter||'';const allRows=cardRows.filter(r=>{const linked=typeof sourceDataRecords!=='undefined'&&sourceDataRecords.some(s=>s.linkedCards.includes(r.id));const cardType=cardTypeText(r);return (!sourceFilter||(sourceFilter==='linked'?linked:!linked))&&(!cardTypeFilter||cardType===cardTypeFilter)}).map(r=>'<tr>'+cardCells(r)+opBtns(r)+'</tr>').join('');
 const dataTable='<div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:12px"><div class="table-wrap"><table class="data-table" style="margin:0;min-width:1900px"><thead>'+headRow(false)+'</thead><tbody>'+allRows+'</tbody></table></div></div>';
-return '<div class="page-toolbar"><div class="toolbar-actions"><button class="btn btn-import btn-sm" onclick="navigateTo(\'datamgmt-card-migrate\')">批量迁移</button><button class="btn btn-outline btn-sm" onclick="toast(\'导出Excel中...\')">导出Excel</button></div></div>'+
+return '<div class="page-toolbar"><div class="toolbar-actions"><button class="btn btn-outline btn-sm" onclick="toast(\'导出Excel中...\')">导出Excel</button></div></div>'+
 '<div class="panel"><div class="panel-body"><div class="filter-toolbar"><div class="form-group region-filter" style="min-width:200px"><label>行政区划</label>'+renderRegionCascader()+'</div><div class="form-group"><label>报告卡类型</label><select onchange="window.cardTypeFilter=this.value;renderPage(\'datamgmt-card\')"><option value="">全部</option><option '+(cardTypeFilter==='多原发卡'?'selected':'')+'>多原发卡</option></select></div><div class="form-group"><label>源数据状态</label><select onchange="window.cardSourceFilter=this.value;renderPage(\'datamgmt-card\')"><option value="">全部</option><option value="linked" '+(sourceFilter==='linked'?'selected':'')+'>已关联</option><option value="unlinked" '+(sourceFilter==='unlinked'?'selected':'')+'>未关联</option></select></div><div class="form-group"><label>日期类型</label><select><option>报告日期</option><option>登记日期</option><option>确诊日期</option></select></div><div class="form-group date-group"><label>日期区间</label>'+renderDateRangePicker('dr_card','2026-06-01','2026-06-30')+'</div><div class="form-group search-group"><label>检索内容</label><input type="text" placeholder="登记编号 / 姓名 / 身份证号"></div><div class="filter-actions"><button class="btn btn-ghost btn-sm" onclick="window.cardSourceFilter=\'\';window.cardTypeFilter=\'\';renderPage(\'datamgmt-card\')">重置</button></div></div>'+
 '<div style="margin-bottom:8px;color:#667085;font-size:13px">共 '+cardRows.length+' 张报告卡</div>'+
 dataTable+
@@ -1423,13 +1437,15 @@ function renderEntryModeChoice(){
     {mode:'single',title:'单条录入',desc:'填写单张报告卡，提交后直接入库',
      svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-6"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>'},
     {mode:'batch',title:'批量添加',desc:'导入 Excel，先进入临时列表校验后再提交',
-     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 17.5a4.5 4.5 0 0 0 .5-8.97A6.5 6.5 0 0 0 5.2 10.2A4 4 0 0 0 6 18h3"/><path d="M12 12v7"/><path d="m9 15 3-3 3 3"/></svg>'}
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 17.5a4.5 4.5 0 0 0 .5-8.97A6.5 6.5 0 0 0 5.2 10.2A4 4 0 0 0 6 18h3"/><path d="M12 12v7"/><path d="m9 15 3-3 3 3"/></svg>'},
+    {mode:'mrms',title:'病案首页导入',desc:'导入出院病案首页数据，先进入临时列表校验后再提交',
+     svg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2.5H6.5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2H17a2 2 0 0 0 2-2V8z"/><path d="M14 2.5V8h5.5"/><path d="M11.75 11.75v5M9.25 14.25h5"/></svg>'}
   ];
   /* 左栏：入口选择 */
   var left='<div>'
     +'<div class="entry-choice-head">'
       +'<div class="entry-choice-title">请选择录入方式</div>'
-      +'<div class="entry-choice-sub">单条填写直接入库；批量导入先进入临时列表，校验后再提交</div>'
+      +'<div class="entry-choice-sub">单条填写直接入库；批量添加与病案首页导入先进入临时列表，校验后再提交</div>'
     +'</div>'
     +'<div class="entry-choice-grid">'
       +opts.map(function(o){
@@ -1483,9 +1499,10 @@ function renderEntryGuide(){
 /* 随访模板下载：与批量上报模板分开命名，便于后续接真实文件 */
 function downloadVisitTemplate(){toast('随访模板下载中...')}
 
-/* 选择录入方式：单条 -> 报告卡登记表单；批量 -> 临时表列表页 */
+/* 选择录入方式：单条 -> 报告卡登记表单；批量 / 病案首页 -> 临时表列表页（同一页面） */
 function chooseEntryMode(mode){
   window.entryFlowPicked=true;
+  window.entryFlowMode=mode;
   if(mode==='single'){
     cardListAdd();
     /* 单条录入属于「报告卡登记」流程：菜单高亮与面包屑都留在报告卡登记下 */
@@ -1495,8 +1512,13 @@ function chooseEntryMode(mode){
   }
   setActiveMenu('collection-batch');
   renderPage('collection-batch');
-  updateBreadcrumb('collection-batch');
+  /* 病案首页导入与批量添加落在同一个临时表页面，仅面包屑标出来源入口 */
+  updateBreadcrumb('collection-batch',mode==='mrms'?'病案首页导入':null);
   var mc=document.getElementById('mainContent');if(mc)mc.scrollTop=0;
+  /* 工具栏三按钮下线后，此页不再有打开选文件弹窗的控件。
+     按需求文档「进入整页并自动打开选文件弹窗」（对齐随访「批量上传」、死因「批量登记」），
+     选定批量添加 / 病案首页导入后直接弹选文件框；弹窗标题随来源入口区分。 */
+  openBatchImportDialog(mode==='mrms'?'病案首页导入':'批量登记');
 }
 /* 从单条录入 / 临时表返回选择屏 */
 function backToEntryModeChoice(){
@@ -1508,13 +1530,15 @@ function backToEntryModeChoice(){
   var mc=document.getElementById('mainContent');if(mc)mc.scrollTop=0;
 }
 
-function renderHisUploadManagement(){const visible=getVisibleHisRecords();const checkedCount=hisRecords.filter(r=>r.checked).length;return `<div class="page-toolbar"><div class="toolbar-actions"><button class="btn btn-import btn-sm" onclick="cardListAdd()">添加</button><button class="btn btn-import btn-sm" onclick="openBatchImportDialog()">批量登记</button><button class="btn btn-outline btn-sm" onclick="downloadTemplate()">模板下载</button></div></div><div class="panel"><div class="panel-body"><div class="filter-toolbar"><div class="form-group region-filter"><label>过滤行政区划</label>${renderRegionCascader()}</div><div class="form-group"><label>重卡状态</label><select id="hisDuplicateFilter" onchange="queryHisRecords()"><option>全部</option><option>无重卡</option><option>疑似重卡</option></select></div><div class="form-group"><label>校验状态</label><select id="hisValidationFilter" onchange="queryHisRecords()"><option>全部</option><option>通过</option><option>警告</option><option>错误</option></select></div><div class="form-group"><label>日期类型</label><select id="hisDateType" onchange="queryHisRecords()"><option>确诊日期</option><option>报告日期</option><option>上传日期</option></select></div><div class="form-group date-group"><label>日期</label>${renderDateRangePicker('dr_his',hisFilters.dateStart,hisFilters.dateStart)}</div><div class="form-group search-group"><label>检索内容</label><input id="hisKeyword" placeholder="姓名 / 身份证号 / 登记编号" value="${hisFilters.keyword}" oninput="autoQuery(queryHisRecords)"></div><div class="filter-actions"><button class="btn btn-ghost btn-sm" onclick="resetHisFilters()">重置</button></div></div>${checkedCount>0?`<div class="void-batch-bar"><div class="void-batch-info">已选择 <strong>${checkedCount}</strong> 条记录（仅校验"通过"的可上传至报告卡列表）</div><div class="void-batch-actions"><button class="btn btn-outline btn-sm" onclick="exportSelectedHisExcel()">导出 Excel</button><button class="btn btn-primary btn-sm" onclick="hisBatchUpload()">批量上传</button><button class="btn btn-danger btn-sm" onclick="hisBatchDelete()">批量删除</button></div></div>`:''}${renderHisTable(visible)}</div></div>`}
+function renderHisUploadManagement(){const visible=getVisibleHisRecords();const checkedCount=hisRecords.filter(r=>r.checked).length;/* 工具栏三按钮（添加 / 批量登记 / 模板下载）已下线：录入入口统一走上方「请选择录入方式」选择屏，模板下载移至该屏「填写 / 上传说明」第 3 项。 */
+return `<div class="panel"><div class="panel-body"><div class="filter-toolbar"><div class="form-group region-filter"><label>过滤行政区划</label>${renderRegionCascader()}</div><div class="form-group"><label>重卡状态</label><select id="hisDuplicateFilter" onchange="queryHisRecords()"><option>全部</option><option>无重卡</option><option>疑似重卡</option></select></div><div class="form-group"><label>校验状态</label><select id="hisValidationFilter" onchange="queryHisRecords()"><option>全部</option><option>通过</option><option>警告</option><option>错误</option></select></div><div class="form-group"><label>日期类型</label><select id="hisDateType" onchange="queryHisRecords()"><option>确诊日期</option><option>报告日期</option><option>上传日期</option></select></div><div class="form-group date-group"><label>日期</label>${renderDateRangePicker('dr_his',hisFilters.dateStart,hisFilters.dateStart)}</div><div class="form-group search-group"><label>检索内容</label><input id="hisKeyword" placeholder="姓名 / 身份证号 / 登记编号" value="${hisFilters.keyword}" oninput="autoQuery(queryHisRecords)"></div><div class="filter-actions"><button class="btn btn-ghost btn-sm" onclick="resetHisFilters()">重置</button></div></div>${checkedCount>0?`<div class="void-batch-bar"><div class="void-batch-info">已选择 <strong>${checkedCount}</strong> 条记录（仅校验"通过"的可上传至报告卡列表）</div><div class="void-batch-actions"><button class="btn btn-outline btn-sm" onclick="exportSelectedHisExcel()">导出 Excel</button><button class="btn btn-primary btn-sm" onclick="hisBatchUpload()">批量上传</button><button class="btn btn-danger btn-sm" onclick="hisBatchDelete()">批量删除</button></div></div>`:''}${renderHisTable(visible)}</div></div>`}
 function downloadTemplate(){toast('模板文件下载中...')}
 function exportSelectedHisExcel(){const rows=getSelectedHis();if(!rows.length){toast('请先选择要导出的记录','error');return}const headers=['校验状态','重卡状态','姓名','性别','出生日期','身份证号码','发病部位','病理类型','ICD10编号','确诊日期','报告日期','报告单位'];const body=rows.map(r=>[r.validation,r.duplicate,r.name,r.sex,r.birth,r.idNo,r.site,r.pathology,r.icd10||'',r.diagnosisDate,r.reportDate,r.reportUnit]);const html='<table><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+body.map(row=>'<tr>'+row.map(value=>'<td>'+String(value||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</td>').join('')+'</tr>').join('')+'</tbody></table>';const blob=new Blob(['\ufeff'+html],{type:'application/vnd.ms-excel;charset=utf-8'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download='报告卡登记_已选记录.xls';link.click();URL.revokeObjectURL(url);toast('已导出 '+rows.length+' 条记录')}
 function hisAddFile(){navigateTo('collection-entry')}
 let biState={step:0,fileName:'',parsedData:[]};
-function openBatchImportDialog(){biState={step:0,fileName:'',parsedData:[]};renderBatchImportDialog()}
-function renderBatchImportDialog(){document.querySelectorAll('.bi-overlay').forEach(o=>o.remove());const overlay=document.createElement('div');overlay.className='bi-overlay';overlay.innerHTML='<div class="bi-dialog"><div class="bi-header"><span>批量登记</span><span class="bi-close" onclick="closeBatchImportDialog()">×</span></div><div class="bi-body">'+renderBiStep0()+'</div><div class="bi-footer"><button class="btn btn-ghost btn-sm" onclick="closeBatchImportDialog()">取消</button><button class="btn btn-primary btn-sm" onclick="biParseFile()" '+(biState.fileName?'':'disabled')+'>确定添加</button></div></div>';overlay.addEventListener('click',e=>{if(e.target===overlay)closeBatchImportDialog()});document.body.appendChild(overlay)}
+/* title 可选：区分来源入口（批量登记 / 病案首页导入 / 死因批量登记 由调用方改写） */
+function openBatchImportDialog(title){biState={step:0,fileName:'',parsedData:[],title:title||'批量登记'};renderBatchImportDialog()}
+function renderBatchImportDialog(){document.querySelectorAll('.bi-overlay').forEach(o=>o.remove());const overlay=document.createElement('div');overlay.className='bi-overlay';overlay.innerHTML='<div class="bi-dialog"><div class="bi-header"><span>'+(biState.title||'批量登记')+'</span><span class="bi-close" onclick="closeBatchImportDialog()">×</span></div><div class="bi-body">'+renderBiStep0()+'</div><div class="bi-footer"><button class="btn btn-ghost btn-sm" onclick="closeBatchImportDialog()">取消</button><button class="btn btn-primary btn-sm" onclick="biParseFile()" '+(biState.fileName?'':'disabled')+'>确定添加</button></div></div>';overlay.addEventListener('click',e=>{if(e.target===overlay)closeBatchImportDialog()});document.body.appendChild(overlay)}
 function renderBiStep0(){return '<div class="bi-upload-zone '+(biState.fileName?'has-file':'')+'" onclick="document.getElementById(\'biFileInput\').click()"><div class="bi-upload-icon">📄</div><div class="bi-upload-text">'+(biState.fileName?'已选择文件':'点击或拖拽文件到此处上传')+'</div>'+(biState.fileName?'<div class="bi-upload-filename">'+biState.fileName+'</div>':'<div class="bi-upload-hint">支持 .xlsx / .xls / .csv 格式，请先下载模板按格式填写</div>')+'</div><input type="file" id="biFileInput" style="display:none" accept=".xlsx,.xls,.csv" onchange="biSelectFile(this)">'}
 function biSelectFile(input){if(input.files&&input.files[0]){biState.fileName=input.files[0].name;renderBatchImportDialog()}}
 function biParseFile(){if(!biState.fileName){toast('请先选择文件','error');return}const parsed=[{id:Date.now()+1,checked:false,validation:'错误',duplicate:'无重卡',uploadType:'批量登记',name:'赵伟',idNo:'360102196509051234',sex:'男',birth:'1965-09-05',age:58,marriage:'已婚',nation:'汉族',job:'工人',workUnit:'南昌市钢铁厂',household:'江西省/南昌市/东湖区/董家窑街道',residence:'江西省/南昌市/东湖区/民巷社区',site:'肺',pathology:'腺癌',icd10:'',diagnosisDate:'2024-05-16',reportDate:'2024-05-19',reportUnit:'测试机构',doctor:'王医生',outpatientNo:'MZ240501',inpatientNo:'ZY240088',uploadTime:new Date().toISOString().slice(0,16).replace('T',' '),fileName:biState.fileName,rowNo:1,error:'ICD10 编号为空'},{id:Date.now()+2,checked:false,validation:'通过',duplicate:'无重卡',uploadType:'批量登记',name:'王建国',idNo:'360121196811301234',sex:'男',birth:'1968-11-30',age:56,marriage:'已婚',nation:'汉族',job:'农民',workUnit:'南昌县贸易公司',household:'江西省/南昌市/南昌县/莲塘镇',residence:'江西省/南昌市/南昌县/莲塘镇',site:'肺',pathology:'鳞状细胞癌',icd10:'C34.9',diagnosisDate:'2024-05-20',reportDate:'2024-05-21',reportUnit:'测试机构',doctor:'李医生',outpatientNo:'MZ240622',inpatientNo:'ZY240103',uploadTime:new Date().toISOString().slice(0,16).replace('T',' '),fileName:biState.fileName,rowNo:2,error:''},{id:Date.now()+3,checked:false,validation:'警告',duplicate:'无重卡',uploadType:'批量登记',name:'李娜',idNo:'360104198207221234',sex:'女',birth:'1982-07-22',age:42,marriage:'已婚',nation:'汉族',job:'离退休人员',workUnit:'南昌市第一人民医院',household:'江西省/南昌市/青云谱区/三家店街道',residence:'江西省/南昌市/青云谱区/三家店街道',site:'乳腺',pathology:'导管癌',icd10:'C50.9',diagnosisDate:'2024-04-18',reportDate:'2024-05-30',reportUnit:'测试机构',doctor:'张医生',outpatientNo:'MZ240734',inpatientNo:'ZY240219',uploadTime:new Date().toISOString().slice(0,16).replace('T',' '),fileName:biState.fileName,rowNo:3,error:'报告日期距离确诊日期超过 30 天'},{id:Date.now()+4,checked:false,validation:'通过',duplicate:'疑似重卡',uploadType:'批量登记',name:'张伟',idNo:'360111197503151234',sex:'男',birth:'1975-03-15',age:49,marriage:'已婚',nation:'汉族',job:'无业人员',workUnit:'南昌市机械制造厂',household:'江西省/南昌市/青山湖区/上海路街道',residence:'江西省/南昌市/青山湖区/上海路街道',site:'胃',pathology:'腺癌',icd10:'C16.0',diagnosisDate:'2024-03-14',reportDate:'2024-03-16',reportUnit:'测试机构',doctor:'赵医生',outpatientNo:'MZ240812',inpatientNo:'ZY240311',uploadTime:new Date().toISOString().slice(0,16).replace('T',' '),fileName:biState.fileName,rowNo:4,error:'与登记编号 JX202403160024 疑似重复'}];closeBatchImportDialog();hisRecords.push(...parsed);renderPage('collection-batch');toast('解析完成，'+parsed.length+' 条数据已填充到列表，请检查校验状态')}
@@ -1738,7 +1762,60 @@ function markInvalid(el,label,msg){const group=el.closest('.form-group');if(!gro
 function validateEntryStep(step=entryStep,showPass=false){const section=getEntrySections()[step];if(!section)return true;let firstInvalid=null;clearEntryErrors(section);section.querySelectorAll('[data-required]').forEach(el=>{if(!el.value||isPlaceholderValue(el)){markInvalid(el,el.dataset.required||'必填项');if(!firstInvalid)firstInvalid=el}});if(firstInvalid){firstInvalid.focus?.();toast('请先完善当前步骤的必填项','error');return false}if(showPass)toast('当前步骤校验通过');return true}
 function goEntryStep(target,silent=false){const sections=getEntrySections();if(!sections.length)return;if(target<0||target>=sections.length)return;if(target>entryStep&&!silent)validateEntryStep(entryStep);entryStep=target;sections.forEach((section,index)=>section.classList.toggle('active',index===entryStep));document.querySelectorAll('#cardEntryTabs .step-btn').forEach((tab,index)=>{tab.classList.toggle('active',index===entryStep);tab.classList.toggle('done',index<entryStep)});const prev=document.getElementById('entryPrevBtn');const next=document.getElementById('entryNextBtn');const submit=document.getElementById('entrySubmitBtn');if(prev)prev.style.visibility=entryStep===0?'hidden':'visible';if(next)next.style.display=entryStep===sections.length-1?'none':'inline-flex';if(submit)submit.style.display=entryStep===sections.length-1?'inline-flex':'none';document.getElementById('mainContent')?.scrollTo({top:0,behavior:silent?'auto':'smooth'})}
 function nextEntryStep(){validateEntryStep(entryStep,true);goEntryStep(entryStep+1,true)}
-function submitEntryForm(){const sections=getEntrySections();for(let s=0;s<sections.length;s++){if(!validateEntryStep(s)){goEntryStep(s,true);return}}const logicErrors=validateEntryLogic();if(logicErrors.length>0){logicErrors.forEach(err=>{if(err.el)markInvalid(err.el,err.field,err.msg)});showEntryLogicErrors(logicErrors);goEntryStep(logicErrors[0].step,true);toast('存在 '+logicErrors.length+' 项逻辑校验错误，请修正后再提交','error');return}const oldLogicErrors=document.getElementById('entryLogicErrors');if(oldLogicErrors)oldLogicErrors.remove();if(window.editCardId){const remainErrors=(window.editCardErrors||[]).filter(e=>e.field!=='系统校验');if(remainErrors.length>0){showConfirm('修改保存','当前仍有 '+remainErrors.length+' 项校验错误未处理，保存后错误信息将保留至下次校对。是否继续保存？',()=>{toast('报告卡 '+window.editCardId+' 修改已保存');setTimeout(()=>navigateTo('datamgmt-card'),800)})}else{toast('报告卡 '+window.editCardId+' 修改已保存');setTimeout(()=>navigateTo('datamgmt-card'),800)}}else{toast('报告卡提交成功（已通过全部逻辑校验）')}}
+/* 报告卡「修改」保存：按需求，编辑态点「保存修改」不做任何校验（必填校验 + 逻辑校验全跳过），
+   直接弹二次确认；确认后保存并返回报告卡列表。校验只保留给新增（提交）路径。 */
+function submitEntryForm(){
+ if(window.editCardId){saveEntryEditWithConfirm();return}
+ const sections=getEntrySections();for(let s=0;s<sections.length;s++){if(!validateEntryStep(s)){goEntryStep(s,true);return}}const logicErrors=validateEntryLogic();if(logicErrors.length>0){logicErrors.forEach(err=>{if(err.el)markInvalid(err.el,err.field,err.msg)});showEntryLogicErrors(logicErrors);goEntryStep(logicErrors[0].step,true);toast('存在 '+logicErrors.length+' 项逻辑校验错误，请修正后再提交','error');return}const oldLogicErrors=document.getElementById('entryLogicErrors');if(oldLogicErrors)oldLogicErrors.remove();toast('报告卡提交成功（已通过全部逻辑校验）')}
+/* 修改原因：下拉预设 + 可选说明。选「其他」时说明必填（否则无法说明改了什么）。 */
+var CARD_EDIT_REASONS=[
+ {code:'pathology_backfill',label:'病理报告回补'},
+ {code:'info_correct',label:'信息纠错'},
+ {code:'merge',label:'重卡合并'},
+ {code:'followup_update',label:'随访信息更新'},
+ {code:'coding_fix',label:'编码修正'},
+ {code:'other',label:'其他'}
+];
+function cardEditReasonLabel(code){var hit=CARD_EDIT_REASONS.filter(function(r){return r.code===code})[0];return hit?hit.label:'其他'}
+/* 编辑保存：不校验，先确认（含修改原因）再落库。连点只算一次（弹窗已开时直接忽略）。 */
+function saveEntryEditWithConfirm(){
+ if(document.querySelector('.news-confirm-modal'))return;
+ const cardId=window.editCardId;
+ if(!cardId){toast('未找到要修改的报告卡','error');return}
+ const options=CARD_EDIT_REASONS.map(function(r){return '<option value="'+r.code+'">'+r.label+'</option>'}).join('');
+ const body=
+  '<div style="margin-bottom:12px">确定要保存对报告卡 <strong>'+cardId+'</strong> 的修改吗？保存后将生成新的版本记录，原内容仍保留在修订记录中可查看。</div>'+
+  '<div class="form-group" style="margin-bottom:10px"><label>修改原因 <span class="required">*</span></label>'+
+  '<select id="cardEditReason" onchange="cardEditReasonToggle()">'+options+'</select></div>'+
+  '<div class="form-group" style="margin-bottom:0"><label id="cardEditReasonNoteLabel">原因说明</label>'+
+  '<textarea id="cardEditReasonNote" rows="3" placeholder="补充说明本次修改依据，例：按病理报告回补鳞状细胞癌及分级"></textarea>'+
+  '<div class="field-error" id="cardEditReasonErr" style="display:none">修改原因为「其他」时请填写原因说明</div></div>';
+ showConfirm('修改确认',body,function(modal){
+  const reasonCode=(modal.querySelector('#cardEditReason')||{}).value||'other';
+  const note=((modal.querySelector('#cardEditReasonNote')||{}).value||'').trim();
+  if(reasonCode==='other'&&!note){
+   const err=modal.querySelector('#cardEditReasonErr');if(err)err.style.display='block';
+   const ta=modal.querySelector('#cardEditReasonNote');if(ta)ta.focus();
+   return false; /* 返回 false = 校验不过，showConfirm 不关弹窗，留在原地补填 */
+  }
+  const okBtn=modal.querySelector('#__confirmOk');if(okBtn){okBtn.disabled=true;okBtn.textContent='保存中…'}
+  const reasonText=note?cardEditReasonLabel(reasonCode)+'：'+note:cardEditReasonLabel(reasonCode);
+  if(typeof window.appendCardRevision==='function')window.appendCardRevision(cardId,reasonText);
+  toast('报告卡 '+cardId+' 修改已保存');
+  setTimeout(()=>navigateTo('datamgmt-card'),800);
+ });
+}
+/* 「其他」才要求填说明，其余原因说明可选填 —— 实时切换必填标记 */
+function cardEditReasonToggle(){
+ const sel=document.getElementById('cardEditReason'),lab=document.getElementById('cardEditReasonNoteLabel');
+ if(!sel||!lab)return;
+ const need=sel.value==='other';
+ lab.innerHTML='原因说明'+(need?' <span class="required">*</span>':' <span style="color:#98a2b3;font-weight:400">（选填）</span>');
+ const err=document.getElementById('cardEditReasonErr');if(err)err.style.display='none';
+}
+window.saveEntryEditWithConfirm=saveEntryEditWithConfirm;
+window.cardEditReasonToggle=cardEditReasonToggle;
+window.cardEditReasonLabel=cardEditReasonLabel;
 function resetEntryForm(){document.querySelectorAll('.entry-form-panel input,.entry-form-panel textarea').forEach(el=>{if(!el.readOnly&&el.type!=='checkbox')el.value=''});document.querySelectorAll('.entry-form-panel select').forEach(el=>{el.selectedIndex=0});document.querySelectorAll('.entry-form-panel input[type=checkbox]').forEach(el=>{el.checked=false});document.querySelectorAll('.entry-form-panel .ms-display').forEach(el=>{el.innerHTML='请选择治疗方式<span class="ms-arrow">▾</span>'});document.querySelectorAll('.form-group.invalid').forEach(group=>group.classList.remove('invalid'));document.querySelectorAll('.field-error').forEach(err=>err.remove());const oldLogicErrors=document.getElementById('entryLogicErrors');if(oldLogicErrors)oldLogicErrors.remove();goEntryStep(0,true);toast('表单已重置')}
 // ===== 报卡提交逻辑校验（对应「数据质控·质控规则」单卡规则，提交时实时执行、不通过即拦截） =====
 function findEntryField(label){const groups=document.querySelectorAll('.entry-form-panel .form-group');for(const grp of groups){const labelEl=grp.querySelector('label');if(labelEl&&labelEl.textContent.replace(/[*\s]/g,'').indexOf(label)===0){const ctrl=grp.querySelector('input,select,textarea');if(ctrl)return ctrl}}return null}
@@ -2534,7 +2611,7 @@ return '<div class="page-toolbar"><div class="toolbar-actions"><button class="bt
 function followupBatchUpdateCount(){const c=document.querySelectorAll('.batch-followup-check:checked').length;const el=document.getElementById('batchCount');if(el)el.textContent=c}
 function followupBatchExecute(){const c=document.querySelectorAll('.batch-followup-check:checked').length;if(c===0){toast('请至少选择一条记录','error');return}showConfirm('批量随访确认','确定要对选中的 '+c+' 条记录执行批量随访吗？',()=>{toast('批量随访已执行，共生成 '+c+' 条随访记录')})}
 
-function renderPage(id){const titles={'datamgmt-import':'导入数据管理','datamgmt-patient':'患者信息管理','datamgmt-followup':'随访信息管理','quality-dup':'查重管理','quality-todo':'待办工作台','quality-rules':'质控规则','quality-log':'质控审计日志','followup-tasks':'随访任务','followup':'随访信息上传','followup-upload':'随访批量上传','followup-plan':'随访计划','followup-batch':'随访计划','death-register':'死因批量登记（临时表）','death-entry':'随访报告信息','death-info':'死亡信息列表','death-cause':'死亡信息列表','analysis':'统计分析','data-report':'数据上报','master-hospital':'机构管理','master-pop':'人口基数管理','master-address':'行政区划管理','publish-news':'资讯管理','survey-list':'问卷列表','survey-design':'问卷设计','survey-publish':'发布管理','survey-responses':'答卷管理','survey-stats':'统计分析','survey-fill':'问卷填写','system-users':'用户管理','system-online':'在线用户','system-roles':'角色与权限管理','system-logs':'操作日志','system-config':'系统配置','warning-records':'预警记录','warning-tickets':'发病异常预警工单','warning-rules':'异常监测规则配置','cap-catalog':'肿瘤诊疗技术目录','cap-records':'机构技术开展记录','cap-quality':'医疗质量核心指标明细','cap-complex':'疑难病例收治特征库','mdl-features':'多源特征数据仓库','mdl-registry':'预警模型元信息注册','mdl-training':'模型训练与超参记录','mdl-predictions':'风险预测结果快照','mdl-evaluation':'模型验证与评估报告','kb-sci':'科普内容','kb-train':'培训内容','kb-mine':'我的内容','kb-dict':'分类维护','kb-library':'科普内容'};let html;if(id==='dashboard')html=renderDashboard();else if(id==='collection-entry')html=renderCardEntryForm();else if(id==='collection-batch')html=window.entryFlowPicked?renderHisUploadManagement():'<div class="panel"><div class="panel-body">'+renderEntryModeChoice()+'</div></div>';else if(id==='collection-death')html=renderVoidCardManagement();else if(id==='death-register')html=renderDeathRegister();else if(id==='death-entry')html=renderDeathEntryForm();else if(id==='death-cause')html=renderDeathCause();else if(id==='death-info')html=renderDeathInfo();else if(id==='followup-tasks')html=renderFollowupTasks();else if(id==='followup')html=renderFollowupRecords();else if(id==='followup-upload')html=renderFollowupUploadPage();else if(id==='followup-plan')html=renderFollowupPlan();else if(id==='followup-batch')html=renderFollowupBatch();else if(id==='quality-todo')html=renderQualityTodo();else if(id==='quality-rules')html=renderQualityRules();else if(id==='quality-log')html=renderQualityLog();else if(id==='quality-dup'||id==='quality-dup-card'||id==='quality-dup-pop'||id==='quality-dup-param'||id==='quality-dup-field'){if(id!=='quality-dup')dedupState.subId=id;html=renderDedupPage()}else if(id==='datamgmt-card')html=renderReportCardList();else if(id==='publish-news')html=(newsState.mode==='form'?renderPublishNews():renderNewsList());else if(id==='master-address')html=(addressState.mode==='form'?renderAddressForm():renderAddressList());else if(id==='master-hospital')html=(hospitalState.mode==='form'?renderHospitalForm():renderHospitalList());else if(id==='master-pop')html=(popState.mode==='form'?renderPopulationForm():renderPopulationList());else if(id==='analysis'||id==='report-files'||(id&&id.indexOf('analysis-')===0))html=(typeof DA!=='undefined'?DA.render(id):renderGeneric(titles[id]||'数据分析'));else if(id.startsWith('audit'))html=renderAuditPage(id);else if(id.startsWith('dict'))html=renderDictPage(id);else if(id==='system-online')html=renderOnlineUsers();else if(id==='system-users')html=(userState.mode==='form'?renderUserForm():renderUserList());else if(id==='system-roles')html=(roleState.mode==='form'?renderRoleForm():renderRoleList());else if(id==='system-menu')html=(menuPermState.mode==='form'?renderMenuPermForm():renderMenuPermList());else if(id.startsWith('survey'))html=renderSurveyPage(id);else if(window.warningPageIds&&window.warningPageIds.indexOf(id)>=0)html=window.renderWarningPage(id);else if(window.capabilityPageIds&&window.capabilityPageIds.indexOf(id)>=0)html=window.renderCapabilityPage(id);else if(window.modelPageIds&&window.modelPageIds.indexOf(id)>=0)html=window.renderModelPage(id);else if(window.monitorPageIds&&window.monitorPageIds.indexOf(id)>=0)html=window.renderMonitorPage(id);else if(window.qcPageIds&&window.qcPageIds.indexOf(id)>=0)html=window.renderQCPage(id);else if(window.cockpitPageIds&&window.cockpitPageIds.indexOf(id)>=0&&typeof window.renderCockpitPage==='function'){window.renderCockpitPage(id);const mc=document.getElementById('mainContent');if(mc)mc.scrollTop=0;return}else if(id==='sp-patients'||id==='sp-overview'||id==='sp-config'||id==='specialty-portrait'){if(typeof window.renderSpecialtyPortrait==='function'){var _spSub=id==='sp-overview'?'overview':id==='sp-config'?'config':'workbench';html=window.renderSpecialtyPortrait(_spSub)}else{html=renderGeneric('专科画像')}}else if(window.kbPageIds&&window.kbPageIds.indexOf(id)>=0){window.renderKBPage(id);return}else html=renderGeneric(titles[id]||'页面开发中');document.getElementById('pageContainer').innerHTML=html;if(id==='collection-entry')initEntryWizard();if(id==='master-pop'&&popState.mode==='form')updatePopChart();autoSizeSelects();const mainContent=document.getElementById('mainContent');if(mainContent)mainContent.scrollTop=0}
+function renderPage(id){const titles={'datamgmt-import':'导入数据管理','datamgmt-patient':'患者信息管理','datamgmt-followup':'随访信息管理','quality-dup':'查重管理','quality-todo':'待办工作台','quality-rules':'质控规则','quality-log':'质控审计日志','followup-tasks':'随访任务','followup':'随访信息上传','followup-upload':'随访批量上传','followup-plan':'随访计划','followup-batch':'随访计划','death-register':'死因批量登记（临时表）','death-entry':'随访报告信息','death-info':'死亡信息列表','death-cause':'死亡信息列表','analysis':'统计分析','data-report':'数据上报','master-hospital':'机构管理','master-pop':'人口基数管理','master-address':'行政区划管理','publish-news':'资讯管理','survey-list':'问卷列表','survey-design':'问卷设计','survey-publish':'发布管理','survey-responses':'答卷管理','survey-stats':'统计分析','survey-fill':'问卷填写','system-users':'用户管理','system-online':'在线用户','system-roles':'角色与权限管理','system-logs':'操作日志','system-config':'系统配置','warning-records':'预警记录','warning-tickets':'发病异常预警工单','warning-rules':'异常监测规则配置','cap-catalog':'肿瘤诊疗技术目录','cap-records':'机构技术开展记录','cap-quality':'医疗质量核心指标明细','cap-complex':'疑难病例收治特征库','mdl-features':'处置总览','mdl-registry':'责任方督导','mdl-training':'时限达成管理','mdl-predictions':'结论与整改成效','mdl-evaluation':'规则命中与误报','kb-sci':'科普内容','kb-train':'培训内容','kb-mine':'我的内容','kb-dict':'分类维护','kb-library':'科普内容'};let html;if(id==='dashboard')html=renderDashboard();else if(id==='collection-entry')html=renderCardEntryForm();else if(id==='collection-batch')html=window.entryFlowPicked?renderHisUploadManagement():'<div class="panel"><div class="panel-body">'+renderEntryModeChoice()+'</div></div>';else if(id==='collection-death')html=renderVoidCardManagement();else if(id==='death-register')html=renderDeathRegister();else if(id==='death-entry')html=renderDeathEntryForm();else if(id==='death-cause')html=renderDeathCause();else if(id==='death-info')html=renderDeathInfo();else if(id==='followup-tasks')html=renderFollowupTasks();else if(id==='followup')html=renderFollowupRecords();else if(id==='followup-upload')html=renderFollowupUploadPage();else if(id==='followup-plan')html=renderFollowupPlan();else if(id==='followup-batch')html=renderFollowupBatch();else if(id==='quality-todo')html=renderQualityTodo();else if(id==='quality-rules')html=renderQualityRules();else if(id==='quality-log')html=renderQualityLog();else if(id==='quality-dup'||id==='quality-dup-card'||id==='quality-dup-pop'||id==='quality-dup-param'||id==='quality-dup-field'){if(id!=='quality-dup')dedupState.subId=id;html=renderDedupPage()}else if(id==='datamgmt-card')html=renderReportCardList();else if(id==='publish-news')html=(newsState.mode==='form'?renderPublishNews():renderNewsList());else if(id==='master-address')html=(addressState.mode==='form'?renderAddressForm():renderAddressList());else if(id==='master-hospital')html=(hospitalState.mode==='form'?renderHospitalForm():renderHospitalList());else if(id==='master-pop')html=(popState.mode==='form'?renderPopulationForm():renderPopulationList());else if(id==='analysis'||id==='report-files'||(id&&id.indexOf('analysis-')===0))html=(typeof DA!=='undefined'?DA.render(id):renderGeneric(titles[id]||'数据分析'));else if(id.startsWith('audit'))html=renderAuditPage(id);else if(id.startsWith('dict'))html=renderDictPage(id);else if(id==='system-online')html=renderOnlineUsers();else if(id==='system-users')html=(userState.mode==='form'?renderUserForm():renderUserList());else if(id==='system-roles')html=(roleState.mode==='form'?renderRoleForm():renderRoleList());else if(id==='system-menu')html=(menuPermState.mode==='form'?renderMenuPermForm():renderMenuPermList());else if(id.startsWith('survey'))html=renderSurveyPage(id);else if(window.warningPageIds&&window.warningPageIds.indexOf(id)>=0)html=window.renderWarningPage(id);else if(window.capabilityPageIds&&window.capabilityPageIds.indexOf(id)>=0)html=window.renderCapabilityPage(id);else if(window.modelPageIds&&window.modelPageIds.indexOf(id)>=0)html=window.renderModelPage(id);else if(window.monitorPageIds&&window.monitorPageIds.indexOf(id)>=0)html=window.renderMonitorPage(id);else if(window.qcPageIds&&window.qcPageIds.indexOf(id)>=0)html=window.renderQCPage(id);else if(window.cockpitPageIds&&window.cockpitPageIds.indexOf(id)>=0&&typeof window.renderCockpitPage==='function'){window.renderCockpitPage(id);const mc=document.getElementById('mainContent');if(mc)mc.scrollTop=0;return}else if(id==='sp-patients'||id==='sp-overview'||id==='sp-config'||id==='specialty-portrait'){if(typeof window.renderSpecialtyPortrait==='function'){var _spSub=id==='sp-overview'?'overview':id==='sp-config'?'config':'workbench';html=window.renderSpecialtyPortrait(_spSub)}else{html=renderGeneric('专科画像')}}else if(window.kbPageIds&&window.kbPageIds.indexOf(id)>=0){window.renderKBPage(id);return}else html=renderGeneric(titles[id]||'页面开发中');document.getElementById('pageContainer').innerHTML=html;if(id==='collection-entry')initEntryWizard();if(id==='master-pop'&&popState.mode==='form')updatePopChart();autoSizeSelects();const mainContent=document.getElementById('mainContent');if(mainContent)mainContent.scrollTop=0}
 function updateTime(){document.getElementById('currentTime').textContent=new Date().toLocaleString('zh-CN')}
 function initApp(){const menu=document.getElementById('sidebarMenu');menu.innerHTML='';buildMenu(menuData,menu);updateTime();var _h=decodeURIComponent((location.hash||'').replace(/^#/,'')).trim();var _ids=[];(function walk(items){items.forEach(function(i){if(i.id)_ids.push(i.id);if(i.children)walk(i.children)})})(menuData);navigateTo(_ids.indexOf(_h)>=0?_h:'dashboard')}
 setInterval(updateTime,1000);document.addEventListener('DOMContentLoaded',initApp);
@@ -2544,9 +2621,9 @@ setInterval(updateTime,1000);document.addEventListener('DOMContentLoaded',initAp
 <script src="interactions.js"></script>
 <script src="dictionary-management.js"></script>
 <script src="report-data-management.js?v=20260930a"></script>
-<script src="report-card-migrate.js?v=20261012a"></script>
+<script src="report-card-migrate.js?v=20261016a"></script>
 
-<script src="report-card-detail.js?v=20260829b"></script>
+<script src="report-card-detail.js?v=20261016b"></script>
 <script src="report-card-detail-tabs.js"></script>
 <script src="followup-module.js?v=20260910b"></script>
 <script src="followup-death.js?v=20260729f"></script>
@@ -2883,9 +2960,9 @@ if (false && analysisMenu) analysisMenu.children = analysisWorkspaceNav.map(func
   };
 })();
 </script>
-<script src="analysis.js?v=20260929b"></script>
+<script src="analysis.js?v=20261012a"></script>
 <script src="stats-module.js?v=20260729b"></script>
-<script src="national-report.js?v=20260805d"></script>
+<script src="national-report.js?v=20261012f"></script>
 <script>
 /* 这三行原本写在上面那个带 src 的 <script> 里，而带 src 的 script 会忽略内联内容，
    导致 toggleMsDropdown/updateMsDisplay（治疗信息多选）与 autoFillIcdO3（ICD-O-3 自动带出）从未定义。
@@ -2894,22 +2971,22 @@ function toggleMsDropdown(id){var dd=document.getElementById(id);if(!dd)return;v
 function updateMsDisplay(id){var dd=document.getElementById(id);if(!dd)return;var checks=dd.querySelectorAll('.ms-options input[type=checkbox]');var sel=[];checks.forEach(function(c){if(c.checked)sel.push(c.value)});var disp=dd.querySelector('.ms-display');disp.innerHTML=(sel.length?sel.join(', '):'请选择治疗方式')+'<span class="ms-arrow">▾</span>'}
 function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":"8140/3","C18":"8140/3","C22":"8170/3","C25":"8140/3","C53":"8010/3","C61":"8140/3","C64":"8312/3","C67":"8120/3"};var val=input.value.trim().toUpperCase();var prefix=val.match(/^C\d{2}/)?val.slice(0,3):"";var topoEl=document.getElementById("entry-icdo3-topo");if(topoEl&&!topoEl.dataset.userEdited){topoEl.value=prefix||""}var morphEl=document.getElementById("entry-icdo3-morph");if(morphEl&&!morphEl.dataset.userEdited){morphEl.value=morphMap[prefix]||""}}document.addEventListener("input",function(e){if(e.target&&(e.target.id==="entry-icdo3-topo"||e.target.id==="entry-icdo3-morph")){e.target.dataset.userEdited="1"}});
 </script>
-  <script src="specialty-portrait.js?v=20260911g"></script>
+  <script src="specialty-portrait.js?v=20261009i"></script>
   <script src="monitor-module.js?v=20260829b"></script>
-<script src="warning-module.js?v=20260910c"></script>
+<script src="warning-module.js?v=20261012d"></script>
 <script src="capability-module.js?v=20260910d"></script>
-<script src="model-module.js?v=20260827a"></script>
-  <script src="annual-report-stages.js?v=20261010-stage2"></script>
-  <script src="annual-report.js?v=20261010-stage2"></script>
-  <script src="kb-module.js?v=20261009kb7"></script>
+<script src="model-module.js?v=20261013b"></script>
+  <script src="annual-report-stages.js?v=20261010-noprog"></script>
+  <script src="annual-report.js?v=20261010-noprog"></script>
+  <script src="kb-module.js?v=20261009kc5"></script>
   <script src="qc-data.js?v=20261003a"></script>
-  <script src="qc-ui.js?v=20261002qcfix2"></script>
+  <script src="qc-ui.js?v=20261012b"></script>
   <script src="qc-l1.js?v=20260928qc"></script>
   <script src="qc-l2.js?v=20260928qc"></script>
   <script src="qc-l3.js?v=20260928qc"></script>
   <script src="qc-l4.js?v=20260928qc"></script>
   <script src="qc-l5.js?v=20260928qc"></script>
-  <script src="qc-performance.js?v=20261003b"></script>
+  <script src="qc-performance.js?v=20261012g"></script>
   <script src="qc-issues.js?v=20261003a"></script>
   <script src="quality-control.js?v=20261003b"></script>
   <script>
@@ -2946,20 +3023,21 @@ function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":
 
     /* 旧页面 id → 新入口（保持旧链接可用，并统一收口到三大入口） */
     var LEGACY_MAP = {
-      'quality-control': 'qc-performance',
-      'qc-g-dtx': 'qc-performance', 'qc-natl-overview': 'qc-performance',
-      'qc-natl-drill': 'qc-performance', 'qc-natl-cancer': 'qc-performance',
-      'qc-natl-org': 'qc-performance', 'qc-mcd-dtx': 'qc-performance',
-      'qc-g-enc': 'qc-performance', 'qc-l2-code': 'qc-performance',
-      'qc-l2-drill': 'qc-performance', 'qc-l2-org': 'qc-performance',
-      'qc-enc-issues': 'qc-performance', 'qc-mcd-enc': 'qc-performance',
-      'qc-g-reg': 'qc-performance', 'qc-l3-registry': 'qc-performance',
-      'qc-reg-analysis': 'qc-performance', 'qc-l3-org': 'qc-performance',
-      'qc-reg-followup': 'qc-performance', 'qc-mcd-reg': 'qc-performance',
-      'qc-g-pipe': 'qc-performance', 'qc-l4-pipeline': 'qc-performance',
-      'qc-pipe-sources': 'qc-performance', 'qc-pipe-batch': 'qc-performance',
-      'qc-pipe-standard': 'qc-performance', 'qc-pipe-empi': 'qc-performance',
-      'qc-pipe-empi-detail': 'qc-performance',
+      'quality-control': 'qc-pf-nq01',
+      'qc-performance': 'qc-pf-nq01',
+      'qc-g-dtx': 'qc-pf-nq01', 'qc-natl-overview': 'qc-pf-nq01',
+      'qc-natl-drill': 'qc-pf-nq01', 'qc-natl-cancer': 'qc-pf-nq01',
+      'qc-natl-org': 'qc-pf-nq01', 'qc-mcd-dtx': 'qc-pf-nq01',
+      'qc-g-enc': 'qc-pf-nq01', 'qc-l2-code': 'qc-pf-nq01',
+      'qc-l2-drill': 'qc-pf-nq01', 'qc-l2-org': 'qc-pf-nq01',
+      'qc-enc-issues': 'qc-pf-nq01', 'qc-mcd-enc': 'qc-pf-nq01',
+      'qc-g-reg': 'qc-pf-nq01', 'qc-l3-registry': 'qc-pf-nq01',
+      'qc-reg-analysis': 'qc-pf-nq01', 'qc-l3-org': 'qc-pf-nq01',
+      'qc-reg-followup': 'qc-pf-nq01', 'qc-mcd-reg': 'qc-pf-nq01',
+      'qc-g-pipe': 'qc-pf-nq01', 'qc-l4-pipeline': 'qc-pf-nq01',
+      'qc-pipe-sources': 'qc-pf-nq01', 'qc-pipe-batch': 'qc-pf-nq01',
+      'qc-pipe-standard': 'qc-pf-nq01', 'qc-pipe-empi': 'qc-pf-nq01',
+      'qc-pipe-empi-detail': 'qc-pf-nq01',
       'qc-g-loop': 'qc-issues', 'qc-l5-loop': 'qc-issues',
       'qc-loop-problem': 'qc-issues', 'qc-loop-task': 'qc-issues',
       'qc-loop-plan': 'qc-issues', 'qc-loop-tasks': 'qc-issues',
@@ -2972,8 +3050,24 @@ function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":
 
     var QC_LABELS = {
       'quality-control': '质控管理',
-      'qc-performance': '六大绩效质控', 'qc-rules': '质控规则配置', 'qc-issues': '整改问题'
+      'qc-performance': '六大绩效质控',
+      'qc-pf-nq01': '临床分期评估率', 'qc-pf-nq02': '病理学诊断率',
+      'qc-pf-nq03': '术后病理分期率', 'qc-pf-nq04': '围手术期死亡率',
+      'qc-pf-nq05': '分子病理检测率', 'qc-pf-nq06': '淋巴结清扫规范率',
+      'qc-pf-detail': '被质控数据明细', 'qc-pf-case': '病例质控详情',
+      'qc-rules': '质控规则配置', 'qc-issues': '整改问题'
     };
+    /* 隐藏页（不占菜单）的面包屑：被质控数据明细 / 病例质控详情挂在来源指标页下。
+       navigateTo 与 renderPage 都会独立调用 updateBreadcrumb，因此包在这里最稳。 */
+    window.updateBreadcrumb = (function (orig) {
+      return function (id, extra) {
+        if (window.qcPerformance && window.qcPerformance.crumb) {
+          var c = window.qcPerformance.crumb(id);
+          if (c) return orig(c.menuId, c.extra);
+        }
+        return orig(id, extra);
+      };
+    })(window.updateBreadcrumb);
     /* 面包屑：旧 id 收口到新入口的三级链路 */
     window.menuPathFallback = function (id) {
       var target = LEGACY_MAP[id];
@@ -2985,10 +3079,18 @@ function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":
     };
     window.setActiveMenu = (function (orig) {
       return function (id) {
+        /* 隐藏页（明细/病例详情）高亮到它所属的指标菜单页，避免高亮丢失 */
+        var hid = (id === 'qc-pf-detail' || id === 'qc-pf-case');
+        if (hid && window.qcPerformance && window.qcPerformance.crumb) {
+          var c = window.qcPerformance.crumb(id);
+          if (c) id = c.menuId;
+        }
         return orig(LEGACY_MAP[id] || id);
       };
     })(window.setActiveMenu);
 
+    var PF_IDS = ['qc-pf-nq01','qc-pf-nq02','qc-pf-nq03','qc-pf-nq04','qc-pf-nq05','qc-pf-nq06',
+      'qc-pf-detail','qc-pf-case'];
     window.renderQC = function (pageId) {
       if (pageId === 'qc-rules' && window.renderQCPage) return window.renderQCPage('qc-rules');
       var mod = map[pageId];
@@ -2996,9 +3098,11 @@ function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":
       if (window.renderQCPage && ['qc-p1', 'qc-p2', 'qc-p3', 'qc-p4', 'qc-p5', 'qc-p6'].indexOf(pageId) >= 0) {
         return window.renderQCPage(pageId);
       }
+      /* 六维单指标页 + 被质控数据/病例详情（隐藏页）：交 qc-performance 渲染 */
+      if (PF_IDS.indexOf(pageId) >= 0 && map['qc-performance']) return map['qc-performance'].render(pageId);
       var legacy = LEGACY_MAP[pageId];
       if (legacy && legacy !== pageId) return window.renderQC(legacy);
-      if (map['qc-performance']) return map['qc-performance'].render('qc-performance');
+      if (map['qc-performance']) return map['qc-performance'].render('qc-pf-nq01');
       return null;
     };
     /* 内存分页/筛选后的页面重绘：沿用 shell 的渲染出口 */
@@ -3016,16 +3120,15 @@ function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":
     window.renderPage = (function (orig) {
       return function (id) {
         var isQc = id === 'qc-performance' || id === 'qc-rules' || id === 'qc-issues'
+          || PF_IDS.indexOf(id) >= 0
           || (window.qcPageIds && window.qcPageIds.indexOf(id) >= 0)
           || !!LEGACY_MAP[id]
           || (window.qcLayerIds && window.qcLayerIds.indexOf(id) >= 0);
         if (isQc) {
           var target = LEGACY_MAP[id] || id;
-          if (window.updateBreadcrumb) {
-            if (LEGACY_MAP[id] && LEGACY_MAP[id] !== id) window.updateBreadcrumb(target);
-            else window.updateBreadcrumb(target);
-          }
-          window.qcRender(target === 'quality-control' ? 'qc-performance' : target);
+          if (target === 'qc-performance') target = 'qc-pf-nq01'; /* 旧 id 兜底到第一维 */
+          if (window.updateBreadcrumb) window.updateBreadcrumb(target);
+          window.qcRender(target);
           return;
         }
         return orig.apply(this, arguments);
@@ -3034,9 +3137,14 @@ function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":
   })();
   </script>
   <script src="jx-geo.js?v=20260909a"></script>
-  <script src="cockpit-module.js?v=20260929c"></script>
-  <!-- 登记运营看板：依赖 cockpit-module.js 导出的 CKData，须排在其后 -->
-  <script src="registry-ops.js?v=20260929b"></script>
+  <!-- 决策 KPI 数据层：全站唯一事实源（window.DKH_DATA）。
+       国家肿瘤数据上报（national-report.js）按文件头声明取「应报例数」cityRows 与
+       覆盖率达标线 qc.nccrMin，此前未加载会退回本地推算公式，与附表1 数值不一致。 -->
+  <script src="decision-kpi-data.js?v=20260928a"></script>
+  <script src="cockpit-module.js?v=20261012a"></script>
+  <!-- 「登记运营监测」（registry-ops.js）2026-10-10 按需求整页删除，脚本引用一并移除。
+       该页原先依赖 cockpit-module.js 导出的 CKData，删除后 cockpit 数据层仍保留，
+       供其它模块（如决策视图）复用。 -->
   
 </body>
 </html>

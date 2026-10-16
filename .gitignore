@@ -11,6 +11,12 @@
 /.zcode/
 /.trae-html-share-packages/
 
+# ==== 浏览器调试用的临时 profile（数百 MB，绝不入库）====
+/.chrome-verview/
+/.dbg-chrome/
+/.chrome-*/
+/.dbg-*/
+
 # ==== 垃圾/临时产物 ====
 /ck_s1.py*
 /t.png

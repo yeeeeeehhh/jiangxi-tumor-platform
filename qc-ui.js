@@ -65,11 +65,25 @@
     /* 表格 */
     '#pageContainer .qc-tw{overflow-x:auto}',
     '#pageContainer table.qc-tbl{width:100%;min-width:900px;border-collapse:collapse}',
+    /* fixed 布局：列宽严格按 <colgroup> 声明，浏览器不再按内容平摊剩余宽度，
+       各行的列边界因此强制对齐（这是"数字列之间大片空白"的根因）。 */
+    '#pageContainer table.qc-tbl.fixed{table-layout:fixed}',
     '#pageContainer table.qc-tbl th{height:40px;padding:0 12px;background:#f8fafc;border-bottom:1px solid var(--border);color:#5b6673;font-size:12px;font-weight:600;text-align:left;white-space:nowrap}',
     '#pageContainer table.qc-tbl td{height:46px;padding:7px 12px;border-bottom:1px solid #eef2f7;color:#334155;font-size:13px;vertical-align:middle}',
     '#pageContainer table.qc-tbl tbody tr:hover{background:#f7fbff}',
     '#pageContainer table.qc-tbl tbody tr:last-child td{border-bottom:0}',
+    /* 数字列（表头 + 单元格）统一右对齐，两者必须一致，否则表头与数字错位 */
     '#pageContainer table.qc-tbl td.num,#pageContainer table.qc-tbl th.num{text-align:right;font-variant-numeric:tabular-nums}',
+    /* 徽标/状态列居中：左对齐会让徽标挤在列首、与表头错位 */
+    '#pageContainer table.qc-tbl td.center,#pageContainer table.qc-tbl th.center{text-align:center}',
+    /* 数字列与操作列不换行：数字一旦折行，行高与列宽都会失稳 */
+    '#pageContainer table.qc-tbl td.num,#pageContainer table.qc-tbl td.act{white-space:nowrap}',
+    /* 兜底防线：fixed 布局下所有单元格默认 overflow:hidden。
+       即使 fitWidths 的估算有偏差，内容也只会被裁切，绝不会溢出压到邻列、
+       造成「表头文字骑在隔壁列上」这种错位。文本列再叠省略号。 */
+    '#pageContainer table.qc-tbl.fixed td,#pageContainer table.qc-tbl.fixed th{overflow:hidden;text-overflow:ellipsis}',
+    '#pageContainer table.qc-tbl.fixed td.txt{white-space:nowrap}',
+    '#pageContainer table.qc-tbl th.act{text-align:right}',
     '#pageContainer table.qc-tbl td.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}',
     '#pageContainer table.qc-tbl tr.abn-row{background:#fffbfb}',
     '#pageContainer table.qc-tbl.compact td{height:40px;font-size:12.5px}',
@@ -261,12 +275,83 @@
       '<div class="bd' + (flush ? ' flush' : '') + '">' + body + '</div></div>';
   }
 
-  /* 表格。# 前缀 → 右对齐数字列；cells 可以是字符串或 {h:html, cls, raw} */
+  /* ---------- 内容自适应列宽（opt.fit） ----------
+     两种错法都要避免：
+       · 列宽写死 → 长表头（如「首次治疗前临床分期评估率」13 字 ≈ 198px）溢出压到邻列；
+       · 交给浏览器自动布局 → 剩余宽度按列平摊，数字列之间出现大片空白。
+     做法：按内容测算每列自然宽度（CJK/全角按 2 个半角字符计），再按占比写成
+     百分比（合计恰为 100%），配合 table-layout:fixed：
+       · 宽容器：按内容占比分配 → 每列都 ≥ 自然宽度，绝不重叠，空白也最小；
+       · 窄容器：table 的 min-width 取自然宽度合计 → 触发横向滚动，列宽不被压扁。
+     半角 6.6px（对应 12.5~13px 字号），+24px 为单元格左右内边距。 */
+  var CHAR_PX = 6.6, CELL_PAD = 24;
+  function isWideChar(cp) {
+    return (cp >= 0x1100 && cp <= 0x115f) ||
+      (cp >= 0x2e80 && cp <= 0xa4cf) || (cp >= 0xac00 && cp <= 0xd7a3) ||
+      (cp >= 0xf900 && cp <= 0xfaff) || (cp >= 0xfe30 && cp <= 0xfe6f) ||
+      (cp >= 0xff00 && cp <= 0xff60) || (cp >= 0xffe0 && cp <= 0xffe6) ||
+      (cp >= 0x1f300 && cp <= 0x1f9ff) || (cp >= 0x20000 && cp <= 0x3fffd);
+  }
+  /* 去掉标签与实体后的显示宽度（单位：半角字符） */
+  function displayUnits(str) {
+    var s = String(str == null ? '' : str)
+      .replace(/<[^>]*>/g, '')
+      .replace(/&[a-zA-Z#0-9]+;/g, 'x');
+    var u = 0;
+    for (var i = 0; i < s.length; i++) {
+      var cp = s.codePointAt ? s.codePointAt(i) : s.charCodeAt(i);
+      if (cp > 0xffff) i++;                 /* 代理对（emoji 等）算一个全角 */
+      u += isWideChar(cp) ? 2 : 1;
+    }
+    return u;
+  }
+  /* 按内容测算列宽 → {widths:['18.4%',...], minWidth:1234} */
+  function fitWidths(headers, rows, emptyText) {
+    var units = headers.map(function (h) { return displayUnits(String(h).replace(/^#/, '')); });
+    rows.forEach(function (r) {
+      var cells = r.cells || r;
+      cells.forEach(function (c, i) {
+        if (i >= units.length) return;
+        var html = (c && typeof c === 'object') ? (c.h || '') : (c == null ? '' : String(c));
+        var u = displayUnits(html);
+        /* 徽标自带内边距、链接按钮自带 padding，都要额外留出 */
+        if (/class="[^"]*badge/.test(html)) u += 3;
+        else if (/qc-link|class="btn/.test(html)) u += 2;
+        if (u > units[i]) units[i] = u;
+      });
+    });
+    /* 空态行是 colspan 占位，文字横跨全部列；把它的宽度平摊到各列，
+       避免窄列下空态文案被裁成省略号。 */
+    if (!rows.length && emptyText) {
+      var need = displayUnits(emptyText) + 6;
+      var total0 = units.reduce(function (a, b) { return a + b; }, 0) || 1;
+      units = units.map(function (u) { return Math.max(u, need * (u / total0)); });
+    }
+    var px = units.map(function (u) { return u * CHAR_PX + CELL_PAD; });
+    var total = px.reduce(function (a, b) { return a + b; }, 0) || 1;
+    return {
+      widths: px.map(function (p) { return (p / total * 100).toFixed(4) + '%'; }),
+      /* 自然宽度合计 ≥ 900px 时以自然值为下限：容器再窄也不压扁列宽，改为横向滚动 */
+      minWidth: Math.max(900, Math.ceil(total))
+    };
+  }
+
+  /* 表格。# 前缀 → 右对齐数字列；cells 可以是字符串或 {h:html, cls, raw}
+     opt.fit: true → 按内容自动测算列宽（推荐，长表头/长数据都不会溢出）
+     opt.widths: 手动列宽数组（'180px' / '12%' / '' 留空=平分剩余）
+     两者都切 table-layout:fixed，保证各行边界严格对齐。
+     opt.align: 按列号指定表头对齐 { 索引: 'center' }，用于徽标类列。 */
   function table(headers, rows, opt) {
     opt = opt || {};
-    var th = headers.map(function (h) {
+    var align = opt.align || {};
+    var fit = opt.fit ? fitWidths(headers, rows, opt.empty || '暂无符合条件的记录') : null;
+    var widths = fit ? fit.widths : (opt.widths || null);
+    var th = headers.map(function (h, idx) {
       var t = String(h), num = t.charAt(0) === '#';
-      return '<th class="' + (num ? 'num' : '') + '">' + esc(t.replace(/^#/, '')) + '</th>';
+      var extra = align[idx] ? ' ' + align[idx] : '';
+      /* 操作列自动右对齐：内容（链接）是右对齐的，表头必须一致，否则错位 */
+      if (/^操作$/.test(t.replace(/^#/, ''))) extra += ' act';
+      return '<th class="' + (num ? 'num' : '') + extra + '">' + esc(t.replace(/^#/, '')) + '</th>';
     }).join('');
     var body = rows.length ? rows.map(function (r) {
       var cells = r.cells || r;
@@ -280,7 +365,16 @@
       }).join('') + '</tr>';
     }).join('') : '<tr><td colspan="' + headers.length + '"><div class="qc-empty">' +
       esc(opt.empty || '暂无符合条件的记录') + '</div></td></tr>';
-    return '<div class="qc-tw"><table class="qc-tbl' + (opt.compact ? ' compact' : '') + '"><thead><tr>' +
+    var colgroup = '';
+    if (widths && widths.length) {
+      colgroup = '<colgroup>' + widths.map(function (w) {
+        return w ? '<col style="width:' + esc(w) + '">' : '<col>';
+      }).join('') + '</colgroup>';
+    }
+    /* fit 模式加 min-width：窄容器下横向滚动，而不是把列宽压到内容重叠 */
+    var style = (fit && fit.minWidth) ? ' style="min-width:' + fit.minWidth + 'px"' : '';
+    return '<div class="qc-tw"><table class="qc-tbl' + (opt.compact ? ' compact' : '') +
+      (colgroup ? ' fixed' : '') + '"' + style + '>' + colgroup + '<thead><tr>' +
       th + '</tr></thead><tbody>' + body + '</tbody></table></div>';
   }
 

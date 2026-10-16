@@ -23,10 +23,11 @@
       全省→地市→病种聚合，每个数字可下钻，「查看」带筛选条件回跳板块01患者列表
       指标唯一归属见同目录《群体专科画像_重构方案.md》第六节
       患者列表列：患者/性别/年龄/户籍地市/就诊医院/瘤种/部位/病理/分期/治疗方式/随访状态
+      列表筛选：关键字 / 瘤种 / 分期 / 地市 / 医院 / 随访状态（条件为「与」关系）
    03 画像配置：要素元数据 / 映射规则 / 智能校验 / 质控报告 / 预警 / 版本 / 归档
    全部指标由患者画像字段实时聚合，不重复采集数据 */
 (function(){ 'use strict';
-var SP_BUILD='V12.4-blocksplit@20261001a';
+var SP_BUILD='V12.8-hospital-filter@20261009a';
 if(typeof console!=='undefined')console.log('[specialty-portrait] '+SP_BUILD+' loaded');
 
 /* ===================== 样式 ===================== */
@@ -207,6 +208,13 @@ var SP_SITES=['肺','乳腺','肝','胃','结直肠','宫颈','食管'];
 var SP_STAGE_GROUPS=['I期','II期','III期','IV期'];
 var SP_STAGE_COLORS={'I期':'#10b981','II期':'#2563eb','III期':'#f59e0b','IV期':'#ef4444'};
 var SP_HOSP_CITY={'江西省肿瘤医院':'南昌市','南昌市第一医院':'南昌市','赣州市人民医院':'赣州市','九江市第一人民医院':'九江市','上饶市肿瘤医院':'上饶市','宜春市人民医院':'宜春市','吉安市中心医院':'吉安市','抚州市第一医院':'抚州市','景德镇市第一医院':'景德镇市','萍乡市人民医院':'萍乡市','新余市人民医院':'新余市','鹰潭市人民医院':'鹰潭市'};
+/* 就诊医院下拉选项：直接由机构-地市映射派生，按地市顺序排列，不另行硬编码一份名单 */
+var SP_HOSPITALS=(function(){
+  var arr=[];
+  SP_CITIES.forEach(function(c){Object.keys(SP_HOSP_CITY).forEach(function(h){if(SP_HOSP_CITY[h]===c&&arr.indexOf(h)<0)arr.push(h)})});
+  Object.keys(SP_HOSP_CITY).forEach(function(h){if(arr.indexOf(h)<0)arr.push(h)});
+  return arr;
+})();
 
 var tumorEvents=[
 {id:'TE001',patient:'陈建国',sex:'男',age:63,idNo:'360102196305121234',region:'南昌市东湖区',city:'南昌市',insurance:'职工医保',firstHosp:'东湖区董家窑街道社区卫生服务中心',firstDate:'2026-01-18',hospital:'南昌市第一医院',
@@ -1582,7 +1590,7 @@ function spIssuesPanel(list,siteRows,cityRows){
 
 
 /* ===================== 六、01 患者专科画像 ===================== */
-var _wbFilters={q:'',site:'',stage:'',city:'',fu:''};
+var _wbFilters={q:'',site:'',stage:'',city:'',hospital:'',fu:''};
 var _wbDetail=null;
 
 function spWbFiltered(){
@@ -1595,6 +1603,7 @@ function spWbFiltered(){
     if(_wbFilters.site&&e.site!==_wbFilters.site)return false;
     if(_wbFilters.stage&&e.stage!==_wbFilters.stage)return false;
     if(_wbFilters.city&&e.city!==_wbFilters.city)return false;
+    if(_wbFilters.hospital&&e.hospital!==_wbFilters.hospital)return false;
     if(_wbFilters.fu&&e.followStatus!==_wbFilters.fu)return false;
     return true;
   });
@@ -1621,6 +1630,7 @@ function renderWorkbench(){
     '<div class="form-group"><label>瘤种</label><select id="spWbSite"><option value="">全部</option>'+SP_SITES.map(function(s){return '<option'+(s===_wbFilters.site?' selected':'')+'>'+s+'</option>'}).join('')+'</select></div>'+
     '<div class="form-group"><label>分期</label><select id="spWbStage"><option value="">全部</option>'+SP_STAGE_GROUPS.map(function(s){return '<option'+(s===_wbFilters.stage?' selected':'')+'>'+s+'</option>'}).join('')+'</select></div>'+
     '<div class="form-group"><label>地市</label><select id="spWbCity"><option value="">全部</option>'+SP_CITIES.map(function(c){return '<option'+(c===_wbFilters.city?' selected':'')+'>'+c+'</option>'}).join('')+'</select></div>'+
+    '<div class="form-group"><label>医院</label><select id="spWbHospital"><option value="">全部</option>'+SP_HOSPITALS.map(function(h){return '<option'+(h===_wbFilters.hospital?' selected':'')+'>'+esc(h)+'</option>'}).join('')+'</select></div>'+
     '<div class="form-group"><label>随访状态</label><select id="spWbFu"><option value="">全部</option>'+['随访中','失访','死亡结案'].map(function(s){return '<option'+(s===_wbFilters.fu?' selected':'')+'>'+s+'</option>'}).join('')+'</select></div>'+
     '<div class="sp-filter-actions"><button class="btn btn-ghost btn-sm" onclick="window._spWbReset()">重置</button><button class="btn btn-primary btn-sm" onclick="window._spWbQuery()">查询</button></div>'+
   '</div>';
@@ -2181,7 +2191,15 @@ var SP_ELEM_CHECK={stage:'R001',site_path:'R002',stagebasis:'R004',modes:'R006',
 function spCheck(id){return SP_CHECKS.filter(function(c){return c.id===id})[0];}
 /* 画像版本：含变更明细 */
 var SP_VERSIONS=[
- {v:'V12.7',time:'2026-10-02 17:30',by:'管理员',desc:'新增「指标明细表」Tab：全部聚合指标列成可读表格，支持整表 CSV 导出与一键复制到 Excel',cur:true,changes:[
+ {v:'V12.8',time:'2026-10-09 15:00',by:'管理员',desc:'患者专科画像筛选栏新增「医院」筛选：按就诊医院精确过滤患者列表',cur:true,changes:[
+  '问题：列表页已展示「就诊医院」列，但筛选栏只能按地市粗筛；同一地市下有多家医院（如南昌市同时有江西省肿瘤医院与南昌市第一医院），无法只看某一家机构的收治患者',
+  '筛选栏在「地市」与「随访状态」之间新增「医院」下拉（标准 170px 档，与其它条件同宽同高），取值精确匹配 e.hospital，与关键字/瘤种/分期/地市/随访状态各条件为「与」关系',
+  '选项来源新增 SP_HOSPITALS：由既有机构-地市映射 SP_HOSP_CITY 按地市顺序派生，不另行硬编码一份医院名单，避免两处名单漂移',
+  '查询/重置同步接入 _wbFilters.hospital：查询读 spWbHospital 当前值，重置清空该条件并恢复全量',
+  '群体画像→患者列表的下钻（_spGpToPatients）同步补 hospital 空值，保持筛选状态对象结构完整',
+  '地市与医院为两个独立条件、不做联动过滤：可单用、可叠用（地市+医院=同一地市内某机构）；选择与地市不符的医院时结果为 0 例并提示「无符合条件的患者」，行为可预期',
+  '版式：医院下拉用标准 170px 档（未用 wide 240px）——6 项加按钮仍收在同一行，筛选栏高度与改动前一致（91px），不改动任何 CSS；最长机构名「九江市第一人民医院」120px < 可用 150px，不会被截断']},
+ {v:'V12.7',time:'2026-10-02 17:30',by:'管理员',desc:'新增「指标明细表」Tab：全部聚合指标列成可读表格，支持整表 CSV 导出与一键复制到 Excel',cur:false,changes:[
   '问题：群体画像各图形页（饼/条/漏斗/热力）利于读趋势，但数字散落在图里，难以整体导出或粘进报表',
   '五段 Tab 后新增第 6 个「指标明细表」Tab：把总览 KPI 带 + 五段的全部聚合指标按「人群/发现/诊疗/结局/公平」五组列成「指标 / 数值 / 口径」三列表',
   '追加分病种明细表（例数/早诊率/晚期占比/随访覆盖率/观察生存率）与分地市明细表（例数/早诊率/晚期占比/跨市就医率/随访覆盖率）',
@@ -2561,17 +2579,17 @@ window._spGoIssue=function(domain,city,site){
 /* 群体 → 明细闭环：带当前地市/瘤种筛选条件跳回板块01患者列表 */
 window._spGpToPatients=function(){
   _wbDetail=null;
-  _wbFilters={q:'',site:_spScope.site,stage:'',city:_spScope.city,fu:''};
+  _wbFilters={q:'',site:_spScope.site,stage:'',city:_spScope.city,hospital:'',fu:''};
   if(typeof navigateTo==='function')navigateTo('sp-patients');
   else spRefresh();
 };
 window._spWbQuery=function(){
   var g=function(id){var el=document.getElementById(id);return el?String(el.value||'').trim():''};
-  _wbFilters={q:g('spWbQ'),site:g('spWbSite'),stage:g('spWbStage'),city:g('spWbCity'),fu:g('spWbFu')};
+  _wbFilters={q:g('spWbQ'),site:g('spWbSite'),stage:g('spWbStage'),city:g('spWbCity'),hospital:g('spWbHospital'),fu:g('spWbFu')};
   spRefresh();
 };
 window._spWbReset=function(){
-  _wbFilters={q:'',site:'',stage:'',city:'',fu:''};spRefresh();
+  _wbFilters={q:'',site:'',stage:'',city:'',hospital:'',fu:''};spRefresh();
 };
 window._spOpenDetail=function(id){
   _wbDetail=id;spRefresh();

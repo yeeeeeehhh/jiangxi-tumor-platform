@@ -2043,17 +2043,22 @@
   var analysisMenu = (typeof menuData !== 'undefined') ? menuData.find(function (m) { return m.id === 'analysis'; }) : null;
   /* 注意：本模块在加载时会把「数据统计」的子菜单整体覆盖成下面这份清单（早于任何后续模块执行），
      因此 app.html 的 menuData 里写了什么都会被这里冲掉——改菜单必须改这里，否则不生效。
-     清单需与 app.html 保持一致，且必须带上 registry-ops
-     （登记运营监测，2026-09-29 从「预警监测」迁来，实现见 registry-ops.js）。
-     2026-09-29 按评审意见去掉「业务监测 / 报表」两个分组标题，改为平铺。 */
+     清单需与 app.html 保持一致。
+     2026-09-29 按评审意见去掉「业务监测 / 报表」两个分组标题，改为平铺。
+     2026-10-10 「预警总览」自「预警监测」迁入排首位；「登记运营监测」整页删除。
+     2026-10-12 「预警总览」按需求更名为「数据看板」（页面实现仍在 cockpit-module.js，id 不变）。 */
   var analysisChildren = [
-    /* 「预警总览」2026-10-10 从「预警监测」迁来，排第一位（用户要求）。
-       页面实现仍在 cockpit-module.js，本模块只负责菜单归属。 */
-    { id: 'cockpit', label: '预警总览' },
+    /* 「数据看板」原名「预警总览」，2026-10-10 从「预警监测」迁来排第一位（用户要求），
+       2026-10-12 更名。页面实现仍在 cockpit-module.js，本模块只负责菜单归属。 */
+    { id: 'cockpit', label: '数据看板' },
     { id: 'analysis-stats', label: '统计分析' },
     { id: 'analysis-progress', label: '报卡工作量' },
     { id: 'analysis-quality', label: '报卡质量监测' },
-    { id: 'registry-ops', label: '登记运营监测' },
+    /* 「登记运营监测」2026-10-10 按需求删除整个页面（菜单项 + registry-ops.js）。
+       被删的独有内容：登记工作流六步流转、登记运营红绿灯、地市质控矩阵、逐月登记卡录入量、
+       地市运营明细（同比/及时率/漏报率/退回率/积压）。质控指标的地市级对比现在看
+       「数据看板 ▸ 各地市核心指标明细」或单市「详情」弹窗。
+       若要恢复：见 registry-ops.js.bak_pre_del_regops_* 与 app.html 同名备份。 */
     { id: 'report-files', label: '报表文件库' }
   ];
   if (analysisMenu) {

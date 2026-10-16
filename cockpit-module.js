@@ -1,5 +1,7 @@
 /*
- * cockpit-module.js — 预警总览（江西省肿瘤登记与防控一体化数据大屏，菜单：预警监测 ▸ 预警总览）
+ * cockpit-module.js — 数据看板（江西省肿瘤登记与防控一体化数据大屏）
+ * 菜单位置：数据统计 ▸ 数据看板（2026-10-10 从「预警监测」迁入，排第一位；
+ *   原名「预警总览」，2026-10-12 按需求更名为「数据看板」，页面 id 仍为 cockpit）。
  * 数据口径来源：stats-module.js（地市/质控阈值/标准人口）、dictionary-management.js（部位字典）、
  * warning-module.js（A 登记运行 / B 登记质量 / C 疾病信号 三层预警）、
  * national-report.js（国家上报）、followup-module.js（随访）、modules.js（重卡）。
@@ -7,8 +9,13 @@
  * 交互完整度：年度 / 数据域 / 地图指标三档筛选 → 地图点选聚焦地市 → 全页面联动 →
  *   地市详情弹窗（雷达 / 分期构成 / 县区分组）→ 大屏模式（Esc 退出）→ 跳转业务模块。
  * 质控阈值：与 warning-module.js B 层同源（MV 66 / DCO 15），本模块不再另立一套。
- * 登记运营看板已独立为 registry-ops.js（菜单：数据统计 ▸ 业务监测 ▸ 登记运营看板），
- *   复用本模块导出的 window.CKData（地市基线 + 派生口径），两页不再共用 mount / 导出 / 大屏态。
+ * 2026-10-10 变更：
+ *   ① 「卫健领导决策视图」横幅卡片删除；
+ *   ② 「各地市核心指标明细」去掉 6 个地市级质控列（MV/DCO/UB/重卡/随访/上报），12→7 列；
+ *   ③ 5 个未接线的死代码区块（headStrip/dimStrip/qcPanel/rankPanel/funnelPanel）删除；
+ *   ④ 阈值统一到本模块的 TH（修掉与 registry-ops 的随访率 80/85 双标）。
+ * 附：「登记运营监测」（registry-ops.js）已于 2026-10-10 按需求整页删除；
+ *   本模块导出的 window.CKData（地市基线 + 派生口径）保留，决策视图等模块仍在使用。
  */
 (function () {
   'use strict';
@@ -29,11 +36,11 @@
      不再在本模块另立 70 / 5 一套——否则同一 MV% 在预警记录与预警总览会得出相反结论。 */
   var QC = { mvMin: 66, dcoMax: 15, ubMax: 5, miMin: 0.55, miMax: 0.85 };
 
-  /* 运营类阈值：唯一事实来源 = warning-module.js 的 B 层规则（与 registry-ops.js 的 TH 同源）。
+  /* 运营类阈值：唯一事实来源 = warning-module.js 的 B 层规则。
      2026-10-10 修 bug：此前本模块把重卡率/随访率/上报率/待处置的阈值**硬编码在渲染代码里**，
-     其中随访率写的 80，而 registry-ops.js 写 85 —— 同一批数据两页给出相反结论
+     其中随访率写 80，而已删除的 registry-ops.js 写 85 —— 同一批数据两页给出相反结论
      （11 市里景德镇/萍乡/九江/赣州/宜春 5 市「预警总览说达标、运营监测说未达标」）。
-     现在两边都从一个来源取，不再各写一份。 */
+     现在统一从 TH 取，不再散落硬编码。 */
   function ruleThreshold(id, fallback) {
     try {
       if (typeof window.findRule === 'function') {
@@ -805,7 +812,7 @@
       '<td class="ck-num">' + f2(total.mi) + '</td><td class="ck-num">' + fmtInt(total.warnPending) + '</td>' +
       '<td class="ck-op"><button class="ck-link" data-ck-clear="1">全省</button></td></tr>';
     return '<section class="ck-panel">' + panelHead(ST.year + ' 年各地市核心指标明细',
-      '<button class="ck-btn" onclick="navigateTo(\'registry-ops\')">登记运营监测</button>' +
+      '<button class="ck-btn" onclick="navigateTo(\'analysis-stats\')">统计分析</button>' +
       '<button class="ck-btn" onclick="ckExport()">导出大屏数据</button>') +
       '<div class="ck-tblwrap"><table class="ck-tbl"><thead><tr>' +
       '<th>地市</th><th class="ck-num">' + DOMAIN[ST.domain].short + (ST.year === CUR_YEAR ? '累计（1–' + CUR_MONTH + '月）' : '（例）') + '</th><th class="ck-num">粗率(年化)</th><th class="ck-num">中标率</th>' +
@@ -877,7 +884,7 @@
     return '<header class="ck-head"><div class="ck-brand">' +
       '<div class="ck-logo"><svg viewBox="0 0 32 32"><path d="M16 2l12 6v9c0 7-5.4 11.6-12 13.8C9.4 28.6 4 24 4 17V8z" fill="none" stroke="#5fe1f0" stroke-width="1.6" opacity=".85"/>' +
       '<path d="M10 17h3l2-5 3 9 2-4h3" fill="none" stroke="#ffd166" stroke-width="1.8" stroke-linecap="round"/></svg></div>' +
-      '<div class="ck-title"><h1>江西省肿瘤登记与防控预警总览</h1>' +
+      '<div class="ck-title"><h1>江西省肿瘤登记与防控数据看板</h1>' +
       '<div class="ck-title-sub"><span class="ck-live"><i></i>实时</span><span class="ck-sub-txt">登记态势 · 预警信号 · 全省联动</span></div></div></div>' +
       '<div class="ck-tools">' +
       '<label class="ck-tool">年度<select class="ck-sel" data-ck="year">' + YEARS.slice().reverse().map(function (yy) {
@@ -911,7 +918,7 @@
       warnPanel() +
       '<div class="ck-tbl-row">' + tablePanel() + '</div>' +
       '<footer class="ck-foot"><span>' + (ST.city ? META[ST.city].f : '江西省') + ' · ' + ST.year + ' 年度 · 数据截至 ' + cutoff() + '</span>' +
-      '<button class="ck-btn" onclick="ckExport()">导出总览指标</button></footer>' +
+      '<button class="ck-btn" onclick="ckExport()">导出看板指标</button></footer>' +
       '</div>';
   }
 
@@ -1034,7 +1041,7 @@
     var head = ['地市', DOMAIN[ST.domain].short + '(例)', '粗率(1/10万)', '中标率', 'M/I', '待处置预警'].join('\t');
     try {
       var ta = document.createElement('textarea');
-      ta.value = ST.year + ' 年 ' + (ST.city ? META[ST.city].f : '江西省') + ' 预警总览指标\t' + DOMAIN[ST.domain].label + '\n' + head + '\n' + arr.join('\n') + '\n合计\t' + fmtInt(view(r).cnt) + '\t' + f1(view(r).rate);
+      ta.value = ST.year + ' 年 ' + (ST.city ? META[ST.city].f : '江西省') + ' 数据看板指标\t' + DOMAIN[ST.domain].label + '\n' + head + '\n' + arr.join('\n') + '\n合计\t' + fmtInt(view(r).cnt) + '\t' + f1(view(r).rate);
       document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
       toast('大屏指标已复制到剪贴板（' + CODES.length + ' 个地市）');
     } catch (e) { toast('复制失败，请在统计分析页面导出', 'error'); }
@@ -1060,8 +1067,9 @@
   window.cockpitPageIds = [PAGE];
   window.renderCockpitPage = function (id) { if (id === PAGE) { ckCloseModalSafe(); mount(); } };
 
-  /* 对外数据层：registry-ops.js（登记运营看板）复用同一份地市基线与派生口径，
-     避免两页各存一份 META / build 导致同一指标两套数。 */
+  /* 对外数据层：供其它模块复用同一份地市基线与派生口径，避免各存一份 META / build
+     导致同一指标两套数。（原主要消费方 registry-ops.js 已于 2026-10-10 删除，
+     决策视图等模块仍在使用，故保留。） */
   window.CKData = {
     YEARS: YEARS, CUR_YEAR: CUR_YEAR, CUR_MONTH: CUR_MONTH, PARTIAL: PARTIAL,
     META: META, CODES: CODES, DOMAIN: DOMAIN, QC: QC, SITES: SITES, COUNTIES: COUNTIES,
@@ -1324,9 +1332,7 @@
   var _origRender = window.renderPage;
   /* 只拦本模块的 cockpit 一页。大屏态（body.ck-fs + ST.fs）是"离开驾驶舱必须清理"的
      隐式契约：驾驶舱内互切保留大屏，出去到别的模块一律清掉。
-     登记运营看板已于 registry-ops.js 独立成页（菜单：数据统计 ▸ 业务监测），
-     那边自带 ST 与大屏态，不再与本页共用 mount()——此前两页共用一个 mount 导致
-     "运营监测点回预警总览"重画出运营骨架，且 ckExport/ckRefresh 串页。 */
+     （登记运营看板 registry-ops.js 已于 2026-10-10 整页删除，本模块现为唯一持有 ST 与大屏态的页面。） */
   if (typeof _origRender === 'function') {
     window.renderPage = function (id) {
       if (id === PAGE) { ckCloseModalSafe(); mount(); return; }

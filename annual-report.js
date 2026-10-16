@@ -90,9 +90,6 @@
     ".ar-review-round .rr-meta{font-size:12px;color:#94a3b8}" +
     ".wb-secnav-next-hint{font-size:12px;color:#94a3b8}" +
     ".ph-sub{margin-left:auto;font-size:12px;color:#94a3b8;font-weight:500}" +
-    ".ar-prog-stage{font-size:11.5px;font-weight:700;color:var(--primary);background:var(--primary-soft);border-radius:9px;padding:2px 8px;margin-right:2px}" +
-    ".ar-prog-bar{display:inline-block;width:52px;height:5px;background:#eef2f6;border-radius:3px;overflow:hidden;vertical-align:middle;margin-left:3px}" +
-    ".ar-prog-bar i{display:block;height:100%;background:var(--primary);border-radius:3px}" +
     /* ---------- 统计表 / 图表 预览弹层 ---------- */
     ".ar-modal-ft{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}" +
     ".ar-table-caption{font-size:13.5px;font-weight:700;color:#1f2937;margin-bottom:10px;line-height:1.6}" +
@@ -142,12 +139,7 @@
     ".ar-flow-node.void .n,.ar-flow-node.void .l{color:#b42318;background:#fef3f2;border-color:#fdaaa1;box-shadow:none}" +
     ".ar-flow-line{flex:1;min-width:16px;height:2px;background:#e2e7ee;margin:0 8px}" +
     ".ar-flow-line.done{background:#b7e0c4}" +
-    /* 台账进度徽章 */
-    ".ar-prog{display:flex;flex-wrap:wrap;gap:4px;justify-content:center}" +
-    ".ar-prog-chip{display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid #e4e7ec;color:#98a2b3;background:#fff;white-space:nowrap}" +
-    ".ar-prog-chip.ok{color:#027a48;border-color:#b7e0c4;background:#f0faf3}" +
-    ".ar-prog-chip.bad{color:#b42318;border-color:#fdaaa1;background:#fef3f2}" +
-    ".ar-prog-chip.todo{color:#b54708;border-color:#fecd97;background:#fffaeb}" +
+    /* 台账进度徽章样式已随「编制进度」列一并移除 */
     /* 工作台下一步引导 */
     ".ar-nextstep{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 14px;margin:0 0 12px;background:#fffcf5;border:1px solid #fde3bd;border-left:3px solid #f79009;border-radius:8px}" +
     ".ar-nextstep.ready{background:#f0faf3;border-color:#b7e0c4;border-left-color:#027a48}" +
@@ -250,6 +242,21 @@
     ".ar-parambar{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:flex-end;padding:13px 16px;background:linear-gradient(180deg,#f8fafc,#fff);border:1px solid var(--border);border-radius:8px;margin-bottom:12px}" +
     ".ar-param{display:flex;flex-direction:column;gap:5px;font-size:12px;color:#647085;font-weight:600}" +
     ".ar-param select{height:32px;border:1px solid #d1d8e0;border-radius:6px;background:#fff;font-size:13px;font-weight:400;padding:0 8px;min-width:126px;width:auto;color:#1f2937}" +
+    /* 设区市选择：独立带宽 + 等宽网格。
+       旧实现把它塞进参数行的 flex 项里，11 个复选框自由折行成 5/5/1，
+       且把右侧状态文字挤到截断——等宽网格让每列对齐，碎行观感即消失。 */
+    ".ar-city-band{padding:12px 16px;background:#fff;border:1px solid var(--border);border-top:0;border-radius:0 0 10px 10px;margin:0 0 12px}" +
+    ".ar-city-band.solo{border-radius:10px;border-top:1px solid var(--border)}" +
+    ".ar-city-band.locked{background:#fbfcfd}" +
+    ".ar-city-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}" +
+    ".ar-city-hd .lab{font-size:12px;color:#647085;font-weight:600}" +
+    ".ar-city-hd .cnt{font-size:12px;color:#94a3b8}" +
+    ".ar-city-hd .cnt b{color:var(--primary);font-weight:700}" +
+    ".ar-city-hd .acts{margin-left:auto;display:flex;gap:6px;align-items:center}" +
+    ".ar-city-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px}" +
+    ".ar-city-grid .ar-check{padding:0 10px;height:32px;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:none}" +
+    ".ar-city-grid .ar-check.on{border-color:var(--primary);background:var(--primary-soft);color:var(--primary);font-weight:600}" +
+    ".ar-city-grid .ar-check input{flex:0 0 auto}" +
     ".ar-param-city{display:flex;flex-wrap:wrap;gap:6px;align-items:center}" +
     ".ar-param-city .ar-check{padding:5px 9px;font-size:12px}" +
     ".ar-genbar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;padding:11px 14px;border:1px solid var(--border);border-radius:8px;background:#f8fafc;margin-bottom:14px;font-size:12.5px;color:#475569}" +
@@ -275,9 +282,17 @@
     ".wb-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:#eef2f7;border:1px solid var(--border);border-radius:999px;color:var(--color-text-body);font-size:12px}" +
     ".wb-head-acts{flex:0 0 auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}" +
     ".wb-params{display:flex;align-items:flex-end;gap:12px 16px;flex-wrap:wrap;padding:14px 16px;background:#fff;border:1px solid var(--border);border-radius:10px;margin-bottom:12px}" +
+    ".wb-params.with-band{border-radius:10px 10px 0 0;margin-bottom:0}" +
     ".wb-params .ar-param{min-width:auto}" +
     ".wb-param-gen{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}" +
-    ".wb-gen-status{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--color-success-fg)}" +
+    ".wb-gen-status{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--color-success-fg);white-space:nowrap}" +
+    ".wb-gen-sep{color:#cbd5e1;font-weight:400}" +
+    ".wb-gen-stage{color:#334155;font-weight:700}" +
+    ".wb-gen-bit{display:inline-flex;align-items:center;gap:3px;color:#647085;font-weight:500}" +
+    ".wb-gen-bit b{font-weight:700;margin-left:1px}" +
+    ".wb-gen-bit.ok b{color:#067647}" +
+    ".wb-gen-bit.bad b{color:#b42318}" +
+    ".wb-gen-bit.todo b{color:#cbd5e1;font-weight:400}" +
     ".wb-gen-status.run{color:var(--color-primary-700)}" +
     ".wb-gen-status.idle{color:var(--color-warning-fg)}" +
     ".wb-gen-dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex:0 0 8px}" +
@@ -303,7 +318,8 @@
     ".wb-secnav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}" +
     ".wb-secnav-pos{font-size:12px;color:var(--color-text-muted);font-variant-numeric:tabular-nums}" +
     "@media(max-width:640px){.wb-sec-h .wb-sec-d{display:none}}" +
-    "@media(max-width:900px){.wb-head{flex-wrap:wrap}.wb-head-acts{width:100%;justify-content:flex-start}.wb-stepper{position:static}.wb-step-line{display:none}.wb-param-gen{margin-left:0;width:100%}}";
+    "@media(max-width:900px){.wb-head{flex-wrap:wrap}.wb-head-acts{width:100%;justify-content:flex-start}.wb-stepper{position:static}.wb-step-line{display:none}.wb-param-gen{margin-left:0;width:100%;justify-content:flex-start}.wb-gen-status{white-space:normal}.ar-city-grid{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}.ar-city-hd .acts{margin-left:0;width:100%}}" +
+    "@media(max-width:640px){.ar-city-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}";
 
   var LS = { tasks: "jx_ar_tasks_v1", templates: "jx_ar_templates_v1", subs: "jx_ar_submissions_v1", arch: "jx_ar_archives_v1", cur: "jx_ar_current_v1" };
   /* ===================== 2. 常量 ===================== */
@@ -816,29 +832,9 @@
   /* 旧版 7 段展示进度条（FLOW_STEPS / taskFlowIndex / flowStepper）已由阶段导轨
      renderStageRail 取代：那条只按 status 猜位置、不可推进也不校验准入。此处不再保留实现。 */
 
-  // 台账「进度」列：显示当前阶段 + 关键阶段产物徽章（取数 / 质控 / 正文）
-  function taskProgress(t) {
-    var A = AR();
-    if (t.status === 'voided') {
-      return '<div class="ar-prog"><span class="ar-prog-chip bad">✕ 已作废</span></div>';
-    }
-    var cur = A.currentStage(t, ARH);
-    var idx = A.indexOf(cur);
-    var chip = function (label, tone) {
-      var ic = tone === 'ok' ? '✓' : tone === 'bad' ? '✕' : tone === 'todo' ? '…' : '·';
-      return '<span class="ar-prog-chip ' + tone + '">' + ic + ' ' + label + '</span>';
-    };
-    var cd = chapterDone(t), ct = chapterTotal(t);
-    var q = A.summaries.qc(t);
-    var stagesDone = A.list.filter(function (s) { return A.stageDone(t, s.id, ARH); }).length;
-    return '<div class="ar-prog">' +
-      '<span class="ar-prog-stage">阶段 ' + (idx + 1) + '/7 · ' + A.byId(cur).short + '</span>' +
-      chip('取数', (t.dataPrep && t.dataPrep.dedupDone) ? 'ok' : 'todo') +
-      chip('质控', q.openBad > 0 ? 'bad' : (t.qc && t.qc.done) ? 'ok' : 'todo') +
-      chip('正文 ' + cd + '/' + ct, ct > 0 && cd >= ct ? 'ok' : 'todo') +
-      '<span class="ar-prog-bar"><i style="width:' + Math.round(stagesDone / 7 * 100) + '%"></i></span>' +
-      '</div>';
-  }
+  /* 台账「编制进度」列已按需求移除：阶段进度改由「编制工作台」的导轨呈现，
+     台账只保留任务标识、状态与操作。taskProgress 一并删除，避免留下无人调用的死代码。 */
+
   /* 旧版「下一步」引导条（nextStepInfo / renderFlowBar）已由准入闸门横幅 renderGateBanner 取代。
      刻意不保留实现：它按 status + 两个布尔开关给出建议，与阶段模型是两套判断，留着必然漂移。 */
 /* ===================== 6. 年报记录台账 ===================== */
@@ -873,7 +869,6 @@
         '<td class="code" style="font-size:12px;color:#64748b">' + t.year + '</td>' +
         '<td class="code" style="font-size:12px;color:#64748b">' + t.version + '</td>' +
         '<td class="code">' + statusBadge(t.status) + '</td>' +
-        '<td class="txt">' + taskProgress(t) + '</td>' +
         '<td class="code" style="font-size:12px;color:#64748b">' + t.updatedAt + '</td>' +
         '<td class="ops">' + taskOps(t) + '</td></tr>';
     }).join('');
@@ -882,8 +877,8 @@
       filterHtml +
       OPS_RULE +
       (list.length === 0 ? '<div style="text-align:center;color:#94a3b8;padding:36px 18px;font-size:13px">暂无符合条件的年报记录，点击右上角「新建年报」开始编制。</div>' :
-        '<div class="table-wrap"><table class="data-table" style="width:100%;min-width:1240px"><colgroup><col style="width:132px"><col><col style="width:66px"><col style="width:66px"><col style="width:88px"><col style="width:330px"><col style="width:150px"><col style="width:200px"></colgroup><thead><tr>' +
-        '<th class="code">任务编号</th><th class="txt">年报标题</th><th class="code">年度</th><th class="code">版本</th><th class="code">状态</th><th class="txt">编制进度</th><th class="code">更新时间</th><th class="ops">操作</th>' +
+        '<div class="table-wrap"><table class="data-table" style="width:100%;min-width:980px"><colgroup><col style="width:132px"><col><col style="width:66px"><col style="width:66px"><col style="width:88px"><col style="width:150px"><col style="width:200px"></colgroup><thead><tr>' +
+        '<th class="code">任务编号</th><th class="txt">年报标题</th><th class="code">年度</th><th class="code">版本</th><th class="code">状态</th><th class="code">更新时间</th><th class="ops">操作</th>' +
         '</tr></thead><tbody>' + rows + '</tbody></table></div>') +
       '</div></div>';
   }
@@ -1236,38 +1231,82 @@
     var years = ['2024', '2023', '2022'];
     if (years.indexOf(String(t.year)) < 0) years.unshift(String(t.year));
     var locked = t.status !== 'draft';
-    var cityPicker = t.scope === 'city' ? '<div class="ar-param" style="flex:1;min-width:260px"><label>选择设区市</label><div class="ar-param-city">' +
-      REGIONS.filter(function (r) { return r.level === 'city'; }).map(function (r) {
-        var on = t.cities.indexOf(r.id) >= 0;
-        return '<label class="ar-check' + (on ? ' on' : '') + '"><input type="checkbox" ' + (on ? 'checked' : '') + (locked ? ' disabled' : '') + ' onchange="arToggleCity(\'' + r.id + '\',this.checked)"><span>' + e(r.name) + '</span></label>';
-      }).join('') + '</div></div>' : '';
+    var cityList = REGIONS.filter(function (r) { return r.level === 'city'; });
+    var selected = (t.cities || []).filter(function (c) { return c !== 'jx'; });
     var running = arState.gen.running;
     var advFields = arState.advOpen ? renderAdvanced(t) : '';
+
     /* 阶段化后不再提供「一键重新生成」——它会绕过阶段闸门、覆盖质控与审核结论。
-       这里改为反映当前阶段的真实进度，操作入口一律在各阶段工作区内。 */
+       这里改为反映当前阶段的真实进度，操作入口一律在各阶段工作区内。
+       各项之间用分隔符断开，避免旧版「取数✓·质控○」连成一串看不清。 */
     var genStatus;
     if (running) {
       genStatus = '<div class="wb-gen-status run"><span class="wb-gen-dot"></span>处理中 ' + Math.round(arState.gen.pct) + '%</div>';
     } else {
       var sm = AR().summaries;
       var curStageName = AR().byId(curStageId(t)).name;
-      var bits = [];
-      bits.push('取数' + ((t.dataPrep && t.dataPrep.dedupDone) ? '✓' : '○'));
-      bits.push('质控' + ((t.qc && t.qc.done) ? (sm.qc(t).openBad > 0 ? '!' : '✓') : '○'));
-      bits.push('统计' + (sm.stats(t).done ? '✓' : '○'));
-      bits.push('正文 ' + sm.draft(t, chapterTotal, chapterDone).done + '/' + chapterTotal(t));
-      genStatus = '<div class="wb-gen-status"><span class="wb-gen-dot"></span>当前「' + curStageName + '」 · ' + bits.join(' · ') + '</div>';
+      var d = sm.draft(t, chapterTotal, chapterDone);
+      var qcBad = (t.qc && t.qc.done) ? sm.qc(t).openBad > 0 : false;
+      var bit = function (label, mark, tone) {
+        return '<span class="wb-gen-bit' + (tone ? ' ' + tone : '') + '">' + label + '<b>' + mark + '</b></span>';
+      };
+      genStatus = '<div class="wb-gen-status"><span class="wb-gen-dot"></span>' +
+        '<span class="wb-gen-stage">当前「' + e(curStageName) + '」</span>' +
+        '<span class="wb-gen-sep">|</span>' +
+        bit('取数', (t.dataPrep && t.dataPrep.dedupDone) ? '✓' : '○', (t.dataPrep && t.dataPrep.dedupDone) ? 'ok' : 'todo') +
+        bit('质控', (t.qc && t.qc.done) ? (qcBad ? '!' : '✓') : '○', (t.qc && t.qc.done) ? (qcBad ? 'bad' : 'ok') : 'todo') +
+        bit('统计', sm.stats(t).done ? '✓' : '○', sm.stats(t).done ? 'ok' : 'todo') +
+        bit('正文', d.done + '/' + d.total, d.complete ? 'ok' : 'todo') +
+        '</div>';
     }
-    return '<div class="wb-params">' +
+
+    /* 第一行：口径下拉 + 状态 + 高级口径按钮。设区市不再挤在这一行里。 */
+    var row = '<div class="wb-params' + (t.scope === 'city' ? ' with-band' : '') + '">' +
       '<div class="ar-param"><label>报告年度</label><select' + (locked ? ' disabled' : '') + ' onchange="arSetTaskYear(this.value)">' +
       years.map(function (y) { return '<option value="' + y + '"' + (String(t.year) === y ? ' selected' : '') + '>' + y + ' 年度</option>'; }).join('') + '</select></div>' +
       '<div class="ar-param"><label>覆盖范围</label><select' + (locked ? ' disabled' : '') + ' onchange="arSetTaskScope(this.value)">' +
-      '<option value="jx"' + (t.scope === 'jx' ? ' selected' : '') + '>全省（11 设区市）</option><option value="city"' + (t.scope === 'city' ? ' selected' : '') + '>按设区市选择</option></select></div>' +
-      cityPicker +
+      '<option value="jx"' + (t.scope === 'jx' ? ' selected' : '') + '>全省（11 设区市）</option>' +
+      '<option value="city"' + (t.scope === 'city' ? ' selected' : '') + '>按设区市选择</option></select></div>' +
       '<div class="wb-param-gen">' + genStatus +
       '<button class="btn btn-ghost btn-sm" onclick="arToggleAdv()">' + (arState.advOpen ? '收起口径 ▲' : '高级口径 ▼') + '</button>' +
-      '</div></div>' + advFields;
+      '</div></div>';
+
+    /* 第二行（仅按设区市时）：整行带宽，等宽网格 + 已选计数 + 全选/清空 */
+    var band = '';
+    if (t.scope === 'city') {
+      band = '<div class="ar-city-band' + (locked ? ' locked' : '') + '">' +
+        '<div class="ar-city-hd">' +
+        '<span class="lab">选择设区市</span>' +
+        '<span class="cnt">已选 <b>' + selected.length + '</b> / ' + cityList.length + '</span>' +
+        (locked ? '<span class="cnt">（状态为' + (TASK_STATUS[t.status] || {}).label + '，口径已锁定）</span>' : '') +
+        '<span class="acts">' +
+        (locked ? '' : '<button class="btn btn-ghost btn-xs" onclick="arSelectAllCities(true)">全选</button>' +
+          '<button class="btn btn-ghost btn-xs" onclick="arSelectAllCities(false)">清空</button>') +
+        '</span></div>' +
+        '<div class="ar-city-grid">' +
+        cityList.map(function (r) {
+          var on = selected.indexOf(r.id) >= 0;
+          return '<label class="ar-check' + (on ? ' on' : '') + '" title="' + e(r.name) + '">' +
+            '<input type="checkbox" ' + (on ? 'checked' : '') + (locked ? ' disabled' : '') +
+            ' onchange="arToggleCity(\'' + r.id + '\',this.checked)"><span>' + e(r.name) + '</span></label>';
+        }).join('') +
+        '</div></div>';
+    }
+
+    return row + band + advFields;
   }
+
+  /* 全选 / 清空：批量设置比逐个点 11 次省事，也是口径变更时的常用动作 */
+  window.arSelectAllCities = function (on) {
+    var t = curTask(); if (!t) return;
+    if (t.status !== 'draft') { toast('当前状态口径已锁定，不可修改覆盖范围', 'error'); return; }
+    var all = REGIONS.filter(function (r) { return r.level === 'city'; }).map(function (r) { return r.id; });
+    t.cities = on ? all : [];
+    markStale(t);
+    touch(t);
+    renderPage('ar-workbench');
+    toast(on ? '已全选 11 个设区市' : '已清空设区市选择（须至少选择一个）', on ? undefined : 'warning');
+  };
 
   function renderAdvanced(t) {
     var lk = t.status !== 'draft' ? ' disabled' : '';

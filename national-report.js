@@ -4,12 +4,27 @@
  *
  * 口径来源（本文件不存阈值副本）：
  *   质量阈值   → window.dictQuality（字典管理·群体质量指标，逐条带出处）
- *   登记处主数据 → window.CK.META（驾驶舱同源 11 设区市：MV/DCO/M-I/UB/病例上报率）
+ *   登记处主数据 → window.CKData.META（驾驶舱同源 11 设区市：MV/DCO/M-I/UB/病例上报率）
  *   应报例数   → window.DKH_DATA.cityRows（附表1 同源）
  *   覆盖率达标线 → window.DKH_DATA.qc.nccrMin
  * 批次台账 nccrData.batches 是本模块单一数据源，三个板块都由它派生：
  *   待上报 + 已上报 → 新增上报；已完成 + 已退回 + 已取消 → 上报记录（互斥，不重复出现）。
  * 台账内为【原型演示数据】，真实接入只换 ledger() 的取数实现，UI 不动。
+ *
+ * 「上报合规性」判的是【上报动作本身】，不是登记处的登记质量；六个维度全部锚在批次上：
+ *   时效       报送是否落在国家平台年度报送窗口（统计年 + 2 年 6 月底）内
+ *               出处：年报流程设计「国家平台通常要求次年 6 月底前上报」；
+ *                     annual-report.js 已归档任务时点（统计年 2024 → 出包 2026-06-05、回执 2026-06-10）。
+ *                     站内按「统计年 + 2」落地，确切日期以国家癌症中心当年通知为准【待确认】
+ *   包完整性   A/B/C/D 四包是否齐套【站内口径，待省质控中心确认】；实证：2024 年 360700 仅 ABD
+ *   字典合规   个案 ICD-10 是否落在登记范围内。官方出处：《肿瘤登记管理办法》第九条；
+ *               字典管理 V01「登记范围」。站内无全量码表（B5 仅 10 条样例、状态「待补全标准源」），
+ *               故只做登记范围抽检，抽不到报告卡清单时报「待接入」，不编造结论
+ *   分母完整性 C 包人口分母 19 个年龄组 × 男/女是否齐全
+ *   批次唯一性 同登记处同年度是否重复出包【站内口径，待省质控中心确认】；实证：2025 年 361100
+ *   回执闭环   投递后是否取得并登记国家回执。国家未规定回执时限，故只作提示、不作红线【待确认】
+ * 另有「病例上报率」「MV%／DCO%／M-I／诊断依据不明」两项：那是登记处的登记质量，
+ * 不参与本页判定，页面底部只给计数与跳转（数据看板 / 质控管理）。
  */
 (function () {
   'use strict';
@@ -66,7 +81,11 @@
     '.nccr-pkg-meta{font-size:12px;color:#64748b}',
     '.nccr-pkg-spacer{flex:1}',
     '.nccr-pkg-block .table-wrap{border-radius:0;border-top:0}',
-    '.cd-field-error{color:#b42318;font-size:12px;margin-top:4px;display:none}'
+    '.cd-field-error{color:#b42318;font-size:12px;margin-top:4px;display:none}',
+    // 全局 .data-table td 是 nowrap，合规体检的「依据」是一长段出处说明，必须在这里换行才读得到
+    '.nccr-dim-table td{white-space:normal;vertical-align:top;line-height:1.6;padding-top:10px;padding-bottom:10px}',
+    '.nccr-dim-table td.nccr-hint{font-size:12px;color:#667085;min-width:260px}',
+    '.nccr-dim-table th{white-space:nowrap}'
   ].join('');
 
   /* ===================== 2. 工具 ===================== */
@@ -100,7 +119,14 @@
     defaultTransport: 'file',
     httpEnabled: true,
     httpBaseUrl: 'https://www.nccr.org.cn/api/v1',
-    timelinessMonths: 30
+    // 国家平台年度报送窗口：统计年 + timelyLagYears 年的 timelyMonth 月底。
+    // 出处：年报流程设计「国家平台通常要求次年 6 月底前上报」，annual-report.js 已归档任务时点
+    //（统计年 2024 → 出包 2026-06-05、回执 2026-06-10；统计年 2023 → 归档 2025-06-10）。
+    // 文档口径写「次年」，站内按「统计年 + 2」落地；确切日期以国家癌症中心当年通知为准【待确认】。
+    timelyLagYears: 2,
+    timelyMonth: 6,
+    // 回执闭环观察窗（天）：国家未规定回执时限，此值只是站内提示口径，不作红线【待确认】
+    receiptDays: 15
   };
 
   var A_HEADERS = ['登记处编码', '国家登记流水号', '省内报告卡编号', '姓名', '证件类型', '证件号码', '性别', '出生日期', '实足年龄', '民族', '婚姻状况', '职业', '工作单位', '联系电话', '联系人关系', '联系人', '联系人电话', '户籍区划码', '户籍详细地址', '常住区划码', '常住详细地址', '城乡', '解剖学部位ICD-O-3', '形态学编码', '行为', '分级', '侧位', '诊断依据', 'DCO标志', '确诊日期', 'ICD10', 'TNM-T', 'TNM-N', 'TNM-M', '治疗方式', '诊断结果', '详细诊断', '诊断单位编码', '诊断单位名称', '门诊号', '住院号', '报告医师', '报告日期', '多原发序号', '检查状态', '更新日期', '重卡标记'];
@@ -141,12 +167,17 @@
     var d = window.DKH_DATA;
     return (d && d.qc && Number(d.qc.nccrMin)) || 98;
   }
+  // 报送截止 = 统计年 + timelyLagYears 年的 timelyMonth 月底（如 2024 → 2026-06-30）
   function deadline(year) {
-    var d = new Date(Number(year), 11, 1);
-    d.setMonth(d.getMonth() + Number(nccrConfig.timelinessMonths || 30) + 1);
-    d.setDate(0);
-    return d;
+    return new Date(Number(year) + Number(nccrConfig.timelyLagYears || 2), Number(nccrConfig.timelyMonth || 6), 0);
   }
+  function deadlineBasis() {
+    return '截止口径：统计年 + ' + Number(nccrConfig.timelyLagYears || 2) + ' 年 ' + Number(nccrConfig.timelyMonth || 6) + ' 月底（省平台 → 国家癌症中心年度报送窗口）\n'
+      + '出处：年报流程设计「国家平台通常要求次年 6 月底前上报」；annual-report.js 归档时点（统计年 2024 → 出包 2026-06-05）\n'
+      + '确切日期以国家癌症中心当年通知为准【待确认】\n'
+      + '另有一条独立义务：医疗机构 → 辖区肿瘤登记处 按季度报送（《肿瘤登记管理办法》第十条），与本窗口不是同一条线，本页不判定';
+  }
+  function receiptDays() { return Number(nccrConfig.receiptDays || 15); }
   function light(d) {
     var glyph = { ok: '✓', warn: '!', bad: '✕', na: '–' }[d.tone] || '–';
     return '<span class="nccr-light ' + d.tone + '" title="' + e(d.text + '\n' + d.tip) + '">' + glyph + '</span>';
@@ -154,7 +185,7 @@
 
   /* ===================== 5. 登记处主数据 ===================== */
   function registryList() {
-    var meta = (window.CK && window.CK.META) || {};
+    var meta = (window.CKData && window.CKData.META) || (window.CK && window.CK.META) || {};
     var rows = (window.DKH_DATA && window.DKH_DATA.cityRows) || [];
     var byCode = {};
     rows.forEach(function (r) { byCode[String(r['行政区划代码'])] = r; });
@@ -174,7 +205,10 @@
     return null;
   }
 
-  /* ===================== 6. 五维合规判定 ===================== */
+  /* ===================== 6. 上报动作合规判定（六维） ===================== */
+  // 本模块只判「上报动作」，不判登记处的登记质量。
+  // judgeCover / judgeQuality 保留：它们服务的「病例上报率」「群体质量指标」属登记侧质量，
+  // 已从本页维度移出，只在页面底部与新增上报预览里以计数 + 跳转（数据看板 / 质控管理）的方式出现。
   function judgeCover(reg, batch) {
     var min = coverMin(), v = reg.cover;
     var d = {
@@ -191,16 +225,17 @@
   function judgeTimely(reg, batch) {
     var year = batch ? batch.year : Number(nccrState.year);
     var dl = deadline(year), ds = fmtDate(dl), overdue = new Date() > dl;
+    var basis = '\n' + deadlineBasis();
     if (!batch) return overdue
-      ? { tone: 'bad', text: '超期未报', tip: '截止 ' + ds + ' 已过，尚未生成上报批次' }
-      : { tone: 'warn', text: '待报送', tip: '尚未生成上报批次，截止 ' + ds };
-    if (batch.revisionOf) return { tone: 'ok', text: '重报', tip: '由 ' + batch.revisionOf + ' 退回后重报，报送时效沿用原批次' };
+      ? { tone: 'bad', text: '超期未报', tip: '截止 ' + ds + ' 已过，尚未生成上报批次' + basis }
+      : { tone: 'warn', text: '待报送', tip: '尚未生成上报批次，截止 ' + ds + basis };
+    if (batch.revisionOf) return { tone: 'ok', text: '重报', tip: '由 ' + batch.revisionOf + ' 退回后重报，报送时效沿用原批次' + basis };
     if (!batch.exportedAt) return overdue
-      ? { tone: 'bad', text: '超期未投', tip: '截止 ' + ds + ' 已过，批次尚未投递' }
-      : { tone: 'warn', text: '未投递', tip: '批次已生成未投递，截止 ' + ds };
+      ? { tone: 'bad', text: '超期未投', tip: '截止 ' + ds + ' 已过，批次尚未投递' + basis }
+      : { tone: 'warn', text: '未投递', tip: '批次已生成未投递，截止 ' + ds + basis };
     return toDate(batch.exportedAt) <= dl
-      ? { tone: 'ok', text: '按期', tip: batch.exportedAt + ' 投递\n早于截止 ' + ds }
-      : { tone: 'bad', text: '超期', tip: batch.exportedAt + ' 投递\n晚于截止 ' + ds };
+      ? { tone: 'ok', text: '按期', tip: batch.exportedAt + ' 投递\n早于截止 ' + ds + basis }
+      : { tone: 'bad', text: '超期', tip: batch.exportedAt + ' 投递\n晚于截止 ' + ds + basis };
   }
   function judgeQuality(reg) {
     var items = [
@@ -226,20 +261,166 @@
   }
   var RECEIPT = { accepted: ['ok', '全部受理'], partial: ['warn', '部分受理'], rejected: ['bad', '退回'] };
   function judgeAccept(batch) {
-    if (!batch) return { tone: 'na', text: '—', tip: '尚未报送' };
-    if (!batch.exportedAt) return { tone: 'na', text: '—', tip: '尚未投递' };
-    if (!batch.receiptNo) return { tone: 'warn', text: '待回执', tip: batch.exportedAt + ' 已投递\n国家回执未登记' };
+    if (!batch) return { tone: 'na', text: '—', tip: '尚未生成上报批次' };
+    if (!batch.exportedAt) return { tone: 'na', text: '未投递', tip: '批次尚未投递，回执闭环未开始' };
+    if (!batch.receiptNo) {
+      var days = Math.floor((new Date() - toDate(batch.exportedAt)) / 86400000);
+      return {
+        tone: 'warn', text: '待回执 ' + days + ' 天',
+        tip: batch.exportedAt + ' 已投递，国家回执未登记\n已过 ' + days + ' 天（站内观察窗 ' + receiptDays() + ' 天，仅作提示、不作红线）\n'
+          + '国家未规定回执时限，以国家当年通知为准【待确认】'
+      };
+    }
     var m = RECEIPT[batch.receiptResult] || ['warn', batch.receiptResult || '待回执'];
-    return { tone: m[0], text: m[1], tip: '回执号 ' + batch.receiptNo + '｜' + m[1] + (batch.receiptRemark ? '\n' + batch.receiptRemark : '') };
+    return {
+      tone: m[0], text: m[1],
+      tip: '回执号 ' + batch.receiptNo + '｜' + m[1] + (batch.receiptRemark ? '\n' + batch.receiptRemark : '')
+    };
   }
+
+  // ── 包完整性：A/B/C/D 四包是否齐套 ────────────────────────────────
+  // 国家四包口径为【站内口径，待省质控中心确认】。实证：2024 年 360700 仅报送 ABD 三包。
+  var CANON_PKGS = ['A', 'B', 'C', 'D'];
+  var PKG_LABEL = { A: '报告卡个案', B: '随访死亡', C: '人口数据', D: '质量报告' };
+  function judgePackage(batch) {
+    if (!batch) return { tone: 'na', text: '—', tip: '尚未生成上报批次' };
+    var has = batch.packages || [];
+    var missing = CANON_PKGS.filter(function (c) { return has.indexOf(c) < 0; });
+    var f = judgeFormat(batch);
+    var tone = missing.length ? 'bad' : (f.tone === 'bad' ? 'bad' : 'ok');
+    var text = missing.length ? '缺 ' + missing.map(function (c) { return c + ' 包'; }).join('、') : '四包齐全';
+    var tip = '国家四包口径：' + CANON_PKGS.map(function (c) { return c + ' ' + PKG_LABEL[c]; }).join('／') +
+      '\n本批次包含：' + (has.length ? has.join('、') : '无') +
+      (missing.length ? '\n缺：' + missing.map(function (c) { return c + '（' + PKG_LABEL[c] + '）'; }).join('、') : '') +
+      '\n模板 ' + batch.templateVersion + '（国家现行 ' + nccrConfig.nationalVersion + '）' +
+      (batch.fileName ? '\n已出包 ' + batch.fileName : '\n尚未出包') +
+      '\n四包齐套为【站内口径，待省质控中心确认】';
+    return { tone: tone, text: text, tip: tip };
+  }
+
+  // ── 字典合规：个案 ICD-10 是否落在登记范围内 ──────────────────────
+  // 登记范围：全部恶性肿瘤（C00–C97）、原位癌（D00–D09）、规定中枢神经系统良性肿瘤（D32/D33/D35.2）
+  // 官方出处：《肿瘤登记管理办法》第九条；字典管理 V01「登记范围」（官方）。
+  // 站内无全量码表（字典管理 B5 仅 10 条样例、状态「待补全标准源」），故只判登记范围、不判逐码命中，
+  // 抽不到报告卡清单时如实报「待接入」，不编造结论。
+  var SCOPE_IN = /^C\d\d|^D0\d|^D3[235]/;
+  // 站内参考：当前报告卡台账的登记范围抽检。它不是批次的冻结快照，
+  // 所以只作参考行，不充当判定依据（否则又会变成拿会话态数据当批次结论）。
+  // 只读已加载的数据，不在渲染期触发报告卡模块渲染（避免跨模块副作用）。
+  function dictScopeRef() {
+    var cards = window.reportCardListData;
+    if (!cards || !cards.length) return '';
+    var out = 0, miss = 0;
+    cards.forEach(function (c) {
+      var s = String(c.icd10 == null ? '' : c.icd10).toUpperCase().replace(/\s/g, '');
+      if (!s || s === '-' || s === '—') { miss++; return; }
+      if (!SCOPE_IN.test(s)) out++;
+    });
+    return '\n站内参考：报告卡台账 ' + cards.length + ' 张，登记范围抽检 ' + out + ' 张越界、' + miss + ' 张缺码（非批次快照，仅供参考）';
+  }
+  // 字典合规的判据只能是国家平台：A 包个案编码是否通过国家版本字典校验，只有国家回执说了算。
+  // 站内没有全量码表（字典管理 B5 仅 10 条样例、状态「待补全标准源」），不自行编造编码结论。
+  var SCOPE_BASIS = '登记范围：C00–C97 全部恶性肿瘤／D00–D09 原位癌／规定中枢神经系统良性（D32、D33、D35.2）\n'
+    + '出处：《肿瘤登记管理办法》第九条；字典管理 V01「登记范围」（官方）';
+  function judgeDict(batch) {
+    if (!batch) return { tone: 'na', text: '—', tip: '尚未生成上报批次' };
+    if (batch.receiptResult === 'rejected') {
+      if (/ICD|编码|码表|字典/.test(batch.receiptRemark || '')) {
+        return { tone: 'bad', text: '国家退回', tip: '国家回执判定：' + batch.receiptRemark + '\n回执号 ' + batch.receiptNo + '\n' + SCOPE_BASIS };
+      }
+      return {
+        tone: 'na', text: '非编码问题',
+        tip: '该批次因「' + (batch.receiptRemark || '其他原因') + '」被退回，不是编码类问题\n个案编码是否合规未获国家确认，不代判\n' + SCOPE_BASIS
+      };
+    }
+    if ((batch.packages || []).indexOf('A') < 0) {
+      return { tone: 'na', text: '未含 A 包', tip: '批次未包含 A 报告卡个案，无个案编码可判' };
+    }
+    if (!batch.exportedAt) {
+      return { tone: 'na', text: '未投递', tip: '批次尚未投递，编码合规性还没有国家结论\n' + SCOPE_BASIS };
+    }
+    if (!batch.receiptNo) {
+      return { tone: 'na', text: '待国家校验', tip: batch.exportedAt + ' 已投递，国家回执未登记\nA 包个案编码是否通过国家版本字典校验尚无结论，不代判' };
+    }
+    if (batch.receiptResult === 'accepted') {
+      return { tone: 'ok', text: '未见编码问题', tip: '国家平台受理通过 ⇒ A 包个案编码已通过国家版本字典校验\n回执号 ' + batch.receiptNo + '\n站内无独立同源码表，本项以国家结论为准\n' + SCOPE_BASIS + dictScopeRef() };
+    }
+    // partial：部分受理，编码是否整体通过不明确
+    return { tone: 'warn', text: '部分受理', tip: '国家回执为部分受理，编码合规性未整体确认' + (batch.receiptRemark ? '\n' + batch.receiptRemark : '') + '\n' + SCOPE_BASIS };
+  }
+
+  // ── 分母完整性：C 包人口分母 19 个年龄组 × 男/女是否齐全 ────────────
+  // 判据同样只能来自国家：站内没有与批次同源的人口分母快照。
+  function popGapOf(b) {
+    if (b.popGap) return b.popGap;
+    if (b.receiptResult === 'rejected' && /人口|年龄组|分母/.test(b.receiptRemark || '')) return b.receiptRemark;
+    return '';
+  }
+  function judgePop(batch) {
+    if (!batch) return { tone: 'na', text: '—', tip: '尚未生成上报批次' };
+    if ((batch.packages || []).indexOf('C') < 0) {
+      return { tone: 'na', text: '未含 C 包', tip: '批次未包含 C 人口数据包，无人口分母可核' };
+    }
+    var gap = popGapOf(batch);
+    if (gap) {
+      return {
+        tone: 'bad', text: '分母缺组',
+        tip: gap + '\n国家口径：C 包分年龄组人口 19 组 × 男/女（本模块 AGE19）\n出处：国家回执 ' + (batch.receiptNo || '—')
+      };
+    }
+    if (!batch.exportedAt) return { tone: 'na', text: '未投递', tip: '批次尚未投递，人口分母还没有国家结论\n国家口径：19 个年龄组 × 男/女' };
+    if (!batch.receiptNo) return { tone: 'na', text: '待国家校验', tip: batch.exportedAt + ' 已投递，国家回执未登记\n站内无与批次同源的人口分母快照，不自行判定' };
+    if (batch.receiptResult === 'accepted') return { tone: 'ok', text: '未见缺组', tip: '国家平台受理通过 ⇒ C 包分年龄组人口通过国家级校验\n回执号 ' + batch.receiptNo + '\n站内无与批次同源的人口分母快照，本项以国家结论为准' };
+    if (batch.receiptResult === 'partial') return { tone: 'warn', text: '部分受理', tip: '国家回执为部分受理，人口分母完整性未整体确认' + (batch.receiptRemark ? '\n' + batch.receiptRemark : '') };
+    return { tone: 'na', text: '非分母问题', tip: '该批次因「' + (batch.receiptRemark || '其他原因') + '」被退回，不是人口分母类问题，不代判' };
+  }
+
+  // ── 批次唯一性：同登记处同年度是否重复出包 ────────────────────────
+  // 已取消 / 已退回 视为已处置，不计重复。为【站内口径，待省质控中心确认】。
+  // 实证：2025 年 361100「重复批次，人工取消」；重复出包会让国家平台重复建档。
+  function ledgerSiblings(code, year) {
+    var l = _ledger;
+    if (l && l.length) {
+      return l.filter(function (x) {
+        return x.registry === code && String(x.year) === String(year) && x.state !== '已取消' && x.state !== '已退回';
+      }).map(function (x) { return { id: x.id, state: x.state }; });
+    }
+    return (LEDGER[String(year)] || []).filter(function (s) {
+      return s[0] === code && s[2] !== '已取消' && s[2] !== '已退回';
+    }).map(function (s, i) { return { id: 'NCCR-JX-' + year + '-' + pad2(i + 1), state: s[2] }; });
+  }
+  function judgeUnique(batch) {
+    if (!batch) return { tone: 'na', text: '—', tip: '尚未生成上报批次' };
+    if (batch.state === '已取消' || batch.state === '已退回') {
+      return { tone: 'na', text: batch.state, tip: '批次为「' + batch.state + '」，不参与批次唯一性判定' };
+    }
+    var sibs = ledgerSiblings(batch.registry, batch.year);
+    if (sibs.length <= 1) {
+      return {
+        tone: 'ok', text: '唯一',
+        tip: '同登记处同年度仅 1 个有效批次（已取消 / 已退回 不计）\n【站内口径：同登记处同年度应只保留 1 个有效批次，待省质控中心确认】'
+      };
+    }
+    return {
+      tone: 'bad', text: sibs.length + ' 个有效批次',
+      tip: '同登记处同年度存在 ' + sibs.length + ' 个有效批次：' +
+        sibs.map(function (x) { return x.id + '（' + x.state + '）'; }).join('、') +
+        '\n【站内口径：同登记处同年度应只保留 1 个有效批次，待省质控中心确认】'
+    };
+  }
+
   function evaluate(reg, batch) {
     var d = {
-      cover: judgeCover(reg, batch), timely: judgeTimely(reg, batch), quality: judgeQuality(reg),
-      format: judgeFormat(batch), accept: judgeAccept(batch)
+      timely: judgeTimely(reg, batch),
+      pkg: judgePackage(batch),
+      dict: judgeDict(batch),
+      pop: judgePop(batch),
+      uniq: judgeUnique(batch),
+      receipt: judgeAccept(batch)
     };
-    // 未投递 / 未出包 / 待回执只是流程进行中，不算违规；只有触红线才拉低综合结论
-    var flow = [d.timely, d.format, d.accept].map(function (x) { return x.tone === 'bad' ? 'bad' : 'ok'; });
-    d.overall = worst([d.cover.tone, d.quality.tone].concat(flow));
+    // na（未接入 / 不适用）不参与；warn 记「有风险」，bad 记「不合规」。
+    // 本页不再有「流程进行中不算违规」的特例：六维全部锚在批次上，任一维触红即不合规。
+    d.overall = worst([d.timely.tone, d.pkg.tone, d.dict.tone, d.pop.tone, d.uniq.tone, d.receipt.tone]);
     return d;
   }
   function overallBadge(tone) {
@@ -251,6 +432,18 @@
   /* ===================== 7. 批次台账 ===================== */
   // 【原型演示数据】年度批次：登记处码 / 内容 / 状态 / 投递时间 / 回执号 / 受理结果 / 回执说明
   var LEDGER = {
+    2025: [
+      ['360100', 'ABCD', '已完成', '2026-09-10 10:20', 'NCCR-R-20260917-041', 'accepted', '国家平台受理通过'],
+      ['360400', 'ABCD', '已完成', '2026-09-15 14:30', 'NCCR-R-20260922-044', 'accepted', '国家平台受理通过'],
+      ['360200', 'ABCD', '已完成', '2026-09-22 09:15', 'NCCR-R-20260929-047', 'partial', 'D 包质量报告口径与国家模板不一致，其余受理'],
+      ['360600', 'ABCD', '已完成', '2026-09-26 11:05', 'NCCR-R-20261003-050', 'accepted', '国家平台受理通过'],
+      ['360700', 'ABCD', '已退回', '2026-09-28 16:05', 'NCCR-R-20261006-052', 'rejected', 'A 包 26 条个案 ICD-10 编码不在国家版本字典内，退回补正'],
+      ['361100', 'ABCD', '已取消', '', '', '', '重复批次，人工取消', '2025-09-20 15:20'],
+      ['360300', 'ABCD', '已上报', '2026-10-09 10:50', '', '', ''],
+      ['360800', 'ABCD', '待上报', '', '', '', ''],
+      // 重复出包实证：该登记处 2025 年度已有 NCCR-JX-2025-02 受理通过，本批次仍被建立并投递
+      ['360400', 'ABCD', '已上报', '2026-10-10 09:30', '', '', '重复出包：该登记处 2025 年度已有批次 NCCR-JX-2025-02 受理通过']
+    ],
     2024: [
       ['360100', 'ABCD', '已完成', '2026-03-12 10:30', 'NCCR-R-20260318-001', 'accepted', '国家平台受理通过'],
       ['360400', 'ABCD', '已完成', '2026-03-18 14:05', 'NCCR-R-20260324-006', 'accepted', '国家平台受理通过'],
@@ -276,9 +469,11 @@
       ['361000', 'ABCD', '待上报', '', '', '', '']
     ]
   };
-  // 判定逻辑自然算不出来的历史留痕：C 包人口分母缺口
+  // 判定逻辑自然算不出来的历史留痕：C 包人口分母缺口。
+  // 键必须是真实承载该问题的批次 —— 2024 年 360900（宜春）第 7 条那笔「C 包人口分母缺 2 个年龄组，退回补正」。
+  // 原先写成 NCCR-JX-2024-09（萍乡 360300 的待上报批次），把缺口挂到了没有该问题的批次上。
   var LEDGER_PATCH = {
-    'NCCR-JX-2024-09': { popGap: '人口分母缺「女性 85 岁及以上」「男性 0 岁」2 个年龄组' }
+    'NCCR-JX-2024-07': { popGap: '人口分母缺「女性 85 岁及以上」「男性 0 岁」2 个年龄组' }
   };
 
   function hashStub(text) {
@@ -300,7 +495,8 @@
       createdBy: '省级上报岗', exportedAt: exportedAt,
       receiptNo: receiptNo, receiptResult: spec[5] || '', receiptRemark: spec[6] || '',
       receiptAt: receiptNo ? shiftDays(exportedAt, 6) : '',
-      remoteRef: '', riskAck: null, popGap: '', revisionOf: '', remark: ''
+      remoteRef: '', riskAck: null, popGap: '', revisionOf: '', remark: '',
+      voidAt: spec[7] || ''
     };
     if (exportedAt) {
       var ts = exportedAt.replace(/[-: ]/g, '').slice(0, 14);
@@ -327,6 +523,8 @@
       Object.keys(LEDGER).forEach(function (y) {
         LEDGER[y].forEach(function (s, i) { _ledger.push(makeBatch(Number(y), i + 1, s)); });
       });
+      // 二次校验：批次唯一性这类跨批次维度要全量可见才判得准（makeBatch 里是逐条增量构建）
+      _ledger.forEach(function (b) { runCheck(b); });
     }
     return _ledger || [];
   }
@@ -337,6 +535,10 @@
       var l = ledger();
       for (var i = 0; i < l.length; i++) if (l[i].registry === code && String(l[i].year) === String(year)) return l[i];
       return null;
+    },
+    // 同登记处同年度的全部批次（byRegistry 只取第一条，判重复出包不够用）
+    allByRegistry: function (code, year) {
+      return ledger().filter(function (b) { return b.registry === code && String(b.year) === String(year); });
     },
     add: function (b) { ledger().unshift(b); return b; },
     nextSeq: function (year) {
@@ -410,25 +612,21 @@
   }
 
   /* ===================== 9. 合规校验 ===================== */
+  // 逐维度收集问题，供 runCheck 汇总成 compliance（pass / warn / block）。
+  // 与页③ 上报合规性共用同一个 evaluate()，两边结论不会漂移。
   function collectIssues(b) {
     var reg = registryByCode(b.registry);
     if (!reg) return [];
+    var d = evaluate(reg, b);
     var out = [];
-    var t = judgeTimely(reg, b);
-    if (t.tone === 'bad') out.push({ dim: '时效', level: 'bad', text: t.text + '：' + t.tip.replace(/\n/g, '，') });
-    var c = judgeCover(reg);
-    if (c.tone === 'bad') out.push({ dim: '覆盖', level: 'bad', text: '病例上报率 ' + c.text + '，低于达标线 ' + coverMin() + '%' });
-    else if (c.tone === 'warn') out.push({ dim: '覆盖', level: 'warn', text: '病例上报率 ' + c.text + '，未达 ' + coverMin() + '%' });
-    if ((b.packages || []).indexOf('C') >= 0 && b.popGap) out.push({ dim: '覆盖', level: 'bad', text: b.popGap });
-    judgeQuality(reg).items.forEach(function (it) {
-      var q = dictItem(it.rule);
-      if (it.tone === 'bad') out.push({ dim: '质量', level: 'bad', rule: it.rule, text: it.name + ' ' + it.text + '，触红线（' + (q ? q.redline : '') + '）' });
-      else if (it.tone === 'warn') out.push({ dim: '质量', level: 'warn', rule: it.rule, text: it.name + ' ' + it.text + '，未达目标（' + (q ? q.target : '') + '）' });
-      else if (it.tone === 'na') out.push({ dim: '质量', level: 'na', rule: it.rule, text: it.name + '本站暂无同源数据，不参与判定' });
+    [
+      ['时效', d.timely], ['包完整性', d.pkg], ['字典合规', d.dict],
+      ['分母完整性', d.pop], ['批次唯一性', d.uniq], ['回执闭环', d.receipt]
+    ].forEach(function (p) {
+      var t = p[1];
+      if (t.tone !== 'bad' && t.tone !== 'warn') return;
+      out.push({ dim: p[0], level: t.tone, text: t.text + '：' + t.tip.replace(/\n/g, '，') });
     });
-    if (b.templateVersion !== nccrConfig.nationalVersion) {
-      out.push({ dim: '格式模板', level: 'bad', text: '批次模板 ' + b.templateVersion + ' 与国家现行 ' + nccrConfig.nationalVersion + ' 不一致' });
-    }
     return out;
   }
   function runCheck(b) {
@@ -501,7 +699,10 @@
 
   function renderOpenPanel() {
     var list = openBatches();
-    var dl24 = fmtDate(deadline(2024));
+    // 报送截止跟着统计年走（统计年 + 2 年 6 月底），不再写死某一年
+    var dlYears = {};
+    list.forEach(function (b) { dlYears[b.year] = fmtDate(deadline(b.year)); });
+    var dlText = Object.keys(dlYears).sort().map(function (y) { return y + ' 年度 ' + dlYears[y]; }).join('　｜　');
     var rows = list.map(function (b) {
       var act = primaryAction(b);
       var ops = '<div class="nccr-row-ops"><button class="btn btn-ghost btn-xs" onclick="nccrOpenDetail(\'' + b.id + '\')">详情</button>' +
@@ -512,16 +713,17 @@
         '<td class="txt">' + e(b.registryName) + '<span style="color:#98a2b3"> · ' + b.year + '</span></td>' +
         '<td class="txt">' + e(packageLabel(b.packages)) + '</td>' +
         '<td class="num">' + fmtInt(b.caseCount) + '</td>' +
+        '<td class="code" title="' + e(deadlineBasis()) + '">' + fmtDate(deadline(b.year)) + '</td>' +
         '<td class="num">' + complianceBadge(b.compliance) + '</td>' +
         '<td class="code">' + stateBadge(b.state) + '</td>' +
         '<td class="txt">' + e(nextStep(b)) + '</td>' +
         '<td class="sticky-col">' + ops + '</td></tr>';
-    }).join('') || '<tr><td colspan="8">' + emptyState('没有进行中的上报任务，可在下方新建。') + '</td></tr>';
+    }).join('') || '<tr><td colspan="9">' + emptyState('没有进行中的上报任务，可在下方新建。') + '</td></tr>';
 
     return '<div class="panel"><div class="panel-header">进行中的上报</div><div class="panel-body">' +
-      '<div class="nccr-count">共 ' + list.length + ' 个批次待处理　｜　2024 年度报送截止 ' + dl24 + '</div>' +
-      '<div class="table-wrap"><table class="data-table" style="min-width:960px"><thead><tr>' +
-      '<th class="txt">批次号</th><th class="txt">登记处</th><th class="txt">上报内容</th><th class="num">应报例数</th><th class="num">合规判定</th><th class="code">状态</th><th class="txt">下一步</th><th class="sticky-col">操作</th>' +
+      '<div class="nccr-count">共 ' + list.length + ' 个批次待处理' + (dlText ? '　｜　报送截止 ' + dlText : '') + '</div>' +
+      '<div class="table-wrap"><table class="data-table" style="min-width:1080px"><thead><tr>' +
+      '<th class="txt">批次号</th><th class="txt">登记处</th><th class="txt">上报内容</th><th class="num">应报例数</th><th class="code">报送截止</th><th class="num">合规判定</th><th class="code">状态</th><th class="txt">下一步</th><th class="sticky-col">操作</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
       '</div></div>';
   }
@@ -596,7 +798,12 @@
       '<option value="http"' + (form.transport === 'http' ? ' selected' : '') + (nccrConfig.httpEnabled ? '' : ' disabled') + '>系统在线推送到国家平台</option>' +
       '<option value="sftp"' + (form.transport === 'sftp' ? ' selected' : '') + '>上传到指定文件服务器</option>' +
       '</select></div>' +
-      '<div class="form-group"><label>模板版本</label><input value="' + e(nccrConfig.nationalVersion) + '" disabled></div>' +
+      '<div class="form-group"><label>模板版本</label><input value="' + e(nccrConfig.nationalVersion) + '" disabled>' +
+      '<div class="nccr-hint">国家癌症中心现行上报包版本，决定 A/B/C/D 四包的列名、字段顺序与代码字典口径；新批次一律按此版本出包，国家升版后旧批次会被判「模板过期」需重新出包。' +
+      (nccrConfig.templateVersion === nccrConfig.nationalVersion
+        ? '本平台默认版本与之相同。'
+        : '本平台默认版本 ' + e(nccrConfig.templateVersion) + ' 与国家现行不一致，请到「系统配置 › 平台上报」同步。') +
+      '</div></div>' +
       '<div class="form-group nccr-span-2"><label>备注</label><textarea id="nccrRemark" rows="2" placeholder="可选">' + e(form.remark || '') + '</textarea></div>' +
       '</div></div>' +
       '<div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">' +
@@ -607,6 +814,7 @@
 
   function renderNewPage() {
     return toolbar('<button class="btn btn-outline btn-sm" onclick="nccrDownloadTemplate()">下载空白模板</button>') +
+      renderOpenPanel() +
       renderFormPanel();
   }
 
@@ -673,33 +881,49 @@
   }
 
   /* ===================== 13. 页③ 上报合规性 ===================== */
+  // 一行 = 一个批次（同登记处同年度重复出包时会出现多行，这正是「批次唯一性」要暴露的）；
+  // 该登记处该年度一条批次都没有的，补一行「未生成批次」。
   function complianceRows(year) {
-    var regs = registryList();
-    return regs.map(function (r) {
-      var b = nccrData.byRegistry(r.code, year);
-      return { reg: r, batch: b, dims: evaluate(r, b) };
+    var rows = [];
+    registryList().forEach(function (r) {
+      var bs = nccrData.allByRegistry(r.code, year);
+      if (!bs.length) { rows.push({ reg: r, batch: null, dims: evaluate(r, null) }); return; }
+      bs.forEach(function (b) { rows.push({ reg: r, batch: b, dims: evaluate(r, b) }); });
     });
+    return rows;
   }
+  // 本页判定的六维
+  var DIM_COLS = [
+    ['时效', 'timely'], ['包完整性', 'pkg'], ['字典合规', 'dict'],
+    ['分母完整性', 'pop'], ['批次唯一性', 'uniq'], ['回执闭环', 'receipt']
+  ];
   function renderCompliance() {
     var year = nccrState.year;
     var rows = complianceRows(year);
     if (!rows.length) {
       return '<div class="panel"><div class="panel-header">上报合规性</div><div class="panel-body">' + emptyState('登记处主数据未加载。') + '</div></div>';
     }
-    var total = rows.length;
-    var sent = rows.filter(function (x) { return x.batch && x.batch.exportedAt; }).length;
-    var onTime = rows.filter(function (x) { return x.batch && x.batch.exportedAt && x.dims.timely.tone === 'ok'; }).length;
-    var qOk = rows.filter(function (x) { return x.dims.quality.tone === 'ok'; }).length;
-    var receipted = rows.filter(function (x) { return x.batch && x.batch.receiptNo; });
-    var accepted = receipted.filter(function (x) { return x.batch.receiptResult === 'accepted'; }).length;
+    var total = registryList().length;
+    var withBatch = rows.filter(function (x) { return x.batch; });
+    var sentRows = withBatch.filter(function (x) { return x.batch.exportedAt; });
+    // 分母只算「真的判得出来」的那部分（na = 不适用/待接入/流程未到），
+    // 否则已取消 / 已退回的批次会把比率永久压低，看着像有问题。
+    var canOf = function (k) { return withBatch.filter(function (x) { return x.dims[k].tone !== 'na'; }); };
+    var canUniq = canOf('uniq'), canPkg = canOf('pkg'), canReceipt = canOf('receipt');
+    var onTime = sentRows.filter(function (x) { return x.dims.timely.tone === 'ok'; }).length;
+    var pkgOk = canPkg.filter(function (x) { return x.dims.pkg.tone === 'ok'; }).length;
+    var uniqOk = canUniq.filter(function (x) { return x.dims.uniq.tone === 'ok'; }).length;
+    var receiptJudged = canReceipt.filter(function (x) { return x.batch.exportedAt; });
+    var closed = receiptJudged.filter(function (x) { return x.dims.receipt.tone === 'ok'; }).length;
     var overallBad = rows.filter(function (x) { return x.dims.overall === 'bad'; }).length;
 
     var kpis = '<div class="nccr-kpi-row">' +
-      kpi('登记处已报送', sent + '/' + total, sent === total ? 'ok' : sent ? 'warn' : 'bad', year + ' 年度已生成并投递批次的登记处数') +
-      kpi('按时报送', onTime + '/' + (sent || 0), onTime === sent ? 'ok' : 'warn', '投递日早于报送截止（诊断年后 ' + nccrConfig.timelinessMonths + ' 个月）') +
-      kpi('质量合规', qOk + '/' + total, qOk === total ? 'ok' : qOk ? 'warn' : 'bad', '按字典群体质量指标判定，MV%／DCO%／M-I／诊断依据不明四项全部达标') +
-      kpi('国家受理', accepted + '/' + (receipted.length || 0), accepted === receipted.length ? 'ok' : 'warn', '已登记回执中结果为「全部受理」的批次数') +
-      kpi('不合规登记处', String(overallBad), overallBad ? 'bad' : 'ok', '五维中任一维触红线的登记处数') +
+      kpi('已生成批次', withBatch.length + '/' + total, withBatch.length === total ? 'ok' : withBatch.length ? 'warn' : 'bad', year + ' 年度已生成上报批次的登记处数（共 ' + total + ' 个设区市登记处）') +
+      kpi('按期报送', onTime + '/' + sentRows.length, onTime === sentRows.length ? 'ok' : 'warn', '已投递批次中投递日不晚于报送截止的批次数（统计年 + ' + nccrConfig.timelyLagYears + ' 年 ' + nccrConfig.timelyMonth + ' 月底；以国家当年通知为准【待确认】）') +
+      kpi('四包齐全', pkgOk + '/' + canPkg.length, pkgOk === canPkg.length ? 'ok' : 'bad', 'A 报告卡个案／B 随访死亡／C 人口数据／D 质量报告 四包齐套【站内口径，待省质控中心确认】') +
+      kpi('无重复出包', uniqOk + '/' + canUniq.length, uniqOk === canUniq.length ? 'ok' : 'bad', '同登记处同年度只保留 1 个有效批次；已取消 / 已退回 视为已处置，不参与【站内口径】') +
+      kpi('回执已闭环', closed + '/' + receiptJudged.length, closed === receiptJudged.length ? 'ok' : 'warn', '已投递批次中取得国家回执且结果为「全部受理」的批次数') +
+      kpi('不合规批次', String(overallBad), overallBad ? 'bad' : 'ok', '六维中任一维触红线的批次数（含未生成批次的登记处）') +
       '</div>';
 
     var tableRows = rows.map(function (x) {
@@ -709,12 +933,7 @@
         '<button class="btn btn-primary btn-xs" onclick="nccrGoNew(\'' + r.code + '\',' + year + ')">去上报</button></div>';
       return '<tr>' +
         '<td class="txt">' + e(r.name) + '</td>' +
-        '<td class="num" title="应报 ' + fmtInt(r.cases) + ' 例，实报 ' + fmtInt(r.sent) + ' 例">' + fmtInt(r.sent) + ' / ' + fmtInt(r.cases) + '</td>' +
-        '<td class="num">' + light(d.cover) + '</td>' +
-        '<td class="num">' + light(d.timely) + '</td>' +
-        '<td class="num">' + light(d.quality) + '</td>' +
-        '<td class="num">' + light(d.format) + '</td>' +
-        '<td class="num">' + light(d.accept) + '</td>' +
+        DIM_COLS.map(function (c) { return '<td class="num">' + light(d[c[1]]) + '</td>'; }).join('') +
         '<td class="code">' + overallBadge(d.overall) + '</td>' +
         '<td class="code">' + (b ? stateBadge(b.state) : '<span class="badge badge-muted">未生成批次</span>') + '</td>' +
         '<td class="sticky-col">' + ops + '</td></tr>';
@@ -725,33 +944,46 @@
       '<div class="form-group"><label>统计年</label><select onchange="nccrState.year=this.value;nccrRefresh()">' + yearOptions(year, false) + '</select></div>' +
       '<div class="filter-actions"><button class="btn btn-outline btn-sm" onclick="nccrExportCompliance()">导出合规清单</button></div>' +
       '</div>' +
+      '<div class="nccr-hint" style="margin-bottom:10px">本页判定的是<b>上报动作本身</b>（是否按期、四包是否齐套、个案编码是否在登记范围内、人口分母是否齐、是否重复出包、回执是否闭环），不是登记处的登记质量。</div>' +
       kpis +
-      '<div class="table-wrap"><table class="data-table" style="min-width:1120px"><thead><tr>' +
-      '<th class="txt">肿瘤登记处</th><th class="num">实报 / 应报例数</th><th class="num">覆盖</th><th class="num">时效</th><th class="num">质量</th><th class="num">格式模板</th><th class="num">国家受理</th><th class="code">综合结论</th><th class="code">批次状态</th><th class="sticky-col">操作</th>' +
+      '<div class="table-wrap"><table class="data-table" style="min-width:1180px"><thead><tr>' +
+      '<th class="txt">肿瘤登记处</th>' + DIM_COLS.map(function (c) { return '<th class="num">' + c[0] + '</th>'; }).join('') +
+      '<th class="code">综合结论</th><th class="code">批次状态</th><th class="sticky-col">操作</th>' +
       '</tr></thead><tbody>' + tableRows + '</tbody></table></div>' +
+      renderOutOfScope() +
       renderIssuePanel(rows, year) +
+      '</div></div>';
+  }
+
+  // 登记侧质量（病例上报率、群体质量指标）不在本页判定，只给计数 + 跳转，避免与数据看板／质控管理重复判定
+  function renderOutOfScope() {
+    var regs = registryList();
+    var below = regs.filter(function (r) { return judgeCover(r).tone === 'warn' || judgeCover(r).tone === 'bad'; }).length;
+    var qBad = regs.filter(function (r) { var t = judgeQuality(r).tone; return t === 'warn' || t === 'bad'; }).length;
+    return '<div class="nccr-section" style="margin-top:18px">' +
+      '<div class="nccr-section-title">不在本页判定的两项</div>' +
+      '<div class="nccr-hint">「病例上报率」与「MV%／DCO%／M-I／诊断依据不明」反映登记处的登记质量，不随上报动作合格与否变化，已由数据看板与质控管理判定：</div>' +
+      '<div class="nccr-meta" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:8px">' +
+      '<div><span class="k">病例上报率未达标</span> <span class="v">' + below + ' / ' + regs.length + ' 个登记处（达标线 ' + coverMin() + '%）</span></div>' +
+      '<div><span class="k">群体质量指标未全达标</span> <span class="v">' + qBad + ' / ' + regs.length + ' 个登记处</span></div>' +
+      '</div>' +
+      '<div style="margin-top:10px;display:flex;gap:8px">' +
+      '<button class="btn btn-outline btn-sm" onclick="navigateTo(\'cockpit\')">到数据看板看登记质量</button>' +
+      '<button class="btn btn-ghost btn-sm" onclick="navigateTo(\'quality-control\')">到质控管理看逐条规则</button>' +
       '</div></div>';
   }
 
   function issueRows(rows) {
     var out = [];
     rows.forEach(function (x) {
-      var reg = x.reg, b = x.batch;
-      if (!b) {
-        out.push({ reg: reg.name, dim: '时效', level: x.dims.timely.tone, text: x.dims.timely.tip.replace(/\n/g, '，'), state: '未生成批次' });
-        x.dims.quality.items.forEach(function (it) {
-          if (it.tone !== 'bad' && it.tone !== 'warn') return;
-          var q = dictItem(it.rule);
-          out.push({
-            reg: reg.name, dim: '质量', level: it.tone, state: '未生成批次',
-            text: it.name + ' ' + it.text + '，' + (it.tone === 'bad' ? '触红线（' + q.redline + '）' : '未达目标（' + q.target + '）')
-          });
+      var reg = x.reg, b = x.batch, d = x.dims;
+      DIM_COLS.forEach(function (c) {
+        var t = d[c[1]];
+        if (t.tone !== 'bad' && t.tone !== 'warn') return;
+        out.push({
+          reg: reg.name, dim: c[0], level: t.tone, batchId: b ? b.id : '',
+          text: t.text + '：' + t.tip.replace(/\n/g, '，'), state: b ? b.state : '未生成批次'
         });
-        return;
-      }
-      collectIssues(b).forEach(function (i) {
-        if (i.level === 'na') return;
-        out.push({ reg: reg.name, dim: i.dim, level: i.level, text: i.text, state: b.state });
       });
     });
     var rank = { bad: 0, warn: 1, na: 2, ok: 3 };
@@ -759,18 +991,18 @@
   }
   function renderIssuePanel(rows, year) {
     var list = issueRows(rows);
-    if (!list.length) return '<div style="margin-top:18px"><div class="nccr-section-title">' + year + ' 年度不合规问题</div><div class="nccr-hint">全部登记处五维合规，无需整改。</div></div>';
+    if (!list.length) return '<div style="margin-top:18px"><div class="nccr-section-title">' + year + ' 年度不合规问题</div><div class="nccr-hint">全部登记处六维合规，无需整改。</div></div>';
     var trs = list.map(function (i) {
       var tone = i.level === 'bad' ? 'badge-danger' : 'badge-warning';
-      return '<tr><td class="txt">' + e(i.reg) + '</td><td class="code">' + e(i.dim) + '</td>' +
+      return '<tr><td class="txt">' + e(i.reg) + '</td><td class="txt">' + e(i.batchId || '—') + '</td><td class="code">' + e(i.dim) + '</td>' +
         '<td class="code"><span class="badge ' + tone + '">' + (i.level === 'bad' ? '红线' : '风险') + '</span></td>' +
         '<td class="txt">' + e(i.text) + '</td>' +
         '<td class="txt">' + (i.level === 'bad' ? '阻断国家受理' : '报送前需整改') + '</td>' +
         '<td class="code">' + e(i.state) + '</td></tr>';
     }).join('');
     return '<details class="nccr-fold" open style="margin-top:18px"><summary>' + year + ' 年度不合规问题（' + list.length + ' 条）</summary><div class="bd">' +
-      '<div class="table-wrap"><table class="data-table" style="min-width:900px"><thead><tr>' +
-      '<th class="txt">登记处</th><th class="code">合规维度</th><th class="code">级别</th><th class="txt">问题</th><th class="txt">影响</th><th class="code">批次状态</th>' +
+      '<div class="table-wrap"><table class="data-table" style="min-width:1040px"><thead><tr>' +
+      '<th class="txt">登记处</th><th class="txt">批次号</th><th class="code">合规维度</th><th class="code">级别</th><th class="txt">问题</th><th class="txt">影响</th><th class="code">批次状态</th>' +
       '</tr></thead><tbody>' + trs + '</tbody></table></div></div></details>';
   }
 
@@ -811,11 +1043,12 @@
       '<div><span class="k">报送截止</span> <span class="v">' + fmtDate(deadline(b.year)) + '</span></div>' +
       '</div>';
 
-    var dimTable = dims ? '<div class="table-wrap"><table class="data-table" style="min-width:720px"><thead><tr>' +
+    var dimTable = dims ? '<div class="table-wrap"><table class="data-table nccr-dim-table" style="min-width:1100px"><thead><tr>' +
       '<th class="txt">合规维度</th><th class="num">判定</th><th class="txt">结果</th><th class="txt">依据</th></tr></thead><tbody>' +
-      [['覆盖', dims.cover], ['时效', dims.timely], ['质量', dims.quality], ['格式模板', dims.format], ['国家受理', dims.accept]].map(function (p) {
-        return '<tr><td class="txt">' + p[0] + '</td><td class="num">' + light(p[1]) + '</td><td class="txt">' + e(p[1].text) + '</td>' +
-          '<td class="txt nccr-hint">' + e(p[1].tip).replace(/\n/g, '；') + '</td></tr>';
+      DIM_COLS.map(function (c) {
+        var x = dims[c[1]];
+        return '<tr><td class="txt">' + c[0] + '</td><td class="num">' + light(x) + '</td><td class="txt">' + e(x.text) + '</td>' +
+          '<td class="txt nccr-hint">' + e(x.tip).replace(/\n/g, '；') + '</td></tr>';
       }).join('') + '</tbody></table></div>' : '';
 
     var issueList = (b.issues || []).length
@@ -1127,16 +1360,16 @@
 
   window.nccrExportCompliance = function () {
     var rows = complianceRows(nccrState.year);
-    var head = ['统计年', '肿瘤登记处', '应报例数', '实报例数', '病例上报率%', '覆盖', '时效', '质量', '格式模板', '国家受理', '综合结论', '批次号', '批次状态'];
+    var head = ['统计年', '肿瘤登记处', '批次号', '时效', '包完整性', '字典合规', '分母完整性', '批次唯一性', '回执闭环', '综合结论', '批次状态'];
     var label = { ok: '合规', warn: '有风险', bad: '不合规', na: '未评估' };
     downloadCsv('上报合规性_' + nccrState.year + '_' + new Date().toISOString().slice(0, 10) + '.csv', head,
       rows.map(function (x) {
         var d = x.dims;
-        return [nccrState.year, x.reg.name, x.reg.cases, x.reg.sent, x.reg.cover.toFixed(1),
-          label[d.cover.tone], label[d.timely.tone], label[d.quality.tone], label[d.format.tone], label[d.accept.tone],
-          label[d.overall], x.batch ? x.batch.id : '', x.batch ? x.batch.state : '未生成批次'];
+        return [nccrState.year, x.reg.name, x.batch ? x.batch.id : ''] .concat(
+          DIM_COLS.map(function (c) { return label[d[c[1]].tone]; })
+        ).concat([label[d.overall], x.batch ? x.batch.state : '未生成批次']);
       }));
-    toast('已导出 ' + rows.length + ' 个登记处的合规清单');
+    toast('已导出 ' + rows.length + ' 个批次的合规清单');
   };
 
   /* ===================== 17. 系统配置 · 平台上报 ===================== */
@@ -1145,7 +1378,9 @@
     return '<div class="nccr-grid-2" style="max-width:900px">' +
       '<div class="form-group"><label>国家现行模板版本</label><input id="nccrCfgNational" value="' + e(c.nationalVersion) + '"></div>' +
       '<div class="form-group"><label>本平台默认模板版本</label><input id="nccrCfgTpl" value="' + e(c.templateVersion) + '"></div>' +
-      '<div class="form-group"><label>报送时限（诊断年后月数）</label><input id="nccrCfgMonths" type="number" value="' + c.timelinessMonths + '"></div>' +
+      '<div class="form-group"><label>报送截止（统计年后第几年）</label><input id="nccrCfgLag" type="number" min="0" max="5" value="' + c.timelyLagYears + '"></div>' +
+      '<div class="form-group"><label>报送截止月份</label><input id="nccrCfgMonth" type="number" min="1" max="12" value="' + c.timelyMonth + '"></div>' +
+      '<div class="form-group"><label>回执观察窗（天）</label><input id="nccrCfgReceipt" type="number" min="1" max="120" value="' + c.receiptDays + '"></div>' +
       '<div class="form-group"><label>默认报送方式</label><select id="nccrCfgTransport">' +
       '<option value="file"' + (c.defaultTransport === 'file' ? ' selected' : '') + '>下载文件</option>' +
       '<option value="http"' + (c.defaultTransport === 'http' ? ' selected' : '') + '>在线推送</option>' +
@@ -1153,6 +1388,7 @@
       '<div class="form-group"><label>启用在线推送</label><select id="nccrCfgHttp"><option value="1"' + (c.httpEnabled ? ' selected' : '') + '>是</option><option value="0"' + (!c.httpEnabled ? ' selected' : '') + '>否</option></select></div>' +
       '<div class="form-group"><label>国家平台接口地址</label><input id="nccrCfgUrl" value="' + e(c.httpBaseUrl) + '"></div>' +
       '</div>' +
+      '<div class="nccr-hint" style="margin-top:10px">报送截止按「统计年 + N 年 M 月底」计算（官方口径以国家癌症中心当年通知为准；处见年报流程设计）。回执观察窗仅用于提示已投递未回执的时长，<b>不作红线</b>。</div>' +
       '<div style="margin-top:16px;display:flex;gap:8px">' +
       '<button class="btn btn-primary btn-sm" onclick="nccrSaveConfig()">保存</button>' +
       '<button class="btn btn-outline btn-sm" onclick="nccrDownloadTemplate()">下载空白模板</button>' +
@@ -1162,7 +1398,9 @@
   window.nccrSaveConfig = function () {
     nccrConfig.nationalVersion = document.getElementById('nccrCfgNational').value.trim() || nccrConfig.nationalVersion;
     nccrConfig.templateVersion = document.getElementById('nccrCfgTpl').value.trim() || nccrConfig.nationalVersion;
-    nccrConfig.timelinessMonths = Number(document.getElementById('nccrCfgMonths').value) || 30;
+    nccrConfig.timelyLagYears = Number(document.getElementById('nccrCfgLag').value) || 0;
+    nccrConfig.timelyMonth = Number(document.getElementById('nccrCfgMonth').value) || 6;
+    nccrConfig.receiptDays = Number(document.getElementById('nccrCfgReceipt').value) || 15;
     nccrConfig.defaultTransport = document.getElementById('nccrCfgTransport').value;
     nccrConfig.httpEnabled = document.getElementById('nccrCfgHttp').value === '1';
     nccrConfig.httpBaseUrl = document.getElementById('nccrCfgUrl').value.trim();
