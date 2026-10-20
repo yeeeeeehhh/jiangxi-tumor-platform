@@ -73,8 +73,23 @@
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;overflow:hidden}
 button,input,select,textarea{font-family:inherit}
 .app{display:flex;height:100vh;overflow:hidden}
-.topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar);background:var(--primary);color:#fff;display:flex;align-items:center;padding:0 20px;z-index:20;box-shadow:0 1px 4px rgba(0,0,0,.16)}
+/* z-index 55：需高于 toast 容器（50），否则顶栏内的身份切换面板会被 toast 盖住；
+   仍低于真实弹窗遮罩（200）与看板大屏（1500）。toast 定位在 top:70px，不与 56px 顶栏重叠。 */
+.topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar);background:var(--primary);color:#fff;display:flex;align-items:center;padding:0 20px;z-index:55;box-shadow:0 1px 4px rgba(0,0,0,.16)}
 .topbar-brand{font-size:17px;font-weight:600;margin-right:auto}.topbar-brand span{font-size:12px;font-weight:400;opacity:.75;margin-left:8px}.topbar-actions{display:flex;gap:16px;align-items:center;font-size:13px}.btn-logout{height:30px;padding:0 12px;border:0;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;cursor:pointer}
+/* 顶栏身份切换（演示用：原型无登录态，正式环境应由账号带入并删除本控件） */
+.role-switch{position:relative;display:inline-flex}
+.btn-role{height:30px;display:inline-flex;align-items:center;gap:6px;padding:0 10px;border:1px solid rgba(255,255,255,.32);border-radius:4px;background:rgba(255,255,255,.12);color:#fff;font-size:13px;cursor:pointer}
+.btn-role:hover{background:rgba(255,255,255,.22)}
+.btn-role-caret{font-size:10px;opacity:.8}
+.role-switch-panel{display:none;position:absolute;top:36px;right:0;min-width:220px;padding:6px;border:1px solid var(--border);border-radius:6px;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.18);z-index:60}
+.role-switch.open .role-switch-panel{display:block}
+.role-switch-group{padding:6px 10px 4px;font-size:11.5px;color:#94a3b8;font-weight:600;letter-spacing:.4px}
+.role-switch-item{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:8px 10px;border:0;border-radius:4px;background:none;color:#334155;font-size:13px;text-align:left;cursor:pointer}
+.role-switch-item:hover{background:var(--primary-soft);color:var(--primary-strong)}
+.role-switch-item.is-active{background:var(--primary-soft);color:var(--primary-strong);font-weight:600}
+.role-switch-item em{font-style:normal;font-size:11.5px;color:#94a3b8}
+.role-switch-item.is-active em{color:var(--primary)}
 .sidebar{position:fixed;top:var(--topbar);left:0;bottom:0;width:var(--sidebar);background:#fff;border-right:1px solid var(--border);overflow:auto;z-index:10}.sidebar-menu{list-style:none;padding:8px 0}.menu-item{display:flex;align-items:center;gap:10px;padding:10px 18px;color:var(--color-gray-700);cursor:pointer;user-select:none;transition:background var(--dur-fast) var(--ease-in-out),color var(--dur-fast) var(--ease-in-out)}.menu-item:hover,.menu-item.active{background:var(--primary-soft);color:var(--primary-strong);font-weight:600}.menu-item .icon{width:14px;flex:0 0 14px;display:inline-flex;align-items:center;justify-content:center;font-size:0}.menu-item .icon::before{content:"";width:6px;height:6px;border-radius:2px;background:var(--color-gray-300);transition:background var(--dur-fast) var(--ease-in-out)}.menu-item:hover .icon::before,.menu-item.active .icon::before{background:var(--primary)}.submenu{list-style:none;display:none}.submenu.open{display:block}.submenu .menu-item{padding-left:46px;font-size:13px}.submenu .menu-item .icon{display:none}.arrow{margin-left:auto;border-left:5px solid var(--color-gray-400);border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform var(--dur-fast) var(--ease-in-out)}.menu-item.expanded .arrow{transform:rotate(90deg)}.sidebar-stats{padding:12px 18px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
    /* 菜单分组标题（{type:'section'}）：只作视觉分隔，不可点击——此前会被绑上 navigateTo(undefined) 跳到"页面开发中" */
    .menu-item.menu-section{cursor:default;padding:12px 18px 6px;font-size:11.5px;letter-spacing:.6px;color:var(--color-gray-400);font-weight:600}
@@ -674,7 +689,7 @@ button,input,select,textarea{font-family:inherit}
 <div class="app" id="appShell">
   <header class="topbar">
     <div class="topbar-brand">江西省肿瘤登记直报系统 <span>V4.0</span></div>
-    <div class="topbar-actions"><span id="currentUserName">张三</span><span id="currentTime"></span><button class="btn-logout" onclick="handleLogout()">返回首页</button></div>
+    <div class="topbar-actions"><span id="currentUserName">张三</span><span id="currentTime"></span><span class="role-switch" id="roleSwitch"><button class="btn-role" onclick="wbRoleToggle()"><span id="roleSwitchLabel">登记处 · 县级</span><span class="btn-role-caret">▾</span></button><div class="role-switch-panel" id="roleSwitchPanel"></div></span><button class="btn-logout" onclick="handleLogout()">返回首页</button></div>
   </header>
   <nav class="sidebar"><ul class="sidebar-menu" id="sidebarMenu"></ul><div class="sidebar-stats"><div>在线用户：13</div><div>总用户数：3,909</div><div>机构数：3,610</div></div></nav>
   <main class="main-content" id="mainContent"><div class="breadcrumb" id="breadcrumb"></div><div id="pageContainer"></div></main>
@@ -685,9 +700,9 @@ const menuData=[
   {id:'dashboard',label:'首页',icon:'●'},
   {id:'collection',label:'报告卡管理',icon:'●',children:[/* 报告卡录入入口暂时隐藏（页面保留，只能经「批量登记」collection-batch 及首页快捷入口进入；报告卡列表 / 上报数据管理已移除「+ 添加」「批量添加」按钮） */{id:'collection-batch',label:'批量登记'},{id:'datamgmt-card',label:'报告卡列表'},{id:'datamgmt-card-migrate',label:'报告卡迁移'},{id:'datamgmt-source',label:'上报数据管理'},{id:'collection-death',label:'作废卡管理'},{id:'quality-dup-card',label:'报卡查重'}]},
   {id:'followup',label:'随访结局管理',icon:'●',children:[{id:'followup-tasks',label:'随访任务列表'},{id:'followup',label:'随访信息管理'},{id:'followup-cycle',label:'随访周期管理'},{id:'death-info',label:'死亡信息列表'}]},
-  {id:'analysis',label:'数据统计',icon:'●',children:[
+  {id:'analysis',label:'数据中心',icon:'●',children:[
     /* 「数据看板」原名「预警总览」，原挂「预警监测」下，2026-10-10 按需求迁到「数据统计」并排第一位，
-       2026-10-12 更名（页面 id 仍为 cockpit）。
+       2026-10-12 更名（页面 id 仍为 cockpit）；2026-10-20 一级菜单「数据统计」更名为「数据中心」。
        注意：本清单会被 analysis.js 加载时整体覆盖，两处必须同时改（见 analysis.js 注释）。 */
     {id:'cockpit',label:'数据看板'},
     {id:'analysis-stats',label:'统计分析'},
@@ -764,6 +779,62 @@ function requiredMark(){return '<span class="required">*</span>'}
 /* ===== 首页工作台：以待办为核心的九大板块 =====
    角色：registry / hospital / admin；登记处分 county / city / province 三级 */
 let wbCtx={role:'registry',level:'county',scope:'work'};
+
+/* ---------- 身份切换（演示用） ----------
+   原型没有登录态，默认落地身份固定为「登记处 · 县级」。这里提供顶栏切换，
+   让不同权限的首页在同一份原型里可验证。正式环境应改为登录账号带入，
+   并删除 .role-switch 控件与 wbRole* 系列函数。 */
+const wbRoleDefs=[
+  {key:'registry-province',role:'registry',level:'province',label:'登记处 · 省级',org:'江西省肿瘤登记中心'},
+  {key:'registry-city',role:'registry',level:'city',label:'登记处 · 市级',org:'南昌市登记处'},
+  {key:'registry-county',role:'registry',level:'county',label:'登记处 · 县级',org:'南昌市东湖区登记处'},
+  {key:'hospital',role:'hospital',level:'county',label:'医院用户',org:'南昌大学第一附属医院'},
+  {key:'admin',role:'admin',level:'county',label:'系统管理员',org:'系统治理'}
+];
+let wbRoleKey='registry-county';
+function wbRoleDef(){return wbRoleDefs.find(function(r){return r.key===wbRoleKey;})||wbRoleDefs[2];}
+/* 省级 = 首页落地「数据看板」；其余（市级/县级登记处、医院、管理员）维持现有工作台首页 */
+function wbIsProvince(){const d=wbRoleDef();return d.role==='registry'&&d.level==='province';}
+function wbApplyRole(key){
+  const def=wbRoleDefs.find(function(r){return r.key===key;});
+  if(!def)return;
+  wbRoleKey=def.key;
+  wbCtx.role=def.role;
+  wbCtx.level=def.level;
+  const label=document.getElementById('roleSwitchLabel');
+  if(label)label.textContent=def.label;
+}
+function wbRoleToggle(){
+  const box=document.getElementById('roleSwitch');
+  if(!box)return;
+  if(!box.classList.contains('open'))wbRoleRenderPanel();
+  box.classList.toggle('open');
+}
+function wbRoleRenderPanel(){
+  const panel=document.getElementById('roleSwitchPanel');
+  if(!panel)return;
+  const cur=wbRoleDef();
+  let html='<div class="role-switch-group">切换身份（演示）</div>';
+  html+=wbRoleDefs.map(function(r){
+    const active=r.key===cur.key?' is-active':'';
+    const tag=r.role==='registry'&&r.level==='province'?'数据看板':'工作台';
+    return '<button type="button" class="role-switch-item'+active+'" onclick="wbRolePick(\''+r.key+'\')">'+
+      '<span>'+r.label+'</span><em>'+tag+'</em></button>';
+  }).join('');
+  panel.innerHTML=html;
+}
+function wbRolePick(key){
+  wbApplyRole(key);
+  const box=document.getElementById('roleSwitch');
+  if(box)box.classList.remove('open');
+  navigateTo('dashboard');
+  toast('已切换为'+wbRoleDef().label);
+}
+document.addEventListener('click',function(e){
+  const box=document.getElementById('roleSwitch');
+  if(box&&!box.contains(e.target))box.classList.remove('open');
+});
+wbApplyRole(wbRoleKey);
 
 const wbRegData={
   county:{today:9,month:34,supply:5,confirm:7,returned:6,followup:12,quality:8,done:56,doneRate:'88%'},
@@ -2621,7 +2692,7 @@ setInterval(updateTime,1000);document.addEventListener('DOMContentLoaded',initAp
 <script src="interactions.js"></script>
 <script src="dictionary-management.js"></script>
 <script src="report-data-management.js?v=20260930a"></script>
-<script src="report-card-migrate.js?v=20261016a"></script>
+<script src="report-card-migrate.js?v=20261019r"></script>
 
 <script src="report-card-detail.js?v=20261016b"></script>
 <script src="report-card-detail-tabs.js"></script>
@@ -2979,15 +3050,15 @@ function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":
   <script src="annual-report-stages.js?v=20261010-noprog"></script>
   <script src="annual-report.js?v=20261010-noprog"></script>
   <script src="kb-module.js?v=20261009kc5"></script>
-  <script src="qc-data.js?v=20261003a"></script>
-  <script src="qc-ui.js?v=20261012c"></script>
+  <script src="qc-data.js?v=20261012c"></script>
+  <script src="qc-ui.js?v=20261012g"></script>
   <script src="qc-l1.js?v=20260928qc"></script>
   <script src="qc-l2.js?v=20260928qc"></script>
   <script src="qc-l3.js?v=20260928qc"></script>
   <script src="qc-l4.js?v=20260928qc"></script>
   <script src="qc-l5.js?v=20260928qc"></script>
-  <script src="qc-performance.js?v=20261012h"></script>
-  <script src="qc-issues.js?v=20261003a"></script>
+  <script src="qc-performance.js?v=20261012n"></script>
+  <script src="qc-issues.js?v=20261012a"></script>
   <script src="quality-control.js?v=20261012a"></script>
   <script>
   /* ===== 质控管理：三大入口（六大绩效质控 / 质控规则配置 / 整改问题）=====
@@ -3142,6 +3213,33 @@ function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":
        覆盖率达标线 qc.nccrMin，此前未加载会退回本地推算公式，与附表1 数值不一致。 -->
   <script src="decision-kpi-data.js?v=20260928a"></script>
   <script src="cockpit-module.js?v=20261012a"></script>
+  <!-- 首页大屏（省级落地页）：2026-10-19 从 cockpit-module.js 拆出的独立实现。
+       两套看板各自持有样式、DOM id、全局函数与数据副本，改一处不会带动另一处。
+       顺序必须在 cockpit 之后，否则它拿到的 renderPage 不是最新的包装链。 -->
+  <script src="home-dashboard.js?v=20261012a"></script>
+  <script>
+  /* ===== 首页按权限分流（最后加载，包装在最外层 renderPage） =====
+     - 省级（登记处 · 省）：落地页 = 首页大屏（home-dashboard，独立于数据中心的数据看板）
+     - 其余身份（市级/县级登记处、医院、系统管理员）：保持原工作台首页
+     home-dashboard 的 mount() 直接写 #pageContainer，所以这里转发给
+     renderHomeDashboardPage，而不是返回 HTML 字符串交给 shell 落盘。 */
+  (function () {
+    var orig = window.renderPage;
+    window.renderPage = function (id) {
+      if (id === 'dashboard' && typeof wbIsProvince === 'function' && wbIsProvince()) {
+        var un = document.getElementById('currentUserName');
+        if (un) un.textContent = wbRoleDef().org + '（省级登记处）';
+        if (typeof window.renderHomeDashboardPage === 'function') {
+          window.renderHomeDashboardPage('home-dashboard');
+          var mc = document.getElementById('mainContent');
+          if (mc) mc.scrollTop = 0;
+          return;
+        }
+      }
+      return orig.apply(this, arguments);
+    };
+  })();
+  </script>
   <!-- 「登记运营监测」（registry-ops.js）2026-10-10 按需求整页删除，脚本引用一并移除。
        该页原先依赖 cockpit-module.js 导出的 CKData，删除后 cockpit 数据层仍保留，
        供其它模块（如决策视图）复用。 -->

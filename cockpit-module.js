@@ -1,7 +1,8 @@
 /*
  * cockpit-module.js — 数据看板（江西省肿瘤登记与防控一体化数据大屏）
- * 菜单位置：数据统计 ▸ 数据看板（2026-10-10 从「预警监测」迁入，排第一位；
- *   原名「预警总览」，2026-10-12 按需求更名为「数据看板」，页面 id 仍为 cockpit）。
+ * 菜单位置：数据中心 ▸ 数据看板（2026-10-10 从「预警监测」迁入，排第一位；
+ *   原名「预警总览」，2026-10-12 按需求更名为「数据看板」，页面 id 仍为 cockpit；
+ *   一级菜单原「数据统计」，2026-10-20 更名为「数据中心」）。
  * 数据口径来源：stats-module.js（地市/质控阈值/标准人口）、dictionary-management.js（部位字典）、
  * warning-module.js（A 登记运行 / B 登记质量 / C 疾病信号 三层预警）、
  * national-report.js（国家上报）、followup-module.js（随访）、modules.js（重卡）。
@@ -791,7 +792,7 @@
     var total = agg(CODES, ST.year);
     function cell(val, ok) { return '<td class="ck-num' + (ok === undefined ? '' : ok ? ' good' : ' bad') + '">' + val + '</td>'; }
     /* 2026-10-10 按需求去重：MV% / DCO% / UB% / 重卡率 / 随访率 / 上报率 这 6 个地市级质控列
-       已从本表移除——它们与「数据统计 ▸ 登记运营监测」的「11 地市登记运营质控矩阵」完全同源同值
+       已从本表移除——它们与「数据中心 ▸ 登记运营监测」的「11 地市登记运营质控矩阵」完全同源同值
        （实测 11 市 × 6 指标共 66 个单元格逐一比对，0 不一致），且那边带黄区临界判定，信息量更多。
        登记质控指标的唯一地市级入口 = 登记运营监测；本表只留发病/死亡登记口径的列。
        注意：地市详情弹窗（cityModalHtml）**保留**质控数据，那是单市纵向查看，不是地市横向对比表。 */
@@ -1033,7 +1034,7 @@
   }
   function ckExport() {
     /* 列与 tablePanel 严格对齐（2026-10-10 去重后为 6 列）；质控 6 指标请到
-       「数据统计 ▸ 登记运营监测」导出，或在那边看质控矩阵。 */
+       「数据中心 ▸ 登记运营监测」导出，或在那边看质控矩阵。 */
     var r = cur(), arr = CODES.map(function (c) {
       var x = build(c, ST.year), v = view(x);
       return [x.full, v.cnt, f1(v.rate), f1(v.asr), f2(x.mi), x.warnPending].join('\t');

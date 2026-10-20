@@ -88,41 +88,47 @@
 
   /* ==================== 1. 区域 / 机构 / 癌种 主数据 ==================== */
 
-  /* 江西省 11 个设区市 + 每市抽样区县（与全站区域口径一致） */
+  /* 江西省 11 个设区市 + 区县。
+     2026-10-12 区县列表改为与 app.html 的 regionData（省→市→区县→街道→社区 五级树）
+     完全一致 —— 原来两套口径有 8 个市对不上（如南昌 regionData 有「南昌县/进贤县/
+     安义县/红谷滩区」，本文件没有），会导致级联筛选选出的区县与机构无法对应。
+     机构 ORGS[].county 均已校验落在下面的列表内。 */
   var CITIES = [
-    { code: '360100', name: '南昌市', counties: ['东湖区', '西湖区', '青云谱区', '青山湖区', '新建区'] },
-    { code: '360200', name: '景德镇市', counties: ['珠山区', '昌江区', '浮梁县'] },
-    { code: '360300', name: '萍乡市', counties: ['安源区', '湘东区', '芦溪县'] },
-    { code: '360400', name: '九江市', counties: ['浔阳区', '濂溪区', '修水县', '都昌县'] },
+    { code: '360100', name: '南昌市', counties: ['东湖区', '西湖区', '青云谱区', '青山湖区', '红谷滩区', '新建区', '南昌县', '进贤县', '安义县'] },
+    { code: '360200', name: '景德镇市', counties: ['珠山区', '昌江区', '乐平市'] },
+    { code: '360300', name: '萍乡市', counties: ['安源区', '湘东区', '上栗县'] },
+    { code: '360400', name: '九江市', counties: ['浔阳区', '濂溪区', '柴桑区', '瑞昌市'] },
     { code: '360500', name: '新余市', counties: ['渝水区', '分宜县'] },
-    { code: '360600', name: '鹰潭市', counties: ['月湖区', '贵溪市'] },
-    { code: '360700', name: '赣州市', counties: ['章贡区', '南康区', '于都县', '信丰县', '瑞金市'] },
-    { code: '360800', name: '吉安市', counties: ['吉州区', '青原区', '吉安县', '泰和县'] },
-    { code: '360900', name: '宜春市', counties: ['袁州区', '丰城市', '樟树市', '高安市'] },
+    { code: '360600', name: '鹰潭市', counties: ['月湖区', '余江区', '贵溪市'] },
+    { code: '360700', name: '赣州市', counties: ['章贡区', '南康区', '赣县区', '瑞金市'] },
+    { code: '360800', name: '吉安市', counties: ['吉州区', '青原区', '永新县', '井冈山市'] },
+    { code: '360900', name: '宜春市', counties: ['袁州区', '樟树市', '丰城市', '高安市'] },
     { code: '361000', name: '抚州市', counties: ['临川区', '东乡区', '南城县'] },
-    { code: '361100', name: '上饶市', counties: ['信州区', '广丰区', '鄱阳县', '玉山县'] }
+    { code: '361100', name: '上饶市', counties: ['信州区', '广丰区', '婺源县', '鄱阳县'] }
   ];
 
-  /* 医疗机构（三级医院为主，国考六项考核单元） */
+  /* 医疗机构（三级医院为主，国考六项考核单元）。
+     county 为该院所在区县（真实属地），用于「设区市 → 区县」两级筛选：
+     选到区县时只统计该区县内的机构。区县名与 CITIES[].counties 同一套口径。 */
   var ORGS = [
-    { id: 'ORG-01', name: '江西省肿瘤医院', city: '360100', level: '省级三甲', type: '专科' },
-    { id: 'ORG-02', name: '南昌大学第一附属医院', city: '360100', level: '省级三甲', type: '综合' },
-    { id: 'ORG-03', name: '南昌大学第二附属医院', city: '360100', level: '省级三甲', type: '综合' },
-    { id: 'ORG-04', name: '江西省人民医院', city: '360100', level: '省级三甲', type: '综合' },
-    { id: 'ORG-05', name: '赣州市人民医院', city: '360700', level: '市级三甲', type: '综合' },
-    { id: 'ORG-06', name: '赣南医科大学第一附属医院', city: '360700', level: '市级三甲', type: '综合' },
-    { id: 'ORG-07', name: '九江市第一人民医院', city: '360400', level: '市级三甲', type: '综合' },
-    { id: 'ORG-08', name: '宜春市人民医院', city: '360900', level: '市级三甲', type: '综合' },
-    { id: 'ORG-09', name: '上饶市人民医院', city: '361100', level: '市级三甲', type: '综合' },
-    { id: 'ORG-10', name: '吉安市中心人民医院', city: '360800', level: '市级三甲', type: '综合' },
-    { id: 'ORG-11', name: '抚州市第一人民医院', city: '361000', level: '市级三甲', type: '综合' },
-    { id: 'ORG-12', name: '萍乡市人民医院', city: '360300', level: '市级三甲', type: '综合' },
-    { id: 'ORG-13', name: '景德镇市第一人民医院', city: '360200', level: '市级三甲', type: '综合' },
-    { id: 'ORG-14', name: '新余市人民医院', city: '360500', level: '市级三甲', type: '综合' },
-    { id: 'ORG-15', name: '鹰潭市人民医院', city: '360600', level: '市级三甲', type: '综合' },
-    { id: 'ORG-16', name: '南昌市第三医院', city: '360100', level: '市级三甲', type: '综合' },
-    { id: 'ORG-17', name: '赣州市肿瘤医院', city: '360700', level: '市级二甲', type: '专科' },
-    { id: 'ORG-18', name: '九江市第三人民医院', city: '360400', level: '市级二甲', type: '综合' }
+    { id: 'ORG-01', name: '江西省肿瘤医院', city: '360100', county: '青山湖区', level: '省级三甲', type: '专科' },
+    { id: 'ORG-02', name: '南昌大学第一附属医院', city: '360100', county: '东湖区', level: '省级三甲', type: '综合' },
+    { id: 'ORG-03', name: '南昌大学第二附属医院', city: '360100', county: '西湖区', level: '省级三甲', type: '综合' },
+    { id: 'ORG-04', name: '江西省人民医院', city: '360100', county: '东湖区', level: '省级三甲', type: '综合' },
+    { id: 'ORG-05', name: '赣州市人民医院', city: '360700', county: '章贡区', level: '市级三甲', type: '综合' },
+    { id: 'ORG-06', name: '赣南医科大学第一附属医院', city: '360700', county: '章贡区', level: '市级三甲', type: '综合' },
+    { id: 'ORG-07', name: '九江市第一人民医院', city: '360400', county: '浔阳区', level: '市级三甲', type: '综合' },
+    { id: 'ORG-08', name: '宜春市人民医院', city: '360900', county: '袁州区', level: '市级三甲', type: '综合' },
+    { id: 'ORG-09', name: '上饶市人民医院', city: '361100', county: '信州区', level: '市级三甲', type: '综合' },
+    { id: 'ORG-10', name: '吉安市中心人民医院', city: '360800', county: '吉州区', level: '市级三甲', type: '综合' },
+    { id: 'ORG-11', name: '抚州市第一人民医院', city: '361000', county: '临川区', level: '市级三甲', type: '综合' },
+    { id: 'ORG-12', name: '萍乡市人民医院', city: '360300', county: '安源区', level: '市级三甲', type: '综合' },
+    { id: 'ORG-13', name: '景德镇市第一人民医院', city: '360200', county: '珠山区', level: '市级三甲', type: '综合' },
+    { id: 'ORG-14', name: '新余市人民医院', city: '360500', county: '渝水区', level: '市级三甲', type: '综合' },
+    { id: 'ORG-15', name: '鹰潭市人民医院', city: '360600', county: '月湖区', level: '市级三甲', type: '综合' },
+    { id: 'ORG-16', name: '南昌市第三医院', city: '360100', county: '西湖区', level: '市级三甲', type: '综合' },
+    { id: 'ORG-17', name: '赣州市肿瘤医院', city: '360700', county: '南康区', level: '市级二甲', type: '专科' },
+    { id: 'ORG-18', name: '九江市第三人民医院', city: '360400', county: '濂溪区', level: '市级二甲', type: '综合' }
   ];
 
   /* 10 个癌种（国考六项覆盖范围） */
@@ -421,14 +427,23 @@
     var abnRate = abnRateOf(indId, orgId);
     if (r >= abnRate) return { v: V.OK, reason: '', rule: null };
     var sub = rnd01('sub|' + indId + '|' + orgId + '|' + cancerId + '|' + seq);
-    /* 异常细分：不符合 / 缺失 / 异常 —— 三类各自占比固定 */
+    /* 异常细分：不符合 / 缺失 / 异常 —— 三类各自占比固定。
+       NQ-01 例外：判定已降级为「临床分期是否记录」，只可能是「缺失」，
+       不再产生需要提炼字段才能得出的时序类异常。 */
+    if (indId === 'NQ-01') {
+      return { v: V.MISS, reason: reasonOf(indId, V.MISS), rule: ruleOf(indId, V.MISS), sub: sub };
+    }
     var kind = sub < 0.52 ? V.BAD : sub < 0.79 ? V.MISS : V.ABN;
     return { v: kind, reason: reasonOf(indId, kind), rule: ruleOf(indId, kind), sub: sub };
   }
 
   function reasonOf(indId, kind) {
     var M = {
-      'NQ-01': { bad: '分期评估时间晚于首次治疗时间', miss: '未记录临床分期或分期评估日期', abn: '分期评估日期早于初次诊断日期' },
+      /* NQ-01 已降级为「临床分期是否记录」：只用可直取的字段判定，
+         不再依赖「分期评估日期」（该时间需从病程记录文本提炼，本系统不做）。
+         因此原有的 bad（评估晚于治疗）/ abn（评估早于诊断）两类时序异常不再产生，
+         仅保留 miss（分期未记录）；bad/abn 文案保留以防旧数据回放。 */
+      'NQ-01': { bad: '分期评估时间晚于首次治疗时间', miss: '未记录临床分期', abn: '分期评估日期早于初次诊断日期' },
       'NQ-02': { bad: '非手术治疗开始前未取得病理学诊断', miss: '病理诊断字段缺失', abn: '病理报告日期晚于治疗开始日期' },
       'NQ-03': { bad: '术后病理报告未包含 pTNM 分期', miss: 'pTNM 分期字段为空', abn: 'pTNM 分期与病程记录描述不一致' },
       'NQ-04': { bad: '术后 30 日内死亡，属围手术期死亡', miss: '出院去向字段缺失，无法判定生存状态', abn: '死亡日期早于手术日期，数据逻辑冲突' },
@@ -441,7 +456,7 @@
   /* 规则台账：每条规则说明检查什么、依据什么、期望什么 */
   function ruleOf(indId, kind) {
     var R = {
-      'NQ-01': { code: 'QC-L1-001', name: '首次治疗前完成临床分期评估', ver: 'V2026.1', cond: '分期评估日期 ≤ 首次治疗日期 且 临床分期非空', field: '临床分期 / 分期评估日期 / 首次治疗日期' },
+      'NQ-01': { code: 'QC-L1-001', name: '首次治疗前完成临床分期评估', ver: 'V2026.2', cond: '临床分期字段非空', field: '临床分期' },
       'NQ-02': { code: 'QC-L1-002', name: '非手术治疗前须有病理学诊断', ver: 'V2026.1', cond: '病理诊断非空 且 病理报告日期 ≤ 首次非手术治疗日期', field: '病理诊断 / 病理报告日期 / 首次治疗日期' },
       'NQ-03': { code: 'QC-L1-003', name: '术后病理须含 pTNM 分期', ver: 'V2026.1', cond: 'pT、pN、pM 三项均非空', field: 'pTNM 分期 / 病理报告' },
       'NQ-04': { code: 'QC-L1-004', name: '围手术期死亡判定', ver: 'V2026.1', cond: '死亡日期 − 手术日期 ≤ 30 日', field: '手术日期 / 死亡日期 / 出院去向' },
@@ -580,25 +595,19 @@
     var isDown = i.dir === 'down';
     var value = cell(indId, o.id, c).value;
 
-    /* 时间轴：诊断 → 病理 → 分期 → 首次治疗 → 手术/药物 → 后续治疗 */
+    /* 时间轴：诊断 → 病理 → 首次治疗 → 手术 → 后续治疗。
+       不再生成「分期评估日期」——它不是可直取的字段（需从病程记录文本提炼）。 */
     var pathDate = addDays(diagDate, rndInt(key + '|pd', 3, 12));
-    var stageDate = addDays(diagDate, rndInt(key + '|sd', 2, 16));
     var treatDate = addDays(diagDate, rndInt(key + '|td', 8, 34));
     var surgDate = ['NQ-03', 'NQ-04', 'NQ-06'].indexOf(indId) >= 0 ? addDays(treatDate, rndInt(key + '|sg', 1, 6)) : null;
     var nextDate = addDays(treatDate, rndInt(key + '|nd', 28, 96));
 
     /* 判定为异常时，让事实数据真实地违反规则（而不是只贴一个标签）。
-       分期评估日期早于诊断日期属"数据异常"场景，但不能早到报告期之外。 */
-    var stageVal, stageReal = stageDate, treatReal = treatDate;
+       NQ-01 已降级为「临床分期是否记录」：只有 OK / MISS 两态，
+       不再编造「分期评估日期」这类需从病历文本提炼的时间点。 */
+    var stageVal;
     if (indId === 'NQ-01') {
-      if (j.v === V.MISS) { stageVal = ''; stageReal = ''; }
-      else if (j.v === V.BAD) { stageVal = pick(['IIA', 'IIB', 'IIIA'], key); stageReal = addDays(treatDate, rndInt(key + '|late', 3, 20)); }
-      else if (j.v === V.ABN) {
-        stageVal = 'IB';
-        stageReal = addDays(diagDate, -rndInt(key + '|early', 2, 20));
-        if (stageReal < '2024-01-01') stageReal = addDays(diagDate, -rndInt(key + '|early2', 1, 3));
-      }
-      else stageVal = pick(['IA', 'IIA', 'IIB', 'IIIA', 'IIIB', 'IV'], key);
+      stageVal = j.v === V.MISS ? '' : pick(['IA', 'IIA', 'IIB', 'IIIA', 'IIIB', 'IV'], key);
     }
     var pathVal = ['NQ-02', 'NQ-03'].indexOf(indId) >= 0
       ? (j.v === V.MISS ? '' : pick(['腺癌', '鳞状细胞癌', '导管癌', '肝细胞癌', '乳头状癌'], key))
@@ -624,7 +633,7 @@
       ipNo: 'ZY' + rndInt(key + '|ip', 200000, 299999),
       mrn: 'MRN' + rndInt(key + '|mr', 1000000, 9999999),
       diagDate: diagDate,
-      stageDate: stageReal, stageVal: stageVal,
+      stageVal: stageVal,
       treatDate: treatDate, pathDate: pathDate,
       surgDate: surgDate, nextDate: nextDate,
       ptnm: ptnmVal, lymph: lymphVal, mol: molVal, pathology: pathVal,

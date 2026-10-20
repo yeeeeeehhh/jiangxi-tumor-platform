@@ -8,7 +8,9 @@
  *   应报例数   → window.DKH_DATA.cityRows（附表1 同源）
  *   覆盖率达标线 → window.DKH_DATA.qc.nccrMin
  * 批次台账 nccrData.batches 是本模块单一数据源，三个板块都由它派生：
- *   待上报 + 已上报 → 新增上报；已完成 + 已退回 + 已取消 → 上报记录（互斥，不重复出现）。
+ *   新增上报 nccr-new 只做“新建批次”，不再列批次台账；
+ *   全部批次（待上报/已上报/已完成/已退回/已取消）统一在【上报记录】查看与推进，
+ *   由「推进环节」筛选区分 待处理 ↔ 已终结（互斥，同一批次不会重复出现）。
  * 台账内为【原型演示数据】，真实接入只换 ledger() 的取数实现，UI 不动。
  *
  * 「上报合规性」判的是【上报动作本身】，不是登记处的登记质量；六个维度全部锚在批次上：
@@ -85,7 +87,10 @@
     // 全局 .data-table td 是 nowrap，合规体检的「依据」是一长段出处说明，必须在这里换行才读得到
     '.nccr-dim-table td{white-space:normal;vertical-align:top;line-height:1.6;padding-top:10px;padding-bottom:10px}',
     '.nccr-dim-table td.nccr-hint{font-size:12px;color:#667085;min-width:260px}',
-    '.nccr-dim-table th{white-space:nowrap}'
+    '.nccr-dim-table th{white-space:nowrap}',
+    // 上报记录表：固定布局 + 长文本列省略，避免「上报内容」「回执号」把表撑出容器导致右侧列被裁
+    '.nccr-rec-table{table-layout:fixed}',
+    '.nccr-rec-table td.nccr-ell{max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
   ].join('');
 
   /* ===================== 2. 工具 ===================== */
@@ -569,7 +574,7 @@
   var nccrState = {
     page: 'nccr-new', view: 'list', selectedId: null, fromPage: 'nccr-new',
     year: '2024',
-    recordFilters: { year: '', registry: '', result: '', keyword: '' },
+    recordFilters: { stage: '', year: '', registry: '', result: '', keyword: '' },
     form: { year: '2024', registry: '360100', packages: ['A', 'B', 'C', 'D'], transport: 'file', remark: '' }
   };
 
@@ -695,39 +700,8 @@
   function maskId(id) { return id && id.length >= 8 ? id.slice(0, 3) + '***********' + id.slice(-4) : (id || '—'); }
 
   /* ===================== 11. 页① 新增上报 ===================== */
-  function openBatches() { return nccrData.list().filter(isOpen); }
-
-  function renderOpenPanel() {
-    var list = openBatches();
-    // 报送截止跟着统计年走（统计年 + 2 年 6 月底），不再写死某一年
-    var dlYears = {};
-    list.forEach(function (b) { dlYears[b.year] = fmtDate(deadline(b.year)); });
-    var dlText = Object.keys(dlYears).sort().map(function (y) { return y + ' 年度 ' + dlYears[y]; }).join('　｜　');
-    var rows = list.map(function (b) {
-      var act = primaryAction(b);
-      var ops = '<div class="nccr-row-ops"><button class="btn btn-ghost btn-xs" onclick="nccrOpenDetail(\'' + b.id + '\')">详情</button>' +
-        (act ? '<button class="btn ' + act.cls + ' btn-xs" onclick="' + act.fn + '(\'' + b.id + '\')">' + act.label + '</button>' : '') +
-        '</div>';
-      return '<tr>' +
-        '<td class="txt"><a href="javascript:void(0)" style="color:var(--primary)" onclick="nccrOpenDetail(\'' + b.id + '\')">' + e(b.id) + '</a></td>' +
-        '<td class="txt">' + e(b.registryName) + '<span style="color:#98a2b3"> · ' + b.year + '</span></td>' +
-        '<td class="txt">' + e(packageLabel(b.packages)) + '</td>' +
-        '<td class="num">' + fmtInt(b.caseCount) + '</td>' +
-        '<td class="code" title="' + e(deadlineBasis()) + '">' + fmtDate(deadline(b.year)) + '</td>' +
-        '<td class="num">' + complianceBadge(b.compliance) + '</td>' +
-        '<td class="code">' + stateBadge(b.state) + '</td>' +
-        '<td class="txt">' + e(nextStep(b)) + '</td>' +
-        '<td class="sticky-col">' + ops + '</td></tr>';
-    }).join('') || '<tr><td colspan="9">' + emptyState('没有进行中的上报任务，可在下方新建。') + '</td></tr>';
-
-    return '<div class="panel"><div class="panel-header">进行中的上报</div><div class="panel-body">' +
-      '<div class="nccr-count">共 ' + list.length + ' 个批次待处理' + (dlText ? '　｜　报送截止 ' + dlText : '') + '</div>' +
-      '<div class="table-wrap"><table class="data-table" style="min-width:1080px"><thead><tr>' +
-      '<th class="txt">批次号</th><th class="txt">登记处</th><th class="txt">上报内容</th><th class="num">应报例数</th><th class="code">报送截止</th><th class="num">合规判定</th><th class="code">状态</th><th class="txt">下一步</th><th class="sticky-col">操作</th>' +
-      '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
-      '</div></div>';
-  }
-
+  // 「进行中的上报」台账已从本页移除：待上报 / 已上报批次统一到「上报记录」查看与处理，
+  // 本页只承担“新建一个上报批次”这一件事，避免与上报记录重复出现同一批批次号。
   /* 报送范围确定后，按所选年度 + 登记处列出报告卡清单与相关数据概览 */
   function renderFormPreview() {
     var year = nccrState.form.year, code = nccrState.form.registry;
@@ -813,18 +787,22 @@
   }
 
   function renderNewPage() {
-    return toolbar('<button class="btn btn-outline btn-sm" onclick="nccrDownloadTemplate()">下载空白模板</button>') +
-      renderOpenPanel() +
+    return toolbar('<button class="btn btn-outline btn-sm" onclick="nccrDownloadTemplate()">下载空白模板</button>' +
+      '<button class="btn btn-ghost btn-sm" onclick="navigateTo(\'nccr-records\')">上报记录</button>') +
       renderFormPanel();
   }
 
   /* ===================== 12. 页② 上报记录 ===================== */
+  // 「进行中的上报」并入本页：待上报 / 已上报批次也在这里查看与推进，
+  // 由「推进环节」筛选区分——待处理（进行中）与已终结（已完成/已退回/已取消）互斥不重复。
   function filteredRecords() {
     var f = nccrState.recordFilters;
     return nccrData.list().filter(function (b) {
-      if (!isClosed(b)) return false;
+      if (f.stage === 'open' && !isOpen(b)) return false;
+      if (f.stage === 'closed' && !isClosed(b)) return false;
       if (f.year && String(b.year) !== f.year) return false;
       if (f.registry && b.registry !== f.registry) return false;
+      if (f.result === 'pending' && isClosed(b)) return false;
       if (f.result === 'accepted' && b.receiptResult !== 'accepted') return false;
       if (f.result === 'partial' && b.receiptResult !== 'partial') return false;
       if (f.result === 'rejected' && b.state !== '已退回') return false;
@@ -838,44 +816,52 @@
   }
   function renderRecords() {
     var list = filteredRecords(), f = nccrState.recordFilters, regs = registryList();
+    var openCount = nccrData.list().filter(isOpen).length;
     var rows = list.map(function (b) {
+      var act = isOpen(b) ? primaryAction(b) : null;
       var ops = '<div class="nccr-row-ops"><button class="btn btn-ghost btn-xs" onclick="nccrOpenDetail(\'' + b.id + '\')">详情</button>' +
         (b.fileName ? '<button class="btn btn-ghost btn-xs" onclick="nccrDownload(\'' + b.id + '\')">下载</button>' : '') +
         (b.state === '已退回' ? '<button class="btn btn-outline btn-xs" onclick="nccrRedo(\'' + b.id + '\')">重报</button>' : '') +
+        (act ? '<button class="btn ' + act.cls + ' btn-xs" onclick="' + act.fn + '(\'' + b.id + '\')">' + act.label + '</button>' : '') +
         '</div>';
-      var result = b.state === '已取消' ? '已取消' : ((RECEIPT[b.receiptResult] || ['', '—'])[1]);
+      var result = b.state === '已取消' ? '已取消' : ((RECEIPT[b.receiptResult] || ['', isOpen(b) ? '待回执' : '—'])[1]);
       return '<tr>' +
         '<td class="txt"><a href="javascript:void(0)" style="color:var(--primary)" onclick="nccrOpenDetail(\'' + b.id + '\')">' + e(b.id) + '</a></td>' +
         '<td class="code">' + b.year + '</td>' +
         '<td class="txt">' + e(b.registryName) + '</td>' +
-        '<td class="txt">' + e(packageLabel(b.packages)) + '</td>' +
+        '<td class="txt" title="' + e(packageLabel(b.packages)) + '">' + (b.packages || []).map(function (c) { return '<span class="nccr-pkg-tag" style="min-width:18px;height:18px;line-height:18px;font-size:11px;margin-right:2px">' + e(c) + '</span>'; }).join('') + '</td>' +
         '<td class="num">' + fmtInt(b.caseCount) + '</td>' +
         '<td class="code">' + e(b.exportedAt || '—') + '</td>' +
-        '<td class="txt">' + e(b.receiptNo || '—') + '</td>' +
+        '<td class="txt nccr-ell" title="' + e(b.receiptNo || '—') + '">' + e(b.receiptNo || '—') + '</td>' +
         '<td class="code">' + e(result) + '</td>' +
         '<td class="code">' + stateBadge(b.state) + '</td>' +
+        '<td class="txt nccr-ell" title="' + e(isOpen(b) ? nextStep(b) : '—') + '">' + e(isOpen(b) ? nextStep(b) : '—') + '</td>' +
         '<td class="sticky-col">' + ops + '</td></tr>';
-    }).join('') || '<tr><td colspan="10">' + emptyState('没有符合条件的上报记录。', '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'nccr-new\')">去新增上报</button>') + '</td></tr>';
+    }).join('') || '<tr><td colspan="11">' + emptyState('没有符合条件的上报记录。', '<button class="btn btn-primary btn-sm" onclick="navigateTo(\'nccr-new\')">去新增上报</button>') + '</td></tr>';
 
     return toolbar('<button class="btn btn-primary btn-sm" onclick="navigateTo(\'nccr-new\')">新增上报</button>' +
       '<button class="btn btn-outline btn-sm" onclick="nccrExportRecords()">导出台账</button>') +
       '<div class="panel"><div class="panel-header">上报记录</div><div class="panel-body">' +
       '<div class="filter-toolbar">' +
+      '<div class="form-group"><label>推进环节</label><select onchange="nccrState.recordFilters.stage=this.value;nccrRefresh()">' +
+      ['|全部', 'open|待处理（进行中）', 'closed|已终结'].map(function (o) {
+        var p = o.split('|'); return '<option value="' + p[0] + '"' + (f.stage === p[0] ? ' selected' : '') + '>' + p[1] + '</option>';
+      }).join('') + '</select></div>' +
       '<div class="form-group"><label>统计年</label><select onchange="nccrState.recordFilters.year=this.value;nccrRefresh()">' + yearOptions(f.year, true) + '</select></div>' +
       '<div class="form-group"><label>登记处</label><select onchange="nccrState.recordFilters.registry=this.value;nccrRefresh()"><option value="">全部</option>' +
       regs.map(function (r) { return '<option value="' + r.code + '"' + (f.registry === r.code ? ' selected' : '') + '>' + e(r.name) + '</option>'; }).join('') + '</select></div>' +
       '<div class="form-group"><label>国家受理结果</label><select onchange="nccrState.recordFilters.result=this.value;nccrRefresh()">' +
       '<option value="">全部</option>' +
-      ['accepted|全部受理', 'partial|部分受理', 'rejected|退回', 'void|已取消'].map(function (o) {
+      ['pending|待回执', 'accepted|全部受理', 'partial|部分受理', 'rejected|退回', 'void|已取消'].map(function (o) {
         var p = o.split('|'); return '<option value="' + p[0] + '"' + (f.result === p[0] ? ' selected' : '') + '>' + p[1] + '</option>';
       }).join('') + '</select></div>' +
       '<div class="form-group search-group"><label>搜索</label><input placeholder="批次号 / 回执号 / 登记处" value="' + e(f.keyword) + '" onkeydown="if(event.key===\'Enter\'){nccrState.recordFilters.keyword=this.value;nccrRefresh()}"></div>' +
       '<div class="filter-actions"><button class="btn btn-primary btn-sm" onclick="nccrState.recordFilters.keyword=document.querySelector(\'#pageContainer .search-group input\').value;nccrRefresh()">查询</button>' +
-      '<button class="btn btn-ghost btn-sm" onclick="nccrState.recordFilters={year:\'\',registry:\'\',result:\'\',keyword:\'\'};nccrRefresh()">重置</button></div>' +
+      '<button class="btn btn-ghost btn-sm" onclick="nccrState.recordFilters={stage:\'\',year:\'\',registry:\'\',result:\'\',keyword:\'\'};nccrRefresh()">重置</button></div>' +
       '</div>' +
-      '<div class="nccr-count">共 ' + list.length + ' 条</div>' +
-      '<div class="table-wrap"><table class="data-table" style="min-width:1180px"><thead><tr>' +
-      '<th class="txt">批次号</th><th class="code">统计年</th><th class="txt">登记处</th><th class="txt">上报内容</th><th class="num">应报例数</th><th class="code">上报时间</th><th class="txt">回执号</th><th class="code">受理结果</th><th class="code">状态</th><th class="sticky-col">操作</th>' +
+      '<div class="nccr-count">共 ' + list.length + ' 条' + (openCount ? '　｜　其中 ' + openCount + ' 个批次待处理' : '') + '</div>' +
+      '<div class="table-wrap"><table class="data-table nccr-rec-table" style="min-width:1180px"><colgroup><col style="width:142px"><col style="width:60px"><col style="width:142px"><col style="width:136px"><col style="width:74px"><col style="width:130px"><col style="width:144px"><col style="width:84px"><col style="width:78px"><col style="width:132px"><col style="width:170px"></colgroup><thead><tr>' +
+      '<th class="txt">批次号</th><th class="code">统计年</th><th class="txt">登记处</th><th class="txt">上报内容</th><th class="num">应报例数</th><th class="code">上报时间</th><th class="txt">回执号</th><th class="code">受理结果</th><th class="code">状态</th><th class="txt">下一步</th><th class="sticky-col">操作</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
       '</div></div>';
   }
@@ -1144,9 +1130,9 @@
     if (code) toast('已带入登记处与统计年');
   };
   window.nccrOpenDetail = function (id) {
-    var b = nccrData.get(id);
-    nccrState.fromPage = b && isClosed(b) ? 'nccr-records' : 'nccr-new';
-    nccrState.page = nccrState.fromPage;
+    // 列表统一在「上报记录」，详情页返回时也回这里（新增上报页已不再承载批次台账）
+    nccrState.fromPage = 'nccr-records';
+    nccrState.page = 'nccr-records';
     nccrState.view = 'detail'; nccrState.selectedId = id;
     nccrRefresh();
   };
@@ -1181,7 +1167,8 @@
       remoteRef: '', riskAck: null, popGap: '', revisionOf: exist && exist.state === '已退回' ? exist.id : '', remark: remark
     });
     toast('已创建 ' + id);
-    nccrState.fromPage = 'nccr-new'; nccrState.page = 'nccr-new';
+    // 新建后直接进批次详情，返回时落在「上报记录」（批次台账的唯一列表入口）
+    nccrState.fromPage = 'nccr-records'; nccrState.page = 'nccr-records';
     nccrState.view = 'detail'; nccrState.selectedId = b.id;
     window.nccrCheck(b.id);
   };

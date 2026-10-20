@@ -60,8 +60,11 @@
       ['全部', st.total], ['待处理', st.m['待处理']], ['整改中', st.m['整改中']],
       ['待复核', st.m['待复核']], ['已关闭', st.m['已关闭']], ['已逾期', st.m['已逾期']]
     ];
-    var tabHtml = '<div class="qc-pf-seg" style="margin-bottom:8px">' + tabs.map(function (t) {
-      return '<button class="' + (J.tab === t[0] ? 'on' : '') + '" data-qc="qi:tab:' + t[0] + '">' + t[0] + '（' + t[1] + '）</button>';
+    /* 页签用站内统一的 .qc-tabs（与「指标分析」「被质控数据明细」一致）。
+       原先用的 .qc-pf-seg 已在 qc-performance.js 侧删除，本页引用就成为无样式裸按钮。 */
+    var tabHtml = '<div class="qc-tabs">' + tabs.map(function (t) {
+      return '<button class="' + (J.tab === t[0] ? 'on' : '') + '" data-qc="qi:tab:' + t[0] + '">' +
+        t[0] + '（' + S.fmt(t[1]) + '）</button>';
     }).join('') + '</div>';
 
     var act = activeList(ps);
@@ -70,41 +73,43 @@
       var overdue = p.status === '已逾期';
       return {
         cells: [
-          { h: '<code>' + S.esc(p.code) + '</code>' },
-          S.esc(p.obj || '—'),
-          { h: S.esc(p.desc) },
-          S.esc(p.orgName || '—'),
+          { h: '<code>' + S.esc(p.code) + '</code>', cls: 'txt' },
+          { h: S.esc(p.obj || '—'), cls: 'txt' },
+          { h: S.esc(p.desc), cls: 'txt' },
+          { h: S.esc(p.orgName || '—'), cls: 'txt' },
           { h: S.esc(p.foundDate), cls: 'num' },
           { h: overdue ? '<span style="color:#b42335;font-weight:600">' + S.esc(p.dueDate) + '</span>' : S.esc(p.dueDate), cls: 'num' },
-          { h: U.statusBadge(p.status) },
-          { h: U.link('查看', 'qi:detail:' + p.code) + ' <button class="qc-link" data-qc="qi:work:' + p.code + '" style="color:#b54708">处置</button>' }
+          { h: U.statusBadge(p.status), cls: 'center' },
+          { h: U.link('查看', 'qi:detail:' + p.code) + ' ' +
+               '<button class="qc-link" data-qc="qi:work:' + p.code + '" style="color:#b54708">处置</button>', cls: 'num act' }
         ],
         cls: overdue ? 'abn-row' : ''
       };
     });
+    /* fit: true —— 8 列按内容测算列宽，避免横向溢出把「操作」列挤出可视区；
+       容器过窄时由 min-width 触发横向滚动，而不是压扁列宽。 */
     var table = U.table(
       ['问题编号', '关联指标', '问题描述', '责任机构', '#发现日期', '#整改期限', '状态', '操作'],
-      rows, { compact: true, empty: '该状态下暂无问题' });
+      rows, { compact: true, fit: true, empty: '该状态下暂无问题' });
 
-    var card = U.card('问题台账', tabHtml + table + U.pager(act.length, J.page, 20, 'qip'), null,
-      '<span style="font-size:12.5px;color:#64748b">闭环率 <b style="color:#2e7d32">' + st.closeRate + '%</b>（' + st.closed + ' / ' + st.total + '）</span>');
+    /* 卡片不带标题栏（与六大绩效各表一致：标题信息在页头/页签里已表达） */
+    var card = U.card('', tabHtml + table + U.pager(act.length, J.page, 20, 'qip'));
+
+    /* 状态统计用统一 KPI 组件（与六大绩效、质控问题中心同款），不再手写卡片样式 */
+    var kpiHtml = U.kpis([
+      { l: '待处理', v: S.fmt(st.m['待处理']), unit: '条', tone: 'warn', m: '等待下发整改', action: 'qi:tab:待处理' },
+      { l: '整改中', v: S.fmt(st.m['整改中']), unit: '条', tone: 'info', m: '医疗机构整改中', action: 'qi:tab:整改中' },
+      { l: '待复核', v: S.fmt(st.m['待复核']), unit: '条', tone: 'info', m: '等待质控中心复核', action: 'qi:tab:待复核' },
+      { l: '已关闭', v: S.fmt(st.m['已关闭']), unit: '条', tone: 'up', m: '复核通过并闭环', action: 'qi:tab:已关闭' },
+      { l: '已逾期', v: S.fmt(st.m['已逾期']), unit: '条', tone: 'bad', m: '超过整改期限', action: 'qi:tab:已逾期' },
+      { l: '闭环率', v: S.f1(st.closeRate), unit: '%', tone: 'up', m: st.closed + ' / ' + st.total + ' 已闭环' }
+    ], 6);
 
     return '<div class="qc-page">' +
-      U.head('整改问题', '六大绩效质控发现问题的整改闭环台账（与异常明细同源）。',
-        '', '质控管理',
-        '<button class="btn btn-ghost btn-sm" data-qc="qi:toPerf">返回六大绩效质控</button>') +
-      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">' +
-      [
-        ['待处理', st.m['待处理'], '#b54708'],
-        ['整改中', st.m['整改中'], '#244765'],
-        ['待复核', st.m['待复核'], '#5b3fa0'],
-        ['已关闭', st.m['已关闭'], '#2e7d32'],
-        ['已逾期', st.m['已逾期'], '#b42335']
-      ].map(function (x) {
-        return '<div style="flex:0 0 auto;min-width:120px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;background:#fff">' +
-          '<div style="font-size:22px;font-weight:800;color:' + x[2] + '">' + S.fmt(x[1]) + '</div>' +
-          '<div style="font-size:12px;color:#64748b">' + x[0] + '</div></div>';
-      }).join('') + '</div>' +
+      /* 页头只留标题 + 返回按钮（副标题与右上标签按全模块统一规范移除） */
+      U.head('整改问题', '', '', false,
+        '<button class="btn btn-ghost btn-sm" data-qc="qi:toPerf">← 返回六大绩效质控</button>') +
+      kpiHtml +
       card +
       '</div>';
   }

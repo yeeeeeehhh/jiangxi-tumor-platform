@@ -11,10 +11,13 @@
         只在迁移时按目标级联路径重新拼装，保证与存量数据同构、其它模块无感知。
         目标归属地可下钻到「社区」，此时 region 形如 '南昌市东湖区董家窑街道民巷社区'。
      2) 只改归属区划，不改报告单位 / 户籍地址 / 常住地址本体。
-     3) 提交即执行：不再走审批流。提交后立即改写卡片归属地，并生成一条可整批回退的批次台账。
-     4) 报告卡列表里的卡都可迁移，不设前置锁定（合并卡 / 已核对卡一视同仁）。
-        归属地是行政判定，不是卡片内容核对结论，锁住会让错挂永久改不了。
-     5) 每张卡每次动作（执行 / 回退）都追加一条不可删除的迁移记录。
+     3) 提交即执行：不再走审批流。提交后立即改写卡片归属地，并生成一条批次台账。
+   4) 台账是只读审计流水：不提供撤销 / 修正入口，任何操作都不会改写既有记录。
+      迁错了的处置是回列表重新勾选这些卡、再走一次普通迁移——把"迁回"当成一次新的正常迁移，
+      而不是对历史的撤销。这样台账永远是真实发生过的事件序列，A→B→C 也不会打架。
+   5) 报告卡列表里的卡都可迁移，不设前置锁定（合并卡 / 已核对卡一视同仁）。
+      归属地是行政判定，不是卡片内容核对结论，锁住会让错挂永久改不了。
+   6) 每张卡每次动作都追加一条不可删除的迁移记录。
     ========================================================================= */
 
 /* ===================== 1. 区划码表 =====================
@@ -158,11 +161,11 @@ var MIG_REASONS = [
   { code: 'REGISTRY_REDIVIDE', label: '登记处管辖范围重新划分' },
   { code: 'INIT_ERROR', label: '初始归属错误纠正' },
   { code: 'SOURCE_MISLINK', label: '上报数据错挂纠正' },
+  { code: 'CORRECT_PREVIOUS', label: '迁回原归属地（纠正此前迁移）' },
   { code: 'OTHER', label: '其他' }
 ];
-/* 迁移即时生效，状态只剩「已执行 / 已回退」两态 */
-var MIG_STATUS_TEXT = { executed: '已执行', reverted: '已回退' };
-var MIG_STATUS_CLS = { executed: 'badge-success', reverted: 'badge-muted' };
+/* 迁移即时生效，批次只有"已执行"这一种状态：台账是只读流水，不存在已回退/已撤销。
+   状态既是恒值，就不在表头和明细里单列，也不再维护状态字典。 */
 function migReasonLabel(code) {
   for (var i = 0; i < MIG_REASONS.length; i++) if (MIG_REASONS[i].code === code) return MIG_REASONS[i].label;
   return code || '-';
@@ -209,27 +212,43 @@ function migGroupByRegion(cards) {
 }
 
 function migBuildBatch(seed) {
-  var fromPath = migResolveRegion(seed.fromRegion);
   var toPath = migResolveRegion(seed.toRegion);
   var toRegion = seed.toRegion;
-  /* 逐卡留存原归属地：回退要精确还原到每张卡自己的原值，不能拿批次级 fromRegion 顶替 */
+  /* 逐卡留存原归属地：台账按卡留痕，不能拿批次级 fromRegion 顶替每张卡的真实原值 */
   var items = seed.cardIds.map(function (id) {
     var c = migFindCard(id);
     return {
       cardId: id, name: c ? c.name : '', idNo: c ? c.idNo : '',
-      fromRegion: (c && c.region) || seed.fromRegion,
+      fromRegion: (c && c.region) || seed.fromRegion || '',
       toRegion: toRegion
     };
   });
+  /* 批次级 fromRegion 从 items 汇总，不直接沿用 seed：
+     一个批次的卡可能来自多个原归属地，单一字段只能是"占位串"或首个归属地。
+     展示一律走 migFromBreakdown()，这里只为兼容旧字段保留一个可读值。 */
+  var srcList = [];
+  items.forEach(function (it) {
+    var r = it.fromRegion || '未定位';
+    if (srcList.indexOf(r) < 0) srcList.push(r);
+  });
+  var fromRegion = srcList.length === 1 ? srcList[0] : (srcList.length + ' 个归属地');
+  var fromPath = migResolveRegion(srcList.length === 1 ? srcList[0] : (seed.fromRegion || srcList[0]));
+  var fromCities = [];
+  items.forEach(function (it) {
+    var city = migCityOfPath(migResolveRegion(it.fromRegion)) || '未定位';
+    if (fromCities.indexOf(city) < 0) fromCities.push(city);
+  });
   return {
     batchNo: seed.batchNo,
+    /* seq 是执行先后序号：判断"谁在谁之后"靠它，不靠批次号字符串或时间戳排序 */
+    seq: seed.seq || 0,
     status: seed.status,
-    fromRegion: seed.fromRegion, toRegion: toRegion,
+    fromRegion: fromRegion, toRegion: toRegion,
     fromPath: fromPath.map(function (n) { return n.label; }),
     toPath: toPath.map(function (n) { return n.label; }),
     fromCode: migCodeOfPath(fromPath), toCode: migCodeOfPath(toPath),
-    fromCity: seed.fromCity || migCityOfPath(fromPath),
-    toCity: seed.toCity || migCityOfPath(toPath),
+    fromCity: fromCities.length === 1 ? fromCities[0] : '多地市',
+    toCity: migCityOfPath(toPath),
     cardIds: seed.cardIds.slice(), items: items,
     reasonCode: seed.reasonCode, reasonNote: seed.reasonNote || '',
     operator: seed.operator, operateTime: seed.operateTime,
@@ -247,7 +266,7 @@ function migSeed() {
 
   var seeds = [
     {
-      batchNo: 'MIG-20260920-01', status: 'executed',
+      batchNo: 'MIG-20260920-01', status: 'executed', sameSource: true,
       fromRegion: g1.region, toRegion: migPickTarget(g1.region),
       cardIds: g1.cards.slice(0, 2).map(function (c) { return c.id; }),
       reasonCode: 'REGISTRY_REDIVIDE',
@@ -255,7 +274,7 @@ function migSeed() {
       operator: '南昌市登记处·王丽', operateTime: '2026-09-20 10:12:00'
     },
     {
-      batchNo: 'MIG-20261005-01', status: 'executed',
+      batchNo: 'MIG-20261005-01', status: 'executed', sameSource: true,
       fromRegion: g2.region, toRegion: migPickTarget(g2.region),
       cardIds: g2.cards.slice(0, 1).map(function (c) { return c.id; }),
       reasonCode: 'RESIDENCE_MOVE',
@@ -263,41 +282,39 @@ function migSeed() {
       operator: '赣州市登记处·李强', operateTime: '2026-10-05 09:05:00'
     },
     {
-      batchNo: 'MIG-20261008-01', status: 'reverted',
+      /* 这一批刻意做成「多原归属地」：勾选时不要求同源，现实中确实会混着迁，
+         台账必须能看出原本各来自哪里、各几张。 */
+      batchNo: 'MIG-20261008-01', status: 'executed',
       fromRegion: g3.region, toRegion: migPickTarget(g3.region),
-      cardIds: g3.cards.slice(0, 1).map(function (c) { return c.id; }),
+      cardIds: g3.cards.slice(0, 1).map(function (c) { return c.id; })
+        .concat(g1.cards.slice(2, 3).map(function (c) { return c.id; })),
       reasonCode: 'INIT_ERROR',
-      reasonNote: '区划字典切换后归属错挂',
-      operator: '区县登记处·陈明', operateTime: '2026-10-08 14:20:00',
-      revertBy: '南昌市东湖区登记处', revertTime: '2026-10-09 09:30:00',
-      revertNote: '原依据材料作废，恢复原归属'
+      reasonNote: '区划字典切换后归属错挂，混源批次一并纠正',
+      operator: '区县登记处·陈明', operateTime: '2026-10-08 14:20:00'
     }
   ];
 
-  /* 先把「同源」校验做完再落数据：已执行批次会改写卡片 region，
-     边落边校验会导致后面的批次因「卡片归属地已变」被误判为不同源。 */
+  /* 同源校验只对「要求同源」的批次做（seeds 里带 sameSource:true 的）。
+     混源批次不能按 seed.fromRegion 过滤，否则第二个来源的卡会被整体丢掉。 */
   var originRegion = {};
   all.forEach(function (c) { originRegion[c.id] = c.region || '未定位'; });
   seeds.forEach(function (seed) {
+    if (!seed.sameSource) return;
     seed.cardIds = seed.cardIds.filter(function (id) { return originRegion[id] === seed.fromRegion; });
   });
 
   MIG_BATCH_SEQ = seeds.length;
   seeds.forEach(function (seed) {
     if (!seed.cardIds.length) return;
+    /* 种子批次的 seq 就是它在 seeds 里的先后位置 */
+    seed.seq = seed.seq || (MIG_BATCHES.length + 1);
     var batch = migBuildBatch(seed);
     MIG_BATCHES.push(batch);
-    if (seed.status === 'executed') {
-      /* 已执行批次：把结果落到卡片上，保证与台账自洽 */
-      migApplyToCards(seed.batchNo, seed.cardIds, batch.fromRegion, batch.toRegion);
-      migPushRecords(seed.batchNo, seed.cardIds, batch.fromRegion, batch.toRegion,
-        seed.reasonCode, seed.reasonNote, seed.operator, seed.operateTime, 'executed');
-    } else {
-      /* 已回退批次：卡片保持原归属，只留痕（记录方向为 迁往地 → 原归属地） */
-      migPushRecords(seed.batchNo, seed.cardIds, batch.toRegion, batch.fromRegion,
-        seed.reasonCode, seed.reasonNote, seed.operator, seed.operateTime, 'reverted');
-    }
+    migApplyToCards(seed.batchNo, seed.cardIds, batch.fromRegion, batch.toRegion);
+    migPushRecords(seed.batchNo, seed.cardIds, batch.fromRegion, batch.toRegion,
+      seed.reasonCode, seed.reasonNote, seed.operator, seed.operateTime, 'executed');
   });
+
   /* 台账按发起时间倒序 */
   MIG_BATCHES.sort(function (x, y) { return y.operateTime < x.operateTime ? -1 : 1; });
 }
@@ -314,6 +331,12 @@ function migNextBatchNo() {
   var p = function (n) { return String(n).padStart(2, '0'); };
   return 'MIG-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' +
     String(MIG_BATCH_SEQ).padStart(2, '0');
+}
+/** 下一个执行序号：全局单调递增，与批次号里的日期/流水无关，只表示"第几次迁移" */
+function migNextSeq() {
+  var max = 0;
+  MIG_BATCHES.forEach(function (b) { if ((b.seq || 0) > max) max = b.seq || 0; });
+  return max + 1;
 }
 function migFindCard(cardId) {
   return migCards().find(function (c) { return c.id === cardId; });
@@ -449,43 +472,72 @@ function migBatchBarHtml() {
   var n = migSelectedIds().length;
   return '<div class="void-batch-bar" id="migBatchBar">' +
     '<div class="void-batch-info">已勾选 <strong>' + n + '</strong> 张' +
-    (n ? ' · 点击「发起迁移」后选择目标归属地（可下钻到社区）' : ' · <span style="color:#94a3b8">勾选报告卡后发起迁移，提交即生效</span>') +
+    (n ? '' : ' · <span style="color:#94a3b8">勾选报告卡后发起迁移，提交即生效</span>') +
     '</div>' +
     '<div class="void-batch-actions">' +
-    '<button class="btn btn-ghost btn-sm" onclick="migSelectAllRows(true)">全选本页</button>' +
     '<button class="btn btn-ghost btn-sm" onclick="migSelectAllRows(false)">清空选择</button>' +
     '<button class="btn btn-primary btn-sm"' + (n ? '' : ' disabled title="请先勾选要迁移的报告卡"') +
     ' onclick="migOpenSubmitDialog()">发起迁移</button>' +
     '</div></div>';
 }
 
-/* 表头与「报告卡列表」保持一致（app.html 的 cardCols 顺序），只在末尾追加本功能特有的两列。
-    同一份数据、同一套列，用户在两个页面之间来回切不需要重新认列。 */
+/* 表头与「报告卡列表」完全一致（app.html 的 cardCols），一列不多、一列不少。
+    归属地不在表头里，「重卡状态」只在筛选区可筛——列表页没有这两列，搬过来就要重新认列。
+    迁移前后的归属地写在「报告卡编号」格下方（见 migCardRowCells 的 trail 参数）。 */
 var MIG_CARD_COLS = ['报告卡编号', '姓名', '身份证号码', '性别', '年龄', '出生日期', '发病部位', 'ICD10',
   '确诊日期', '最后接触状态', '最后接触时间', '报告单位', '来源类型', '上传日期', '校验状态', '报告卡类型'];
 
-function migCardRowCells(c) {
-  var seq = migCards().filter(function (r) { return r.idNo === c.idNo; }).findIndex(function (r) { return r.id === c.id; }) + 1;
-  var age = c.birth ? Math.floor((new Date() - new Date(c.birth)) / (365.25 * 24 * 3600 * 1000)) : '-';
-  var follow = (window.reportCardFollowup || {})[c.id] || {};
+/* 批次明细页的列集：与报告卡列表完全一致（当前不留任何隐藏列）。
+   保留这个开关而不是直接删掉，是为了以后真要临时隐藏某列时只改这里一处，
+   不必再去动表头与行两边的渲染逻辑。 */
+var MIG_DETAIL_HIDDEN_COLS = [];
+function migDetailCols() {
+  return MIG_CARD_COLS.filter(function (h) { return MIG_DETAIL_HIDDEN_COLS.indexOf(h) < 0; });
+}
+
+/* 按列名取单元格内容：表头由列名数组生成，行也按同一数组取值，
+   增删列时表头与行不可能错位（手写 td 序列才容易对不上）。 */
+function migCellHtml(col, c, opts) {
+  c = c || {};
+  opts = opts || {};
+  var cardId = c.id || opts.cardId || '';
+  var follow = (window.reportCardFollowup || {})[cardId] || {};
   var source = migCardSources(c)[0];
-  return '<td><a href="javascript:void(0)" style="color:var(--primary)" onclick="cardListDetail(\'' + c.id + '\')">' +
-      c.id + '</a><span style="color:#94a3b8;font-size:12px;margin-left:2px" title="多原发序号">（' + seq + '）</span></td>' +
-    '<td>' + c.name + '</td>' +
-    '<td>' + (c.idNo || '-') + '</td>' +
-    '<td>' + c.sex + '</td>' +
-    '<td>' + age + '</td>' +
-    '<td>' + (c.birth || '-') + '</td>' +
-    '<td>' + (c.site || '-') + '</td>' +
-    '<td>' + (c.icd10 || '-') + '</td>' +
-    '<td>' + (c.diagnosisDate || '-') + '</td>' +
-    '<td>' + (follow.state || '-') + '</td>' +
-    '<td>' + (follow.dlc || '-') + '</td>' +
-    '<td>' + (c.reportUnit || '-') + '</td>' +
-    '<td>' + (source ? source.sourceType : '手工登记') + '</td>' +
-    '<td>' + (source ? String(source.uploadTime || '').slice(0, 10) : '-') + '</td>' +
-    '<td>' + c.checkStatus + '</td>' +
-    '<td>' + c.cardType + '</td>';
+  switch (col) {
+    case '报告卡编号':
+      var seq = migCards().filter(function (r) { return r.idNo === c.idNo; })
+        .findIndex(function (r) { return r.id === cardId; }) + 1;
+      var trail = opts.trail
+        ? '<div style="color:#94a3b8;font-size:12px;line-height:1.5;white-space:normal">' + opts.trail + '</div>' : '';
+      return '<td><a href="javascript:void(0)" style="color:var(--primary)" onclick="cardListDetail(\'' + cardId + '\')">' +
+        cardId + '</a><span style="color:#94a3b8;font-size:12px;margin-left:2px" title="多原发序号">（' + seq + '）</span>' + trail + '</td>';
+    case '姓名': return '<td>' + (c.name || opts.name || '-') + '</td>';
+    case '身份证号码': return '<td>' + (c.idNo || opts.idNo || '-') + '</td>';
+    case '性别': return '<td>' + (c.sex || '-') + '</td>';
+    case '年龄':
+      var age = c.birth ? Math.floor((new Date() - new Date(c.birth)) / (365.25 * 24 * 3600 * 1000)) : '-';
+      return '<td>' + age + '</td>';
+    case '出生日期': return '<td>' + (c.birth || '-') + '</td>';
+    case '发病部位': return '<td>' + (c.site || '-') + '</td>';
+    case 'ICD10': return '<td>' + (c.icd10 || '-') + '</td>';
+    case '确诊日期': return '<td>' + (c.diagnosisDate || '-') + '</td>';
+    case '最后接触状态': return '<td>' + (follow.state || '-') + '</td>';
+    case '最后接触时间': return '<td>' + (follow.dlc || '-') + '</td>';
+    case '报告单位': return '<td>' + (c.reportUnit || '-') + '</td>';
+    case '来源类型': return '<td>' + (source ? source.sourceType : '手工登记') + '</td>';
+    case '上传日期': return '<td>' + (source ? String(source.uploadTime || '').slice(0, 10) : '-') + '</td>';
+    case '校验状态': return '<td>' + (c.checkStatus || '-') + '</td>';
+    case '报告卡类型': return '<td>' + (c.cardType || '-') + '</td>';
+  }
+  return '<td>-</td>';
+}
+
+/* 列表页一行：MIG_CARD_COLS 全列。
+   opts（可选）：{ cardId, name, idNo, trail }
+     · cardId/name/idNo 在卡片已不在库（迁移后作废等）时作兜底
+     · trail 是附在「报告卡编号」单元格下方的补充行 */
+function migCardRowCells(c, opts) {
+  return MIG_CARD_COLS.map(function (h) { return migCellHtml(h, c, opts); }).join('');
 }
 
 function migCardsTableHtml() {
@@ -495,23 +547,34 @@ function migCardsTableHtml() {
   }
   var body = rows.map(function (c) {
     var checked = MIG_STATE.selected[c.id] ? ' checked' : '';
-    var dup = migDupStatus(c);
     return '<tr>' +
       '<td><input type="checkbox" class="mig-card-check" data-id="' + c.id + '"' + checked +
       ' onchange="migOnCardCheck(this)" style="cursor:pointer"></td>' +
       migCardRowCells(c) +
-      '<td style="white-space:nowrap"><strong>' + (c.region && c.region !== '-' ? c.region : '<span style="color:var(--danger)">未定位</span>') + '</strong>' +
-      (c.regionCode ? ' <span class="badge badge-muted">' + c.regionCode + '</span>' : '') + '</td>' +
-      '<td class="txt"><span class="badge ' + (dup === '疑似重卡' ? 'badge-warning' : 'badge-muted') + '">' + dup + '</span></td>' +
       '</tr>';
   }).join('');
 
   return '<div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:12px"><div class="table-wrap">' +
-    '<table class="data-table" style="margin:0;min-width:1980px"><thead><tr>' +
+    '<table class="data-table" style="margin:0;min-width:1900px"><thead><tr>' +
     '<th style="width:36px"><input type="checkbox" onchange="migSelectAllRows(this.checked)" style="cursor:pointer"></th>' +
     MIG_CARD_COLS.map(function (h) { return '<th>' + h + '</th>'; }).join('') +
-    '<th>当前归属地</th><th>重卡状态</th>' +
     '</tr></thead><tbody>' + body + '</tbody></table></div></div>';
+}
+
+/* 一个批次里的卡可能来自多个原归属地（勾选时并不要求同源），
+   所以「原归属地」不能是一个字符串。这里按 items 逐卡汇总成「归属地 + 张数」列表。
+   注意不能用 b.fromRegion：多源时它只是一个"N 个归属地"的占位串。 */
+function migFromBreakdown(b) {
+  var items = b.items && b.items.length ? b.items : b.cardIds.map(function (id) {
+    return { cardId: id, fromRegion: b.fromRegion };
+  });
+  var order = [], map = {};
+  items.forEach(function (it) {
+    var r = it.fromRegion || '未定位';
+    if (!map[r]) { map[r] = 0; order.push(r); }
+    map[r] += 1;
+  });
+  return order.map(function (r) { return { region: r, count: map[r] }; });
 }
 
 function migBatchesTableHtml() {
@@ -519,36 +582,56 @@ function migBatchesTableHtml() {
     return '<div style="padding:36px;text-align:center;color:#94a3b8">暂无迁移批次</div>';
   }
   var rows = MIG_BATCHES.map(function (b) {
-    var ops = [];
-    ops.push('<button class="btn btn-ghost btn-xs" onclick="migOpenBatchDetail(\'' + b.batchNo + '\')">查看明细</button>');
-    if (b.status === 'executed') {
-      ops.push('<button class="btn btn-outline btn-xs" onclick="migRevertBatch(\'' + b.batchNo + '\')">回退</button>');
-    }
-    ops.push('<button class="btn btn-ghost btn-xs" onclick="toast(\'导出Excel中...\')">导出</button>');
+    /* 台账只读：操作列只留「查看明细」，不提供撤销 / 修正 / 导出 */
+    var ops = ['<button class="btn btn-ghost btn-xs" onclick="migOpenBatchDetail(\'' + b.batchNo + '\')">查看明细</button>'];
     var crossCity = b.fromCity && b.toCity && b.fromCity !== b.toCity;
     /* 固定列宽下不裁剪的话，长文本会直接压到相邻列上 */
     var cut = ' style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"';
+
+    /* 原归属地：固定单行，行高不撑大。
+       · 1 个来源：直接写归属地
+       · 2 个来源：两个都写，顿号分隔
+       · 3 个及以上：写「首个 + 等 N 个归属地」，鼠标悬浮弹出完整清单
+    */
+    var src = migFromBreakdown(b);
+    var srcTitle = src.map(function (x) { return x.region + ' ' + x.count + ' 张'; }).join('、');
+    var srcHtml, srcCellAttr;
+    if (!src.length) {
+      srcHtml = '-';
+      srcCellAttr = cut + ' title="-"';
+    } else if (src.length <= 2) {
+      srcHtml = src.map(function (x) { return x.region; }).join('、');
+      srcCellAttr = cut + ' title="' + srcTitle + '"';
+    } else {
+      /* 多源：单元格里不塞 title（原生提示慢、样式也差），改用自定义悬浮卡片 */
+      srcHtml = src[0].region + '<span style="color:#94a3b8"> 等 ' + src.length + ' 个归属地</span>';
+      srcCellAttr = cut + ' data-mig-src="' + encodeURIComponent(JSON.stringify(src)) + '"' +
+        ' onmouseenter="migSrcTipShow(event,this)" onmouseleave="migSrcTipHide()" style="cursor:help"';
+    }
+
     return '<tr>' +
       '<td class="txt"' + cut + '><a href="javascript:void(0)" style="color:var(--primary)" onclick="migOpenBatchDetail(\'' + b.batchNo + '\')">' + b.batchNo + '</a></td>' +
-      '<td class="txt"' + cut + ' title="' + b.fromRegion + '">' + b.fromRegion + '</td>' +
+      '<td class="txt"' + srcCellAttr + '>' + srcHtml + '</td>' +
       '<td class="txt"' + cut + ' title="' + b.toRegion + '">' + b.toRegion + (crossCity ? ' <span class="badge badge-warning">跨市</span>' : '') + '</td>' +
       '<td class="num">' + b.cardIds.length + '</td>' +
       '<td class="txt"' + cut + ' title="' + migReasonLabel(b.reasonCode) + '">' + migReasonLabel(b.reasonCode) + '</td>' +
       '<td class="txt"' + cut + ' title="' + b.operator + '">' + b.operator + '</td>' +
       '<td class="code"' + cut + '>' + b.operateTime + '</td>' +
-      '<td class="code"><span class="badge ' + MIG_STATUS_CLS[b.status] + '">' + MIG_STATUS_TEXT[b.status] + '</span></td>' +
       '<td class="ops sticky-col">' + ops.join(' ') + '</td>' +
       '</tr>';
   }).join('');
+  /* 状态列已去掉：批次只有"已执行"一种状态，这一列全是同值，白占宽度 */
   return '<div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden"><div class="table-wrap">' +
+    /* 原归属地列放 260px：要容得下「A 等 N 个归属地」这种最长文案，否则会被省略号截断；
+       操作列只剩「查看明细」一个按钮，宽度相应收到 120px */
     '<table class="data-table" style="margin:0;min-width:1250px;table-layout:fixed;width:100%"><colgroup>' +
-    '<col style="width:140px"><col style="width:120px"><col style="width:180px"><col style="width:40px">' +
-    '<col style="width:130px"><col style="width:140px"><col style="width:150px"><col style="width:60px">' +
-    '<col style="width:250px">' +
+    '<col style="width:140px"><col style="width:260px"><col style="width:200px"><col style="width:40px">' +
+    '<col style="width:160px"><col style="width:160px"><col style="width:150px">' +
+    '<col style="width:120px">' +
     '</colgroup><thead><tr>' +
-    '<th class="txt">批次号</th><th class="txt">源归属地</th><th class="txt">目标归属地</th>' +
+    '<th class="txt">批次号</th><th class="txt">原归属地</th><th class="txt">新归属地</th>' +
     '<th class="num">卡数</th><th class="txt">迁移原因</th><th class="txt">发起人</th>' +
-    '<th class="code">发起时间</th><th class="code">状态</th>' +
+    '<th class="code">发起时间</th>' +
     '<th class="ops sticky-col">操作</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
 }
@@ -561,7 +644,7 @@ function renderCardMigrate() {
     return migTabsHtml() +
       '<div class="panel"><div class="panel-body">' +
       '<div style="margin-bottom:10px;color:#667085;font-size:13px">共 ' + MIG_BATCHES.length +
-      ' 个迁移批次；提交即执行、无需审批，已执行批次可整批回退。</div>' +
+      ' 个迁移批次（只读记录）。迁错了请回列表重新勾选这些卡、再走一次迁移。</div>' +
       migBatchesTableHtml() +
       '</div></div>';
   }
@@ -582,6 +665,8 @@ function renderCardMigrate() {
 /* ===================== 9. 交互动作 ===================== */
 /* 重绘统一走这里。明细表很长，切进切出必须回到页顶，否则会停在上一页的滚动位置。 */
 function migRerender() {
+  /* 浮层挂在 body 上、不随页面重绘消失，重绘前必须先清掉，否则会留下一张孤儿卡片 */
+  if (typeof migSrcTipHide === 'function') migSrcTipHide();
   renderPage('datamgmt-card-migrate');
   var mc = document.getElementById('mainContent');
   if (mc) mc.scrollTop = 0;
@@ -735,7 +820,7 @@ function migOpenSubmitDialog() {
     '</select></div>' +
     '<div class="form-group" style="margin-bottom:10px"><label>原因说明 <span class="required">*</span></label>' +
     '<textarea id="migReasonNote" rows="3" placeholder="说明迁移依据，例：患者 2026-09 已迁居，按常住地变更调整归属"></textarea></div>' +
-    '<div style="font-size:12px;color:#94a3b8">提交后<b>立即生效</b>并改写报告卡归属地，可在「迁移批次台账」中整批回退。</div>';
+    '<div style="font-size:12px;color:#94a3b8">提交后<b>立即生效</b>并改写报告卡归属地，本次操作将记入迁移批次台账。</div>';
 
   var modal = migDialog('确认报告卡归属地迁移', body, '提交并执行', function (m) {
     var path = migDialogTargetPath(m);
@@ -769,39 +854,18 @@ function migCreateBatch(ids, targetPath, reasonCode, reasonNote, skipped) {
   var now = migNow();
   var toRegion = migLabelOfPath(targetPath);
   var operator = migOperator();
-  var items = ids.map(function (id) {
-    var c = migFindCard(id);
-    return {
-      cardId: id, name: c ? c.name : '', idNo: c ? c.idNo : '',
-      fromRegion: c ? (c.region || '') : '', toRegion: toRegion
-    };
-  });
-  var fromRegions = [];
-  items.forEach(function (i) {
-    var r = i.fromRegion || '未定位';
-    if (fromRegions.indexOf(r) < 0) fromRegions.push(r);
-  });
-  var fromCities = [];
-  items.forEach(function (i) {
-    var c = migCityOfPath(migResolveRegion(i.fromRegion)) || '未定位';
-    if (fromCities.indexOf(c) < 0) fromCities.push(c);
-  });
-  var batch = {
-    batchNo: migNextBatchNo(), status: 'executed',
-    /* 全批同源就写具体归属地，混源才写「N 个归属地」——否则台账看不出这批卡原本在哪 */
-    fromRegion: fromRegions.length === 1 ? fromRegions[0] : fromRegions.length + ' 个归属地',
+  /* 统一走 migBuildBatch：批次级原归属地汇总、fromPath、fromCity 等派生字段
+     只在一个地方算，避免提交路径与种子路径各算一套导致口径不一致。 */
+  var batch = migBuildBatch({
+    batchNo: migNextBatchNo(),
+    seq: migNextSeq(),
+    status: 'executed',
+    fromRegion: '',            // 由 items 汇总，占位
     toRegion: toRegion,
-    fromPath: migResolveRegion(items[0].fromRegion).map(function (n) { return n.label; }),
-    toPath: targetPath.map(function (n) { return n.label; }),
-    fromCode: migCodeOfPath(migResolveRegion(items[0].fromRegion)),
-    toCode: migCodeOfPath(targetPath),
-    fromCity: fromCities.length === 1 ? fromCities[0] : '多地市',
-    toCity: migCityOfPath(targetPath),
-    cardIds: ids.slice(), items: items,
+    cardIds: ids.slice(),
     reasonCode: reasonCode, reasonNote: reasonNote,
-    operator: operator, operateTime: now,
-    revertBy: '', revertTime: '', revertNote: ''
-  };
+    operator: operator, operateTime: now
+  });
   MIG_BATCHES.unshift(batch);
   migApplyToCards(batch.batchNo, ids, batch.fromRegion, toRegion);
   migPushRecords(batch.batchNo, ids, batch.fromRegion, toRegion, reasonCode, reasonNote,
@@ -812,34 +876,42 @@ function migCreateBatch(ids, targetPath, reasonCode, reasonNote, skipped) {
     (skipped ? '（已跳过 ' + skipped + ' 张：当前归属地与目标一致）' : ''));
 }
 
-/* ---------- 回退 ---------- */
-function migRevertBatch(batchNo) {
-  var b = MIG_BATCHES.find(function (x) { return x.batchNo === batchNo; });
-  if (!b || b.status !== 'executed') return;
-  migDialog('回退迁移批次',
-    '<div>将把 <b>' + b.cardIds.length + '</b> 张报告卡的归属地从 <b>' + b.toRegion + '</b> 还原为 <b>' + b.fromRegion + '</b>。</div>' +
-    '<div style="margin-top:8px;color:var(--danger)">回退会再次改写卡片归属地，并保留完整审计记录。</div>',
-    '确认回退', function () {
-      var now = migNow();
-      var operator = migOperator();
-      var items = b.items && b.items.length ? b.items : b.cardIds.map(function (id) {
-        return { cardId: id, fromRegion: b.fromRegion };
-      });
-      items.forEach(function (it) {
-        var c = migFindCard(it.cardId); if (!c) return;
-        c.region = it.fromRegion;
-        var p = migResolveRegion(it.fromRegion);
-        c.regionPath = p.map(function (n) { return n.label; });
-        c.regionCode = migCodeOfPath(p);
-        migSetOverride(it.cardId, it.fromRegion);
-      });
-      migPushRecords(b.batchNo, b.cardIds, b.toRegion, b.fromRegion, b.reasonCode,
-        '批次 ' + batchNo + ' 回退：' + b.reasonNote, operator, now, 'reverted');
-      b.status = 'reverted';
-      b.revertBy = operator; b.revertTime = now;
-      migRerender();
-      toast('批次 ' + batchNo + ' 已回退');
-    });
+/* ---------- 原归属地悬浮清单 ----------
+   台账的表格容器是 .table-wrap{overflow:auto}，用 CSS absolute 定位的浮层会被容器裁掉，
+   所以这里用 position:fixed 按鼠标位置贴一张卡片，并把卡片挂到 body 上，避免被裁剪。 */
+function migSrcTipShow(ev, cell) {
+  migSrcTipHide();
+  var raw = cell.getAttribute('data-mig-src');
+  if (!raw) return;
+  var list;
+  try { list = JSON.parse(decodeURIComponent(raw)); } catch (e) { return; }
+  if (!list || !list.length) return;
+
+  var tip = document.createElement('div');
+  tip.className = 'mig-src-tip';
+  tip.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;background:#fff;border:1px solid #d7e0ea;' +
+    'border-radius:6px;box-shadow:0 8px 24px rgba(15,23,42,.16);padding:8px 10px;font-size:12px;color:#334155;' +
+    'line-height:1.7;min-width:180px;max-width:320px';
+  tip.innerHTML = '<div style="font-weight:600;color:#476079;margin-bottom:4px">原归属地（' + list.length + ' 个）</div>' +
+    list.map(function (x) {
+      return '<div style="display:flex;justify-content:space-between;gap:14px">' +
+        '<span>' + x.region + '</span>' +
+        '<span style="color:#94a3b8;flex:0 0 auto">' + x.count + ' 张</span></div>';
+    }).join('');
+  document.body.appendChild(tip);
+
+  /* 贴着单元格右下，超出视口就翻到上方/左侧 */
+  var r = cell.getBoundingClientRect();
+  var tw = tip.offsetWidth, th = tip.offsetHeight;
+  var left = r.left;
+  if (left + tw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - tw - 8);
+  var top = r.bottom + 6;
+  if (top + th > window.innerHeight - 8) top = Math.max(8, r.top - th - 6);
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+}
+function migSrcTipHide() {
+  document.querySelectorAll('.mig-src-tip').forEach(function (n) { n.remove(); });
 }
 
 /* ---------- 明细与留痕查看 ----------
@@ -864,35 +936,25 @@ function migBatchDetailHtml() {
   var items = b.items && b.items.length ? b.items : b.cardIds.map(function (id) {
     return { cardId: id, fromRegion: b.fromRegion, toRegion: b.toRegion };
   });
-  /* 回退后卡片的当前归属地是原值，所以要按「是否已回退」决定展示哪一侧 */
-  var reverted = b.status === 'reverted';
+  /* 每张卡是否还停在"本批次迁往的归属地"：不在就说明此后又被迁过 */
+  function currentOf(cardId) {
+    var c = migFindCard(cardId);
+    return c ? (c.region || '未定位') : '卡片已不存在';
+  }
+  var driftedCount = items.filter(function (it) { return currentOf(it.cardId) !== b.toRegion; }).length;
+
+  /* 明细页列集与报告卡列表完全一致（MIG_DETAIL_HIDDEN_COLS 当前为空）。
+     表头与行都按同一个数组生成，不会错位。 */
+  var cols = migDetailCols();
 
   var rows = items.map(function (it) {
     var c = migFindCard(it.cardId) || {};
-    var follow = (window.reportCardFollowup || {})[it.cardId] || {};
-    var src = migCardSources(c)[0];
-    var age = c.birth ? Math.floor((new Date() - new Date(c.birth)) / (365.25 * 24 * 3600 * 1000)) : '-';
-    var current = c.region || '-';
     var before = it.fromRegion || '-';
     var after = it.toRegion || '-';
-    var dup = migDupStatus(c);
-    return '<tr>' +
-      '<td class="txt"><a href="javascript:void(0)" style="color:var(--primary)" onclick="cardListDetail(\'' + it.cardId + '\')">' + it.cardId + '</a></td>' +
-      '<td class="txt">' + (it.name || c.name || '-') + '</td>' +
-      '<td class="txt">' + (it.idNo || c.idNo || '-') + '</td>' +
-      '<td class="txt">' + (c.sex || '-') + '</td>' +
-      '<td class="num">' + age + '</td>' +
-      '<td class="txt">' + (c.site || '-') + '</td>' +
-      '<td class="txt">' + (c.icd10 || '-') + '</td>' +
-      '<td class="txt">' + (c.diagnosisDate || '-') + '</td>' +
-      '<td class="txt">' + (c.reportUnit || '-') + '</td>' +
-      '<td class="txt">' + before + '</td>' +
-      '<td class="txt"><strong style="color:var(--primary)">' + after + '</strong></td>' +
-      '<td class="txt"><strong>' + current + '</strong>' + (reverted ? ' <span class="badge badge-muted">已还原</span>' : '') + '</td>' +
-      '<td class="txt">' + (src ? src.sourceType : '手工登记') + '</td>' +
-      '<td class="txt"><span class="badge ' + (dup === '疑似重卡' ? 'badge-warning' : 'badge-muted') + '">' + dup + '</span></td>' +
-      '<td class="txt">' + (follow.state || '-') + '</td>' +
-      '</tr>';
+    /* 迁移前/后归属地作为「报告卡编号」单元格的第二行，不单开列 */
+    var trail = '迁移前 ' + before + ' · 迁移后 ' + after;
+    var opts = { cardId: it.cardId, name: it.name, idNo: it.idNo, trail: trail };
+    return '<tr>' + cols.map(function (h) { return migCellHtml(h, c, opts); }).join('') + '</tr>';
   }).join('');
 
   var topbar =
@@ -900,18 +962,23 @@ function migBatchDetailHtml() {
       '<div class="src-detail-title">迁移批次明细</div>' +
       '<div class="src-detail-topbar-meta">' +
         '<span class="src-chip accent">' + b.batchNo + '</span>' +
-        '<span class="src-chip">' + b.fromRegion + ' → ' + b.toRegion + '</span>' +
+        /* 多源时不能直接写 b.fromRegion（那是"N 个归属地"占位串），按汇总结果展示 */
+        '<span class="src-chip">' +
+          (migFromBreakdown(b).length <= 1
+            ? (migFromBreakdown(b).length ? migFromBreakdown(b)[0].region : '-')
+            : migFromBreakdown(b).length + ' 个原归属地') +
+          ' → ' + b.toRegion + '</span>' +
         '<span class="src-chip">' + b.cardIds.length + ' 张</span>' +
-        '<span class="badge ' + MIG_STATUS_CLS[b.status] + '">' + MIG_STATUS_TEXT[b.status] + '</span>' +
+        (driftedCount
+          ? '<span class="src-chip">' + driftedCount + ' 张此后已再次迁移</span>'
+          : '<span class="src-chip">全部仍在新归属地</span>') +
       '</div>' +
     '</div><div class="src-detail-actions">' +
       '<button class="btn btn-ghost btn-sm" onclick="migBackToBatchList()">返回迁移批次</button>' +
-      (b.status === 'executed'
-        ? '<button class="btn btn-outline btn-sm" onclick="migRevertBatch(\'' + b.batchNo + '\')">回退该批次</button>' : '') +
       '<button class="btn btn-outline btn-sm" onclick="toast(\'导出Excel中...\')">导出Excel</button>' +
     '</div></div>';
 
-  /* 批次级信息：发起 / 回退 / 原因。与逐卡清单分开，避免每行重复同一句话。 */
+  /* 批次级信息：发起 / 原因。与逐卡清单分开，避免每行重复同一句话。 */
   var info =
     '<div class="panel" style="margin-bottom:14px"><div class="panel-body">' +
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px 20px">' +
@@ -921,22 +988,16 @@ function migBatchDetailHtml() {
         '<div style="font-size:13px">' + (b.reasonNote || '-') + '</div></div>' +
       '<div><div style="font-size:12px;color:#94a3b8;margin-bottom:4px">发起</div>' +
         '<div style="font-size:13px">' + b.operator + '（' + b.operateTime + '）</div></div>' +
-      '<div><div style="font-size:12px;color:#94a3b8;margin-bottom:4px">回退</div>' +
-        '<div style="font-size:13px">' +
-        (b.revertTime ? (b.revertBy || '') + '（' + b.revertTime + '）' + (b.revertNote ? ' · ' + b.revertNote : '') : '未回退') +
-        '</div></div>' +
     '</div></div></div>';
 
   var table =
     '<div class="panel"><div class="panel-body">' +
-    '<div style="margin-bottom:10px;color:#667085;font-size:13px">共 ' + items.length + ' 张报告卡的完整迁移清单</div>' +
+    '<div style="margin-bottom:10px;color:#667085;font-size:13px">共 ' + items.length +
+    ' 张报告卡的完整迁移清单（表头与报告卡列表完全一致；每张卡的迁移前后归属地见报告卡编号下方）</div>' +
     '<div class="table-wrap"><table class="data-table" style="margin:0;min-width:1900px"><thead><tr>' +
-    '<th class="txt">报告卡编号</th><th class="txt">姓名</th><th class="txt">身份证号</th><th class="txt">性别</th>' +
-    '<th class="num">年龄</th><th class="txt">发病部位</th><th class="txt">ICD10</th><th class="txt">确诊日期</th>' +
-    '<th class="txt">报告单位</th><th class="txt">原归属地</th><th class="txt">新归属地</th><th class="txt">当前归属地</th>' +
-    '<th class="txt">来源类型</th><th class="txt">重卡状态</th><th class="txt">最后接触状态</th>' +
+    cols.map(function (h) { return '<th>' + h + '</th>'; }).join('') +
     '</tr></thead><tbody>' +
-    (rows || '<tr><td colspan="15" style="text-align:center;padding:36px;color:#98a2b3">该批次没有报告卡</td></tr>') +
+    (rows || '<tr><td colspan="' + cols.length + '" style="text-align:center;padding:36px;color:#98a2b3">该批次没有报告卡</td></tr>') +
     '</tbody></table></div></div></div>';
 
   return '<div class="src-detail">' + topbar + info + table + '</div>';

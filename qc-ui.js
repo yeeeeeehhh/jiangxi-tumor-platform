@@ -37,6 +37,29 @@
        窄屏独占一行时就会在按钮下方露出空白带。固定自身高度并底对齐即可。 */
     '#pageContainer .qc-filter .acts{display:flex;justify-content:flex-end;align-items:center;gap:8px;grid-column:auto;align-self:end;height:34px}',
     '#pageContainer .qc-filter .acts .btn{height:34px}',
+    /* ---------- 级联选择器（省→市→区县→街道→社区 五级） ----------
+       一个输入框当触发器，点开弹出面板：面板按层分列，点某层的项就把
+       该层及以下重置、并把下一层列出来。选中后框内回显路径。 */
+    '#pageContainer .qc-casc{position:relative;min-width:0}',
+    '#pageContainer .qc-casc-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;height:34px;padding:0 9px;border:1px solid #d1d8e0;border-radius:5px;background:#fff;color:#1f2937;font-size:13px;cursor:pointer;font-family:inherit;text-align:left;box-sizing:border-box}',
+    '#pageContainer .qc-casc-trigger:hover{border-color:var(--primary)}',
+    '#pageContainer .qc-casc-trigger.on{border-color:var(--primary);box-shadow:0 0 0 2px rgba(36,71,101,.1)}',
+    '#pageContainer .qc-casc-val{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '#pageContainer .qc-casc-val.ph{color:#9aa7b5}',
+    '#pageContainer .qc-casc-clr{flex:0 0 auto;width:16px;height:16px;line-height:15px;text-align:center;border-radius:50%;background:#e6edf5;color:#64748b;font-size:12px;visibility:hidden}',
+    '#pageContainer .qc-casc-trigger.has .qc-casc-clr{visibility:visible}',
+    '#pageContainer .qc-casc-caret{flex:0 0 auto;color:#94a3b8;font-size:10px;transition:transform .15s}',
+    '#pageContainer .qc-casc-trigger.on .qc-casc-caret{transform:rotate(180deg)}',
+    '#pageContainer .qc-casc-panel{position:absolute;z-index:1300;top:calc(100% + 4px);left:0;display:none;background:#fff;border:1px solid #d1d8e0;border-radius:8px;box-shadow:0 10px 30px rgba(15,23,42,.16);padding:6px;max-width:min(760px,92vw)}',
+    '#pageContainer .qc-casc-panel.on{display:flex;gap:2px}',
+    '#pageContainer .qc-casc-col{min-width:132px;max-height:290px;overflow:auto;padding:2px}',
+    '#pageContainer .qc-casc-col+.qc-casc-col{border-left:1px solid #eef2f7}',
+    '#pageContainer .qc-casc-item{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;height:30px;padding:0 9px;border:0;border-radius:5px;background:none;color:#334155;font-size:12.5px;cursor:pointer;font-family:inherit;text-align:left;white-space:nowrap}',
+    '#pageContainer .qc-casc-item:hover{background:#f1f7ff;color:var(--primary)}',
+    '#pageContainer .qc-casc-item.on{background:#e8f2ff;color:#244765;font-weight:600}',
+    '#pageContainer .qc-casc-item .more{color:#cbd5e1;font-size:10px}',
+    '#pageContainer .qc-casc-item.on .more{color:#244765}',
+    '#pageContainer .qc-casc-empty{padding:8px 10px;color:#94a3b8;font-size:12px;white-space:nowrap}',
     /* KPI */
     '#pageContainer .qc-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:16px}',
     '#pageContainer .qc-kpis.g3{grid-template-columns:repeat(3,minmax(0,1fr))}',
@@ -248,11 +271,15 @@
     return badge(st, m[st] || 'neutral');
   }
 
-  /* 页头。layer: l1..l5 决定标签配色 */
+  /* 页头。layer: l1..l5 决定标签配色
+     layerName 传 false → 不渲染右上角标签（供不需要该标签的页面使用）；
+     传字符串/空 → 按原行为，空值时回落为「质控管理」。 */
   function head(title, sub, layer, layerName, acts) {
+    var tag = (layerName === false) ? '' :
+      '<span class="qc-tag ' + (layer || '') + '">' + esc(layerName || '质控管理') + '</span>';
     return '<div class="qc-head"><div><div class="t">' + esc(title) + '</div>' +
       (sub ? '<div class="s">' + esc(sub) + '</div>' : '') + '</div>' +
-      '<div class="acts"><span class="qc-tag ' + (layer || '') + '">' + esc(layerName || '质控管理') + '</span>' +
+      '<div class="acts">' + tag +
       (acts || '') + '</div></div>';
   }
 
@@ -268,10 +295,13 @@
     }).join('') + '</div>';
   }
 
+  /* 卡片。title 传空串（或 null）→ 不渲染标题栏，只留内容区（供不需要标题的表格用）。 */
   function card(title, body, sub, tools, flush) {
-    return '<div class="qc-card"><div class="hd"><span class="t">' + esc(title) +
-      (sub ? '<span class="sub">' + esc(sub) + '</span>' : '') + '</span>' +
-      (tools ? '<span class="tools">' + tools + '</span>' : '') + '</div>' +
+    var hasHead = !!(title || sub || tools);
+    return '<div class="qc-card">' +
+      (hasHead ? '<div class="hd"><span class="t">' + esc(title || '') +
+        (sub ? '<span class="sub">' + esc(sub) + '</span>' : '') + '</span>' +
+        (tools ? '<span class="tools">' + tools + '</span>' : '') + '</div>' : '') +
       '<div class="bd' + (flush ? ' flush' : '') + '">' + body + '</div></div>';
   }
 
@@ -346,12 +376,33 @@
     var align = opt.align || {};
     var fit = opt.fit ? fitWidths(headers, rows, opt.empty || '暂无符合条件的记录') : null;
     var widths = fit ? fit.widths : (opt.widths || null);
+
+    /* 每列的数据对齐类：取第一条真实数据行里该列 td 的 class。
+       表头必须与内容同向，否则会出现"表头左对齐、链接靠右"的错位。
+       以前靠猜列名（只认「操作」）来补 act，列名一换就漏 —— 现在改为以数据为准，
+       并把「数字/右对齐/居中」这几类对齐原样带到表头上。 */
+    var firstCells = [];
+    for (var ri = 0; ri < rows.length; ri++) {
+      var rc = rows[ri].cells || rows[ri];
+      if (rc && rc.length) { firstCells = rc; break; }
+    }
+    function cellCls(i) {
+      var c = firstCells[i];
+      if (c && typeof c === 'object' && c.cls) return ' ' + c.cls;
+      return '';
+    }
+
     var th = headers.map(function (h, idx) {
       var t = String(h), num = t.charAt(0) === '#';
-      var extra = align[idx] ? ' ' + align[idx] : '';
-      /* 操作列自动右对齐：内容（链接）是右对齐的，表头必须一致，否则错位 */
-      if (/^操作$/.test(t.replace(/^#/, ''))) extra += ' act';
-      return '<th class="' + (num ? 'num' : '') + extra + '">' + esc(t.replace(/^#/, '')) + '</th>';
+      /* 表头基础类：数字列自带 num；再叠加数据单元格的对齐类（num / act / center） */
+      var cls = num ? 'num' : '';
+      var dc = cellCls(idx);
+      if (/\bnum\b/.test(dc) && !/\bnum\b/.test(cls)) cls = (cls + ' num').trim();
+      if (/\bact\b/.test(dc)) cls = (cls + ' act').trim();
+      if (/\bcenter\b/.test(dc)) cls = (cls + ' center').trim();
+      /* 显式 align 优先（如徽标列要求居中） */
+      if (align[idx]) cls = (cls + ' ' + align[idx]).trim();
+      return '<th' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(t.replace(/^#/, '')) + '</th>';
     }).join('');
     var body = rows.length ? rows.map(function (r) {
       var cells = r.cells || r;
@@ -376,6 +427,160 @@
     return '<div class="qc-tw"><table class="qc-tbl' + (opt.compact ? ' compact' : '') +
       (colgroup ? ' fixed' : '') + '"' + style + '>' + colgroup + '<thead><tr>' +
       th + '</tr></thead><tbody>' + body + '</tbody></table></div>';
+  }
+
+  /* ==================== 级联选择器（区域五级联动） ====================
+     tree: regionData[0] 形状的节点（{label, children:[...]}），默认取全站 regionData。
+     value: 当前路径 ['南昌市','东湖区',...]（不含省）。
+     交互：点触发器开面板 → 逐列点选 → 点某项即选中该层、清空其后各层、展开下一层。
+     面板用绝对定位浮层，不占筛选条宽度（避免 5 个下拉各占一列把筛选条撑爆）。 */
+  function cascNodeChildren(node) { return (node && node.children) || []; }
+  function cascPathValue(path) { return (path || []).filter(Boolean).join(' / '); }
+
+  /* 依据路径逐层解析出「每一列的候选节点」 */
+  function cascColumns(root, path) {
+    var cols = [];
+    var node = root;
+    var depth = 0;
+    while (node) {
+      var kids = cascNodeChildren(node);
+      if (!kids.length) break;
+      cols.push({ nodes: kids, sel: path[depth] || '' });
+      var picked = null;
+      for (var i = 0; i < kids.length; i++) {
+        if (kids[i].label === path[depth]) { picked = kids[i]; break; }
+      }
+      node = picked;
+      depth++;
+    }
+    return cols;
+  }
+
+  /* 渲染（只画当前状态，交互靠事件代理 + qcCascRefresh 重画面板） */
+  function cascader(id, path, ph, tree) {
+    var root = tree || (typeof window !== 'undefined' && window.regionData ? window.regionData[0] : null);
+    var p = (path || []).filter(Boolean);
+    var label = cascPathValue(p);
+    return '<div class="qc-casc" data-qccasc="' + esc(id) + '">' +
+      '<button type="button" class="qc-casc-trigger' + (p.length ? ' has' : '') + '" data-qccasc-trigger="1">' +
+      '<span class="qc-casc-val' + (p.length ? '' : ' ph') + '">' + esc(label || ph || '全部地区') + '</span>' +
+      '<span class="qc-casc-clr" data-qccasc-clear="1" title="清除">×</span>' +
+      '<span class="qc-casc-caret">▼</span>' +
+      '</button>' +
+      '<div class="qc-casc-panel" data-qccasc-panel="1"></div>' +
+      '</div>';
+  }
+
+  /* 重画某个级联控件的面板内容（打开面板 / 选了某一层之后调用） */
+  function cascRefresh(box) {
+    if (!box) return;
+    var panel = box.querySelector('[data-qccasc-panel]');
+    if (!panel) return;
+    var root = window.regionData ? window.regionData[0] : null;
+    if (!root) { panel.innerHTML = '<div class="qc-casc-empty">区域数据未加载</div>'; return; }
+    var path = box._qcPath || [];
+    var cols = cascColumns(root, path);
+    panel.innerHTML = cols.map(function (col, ci) {
+      return '<div class="qc-casc-col" data-qccasc-col="' + ci + '">' +
+        col.nodes.map(function (n) {
+          var on = n.label === col.sel;
+          var hasKid = cascNodeChildren(n).length > 0;
+          return '<button type="button" class="qc-casc-item' + (on ? ' on' : '') + '"' +
+            ' data-qccasc-pick="' + ci + '" data-qccasc-label="' + esc(n.label) + '">' +
+            '<span>' + esc(n.label) + '</span>' +
+            (hasKid ? '<span class="more">▸</span>' : '') +
+            '</button>';
+        }).join('') +
+        '</div>';
+    }).join('');
+  }
+
+  /* 关闭所有级联面板 */
+  function cascCloseAll(except) {
+    var boxes = document.querySelectorAll('[data-qccasc]');
+    for (var i = 0; i < boxes.length; i++) {
+      if (except && boxes[i] === except) continue;
+      var t = boxes[i].querySelector('[data-qccasc-trigger]');
+      var p = boxes[i].querySelector('[data-qccasc-panel]');
+      if (t) t.classList.remove('on');
+      if (p) p.classList.remove('on');
+    }
+  }
+
+  /* 点某一层：选中它、清空其后各层、重画面板；最末层选完顺手收起 */
+  function cascPick(box, ci, label) {
+    var path = (box._qcPath || []).slice(0, ci);
+    path[ci] = label;
+    box._qcPath = path;
+    /* 回显路径 */
+    var valEl = box.querySelector('.qc-casc-val');
+    var trig = box.querySelector('[data-qccasc-trigger]');
+    var shown = cascPathValue(path);
+    if (valEl) { valEl.textContent = shown; valEl.classList.remove('ph'); }
+    if (trig) trig.classList.add('has');
+    cascRefresh(box);
+    /* 已经点到叶子（下一层无候选）就收起面板 */
+    var root = window.regionData ? window.regionData[0] : null;
+    var cols = cascColumns(root, path);
+    if (cols.length <= path.length) {
+      var p = box.querySelector('[data-qccasc-panel]');
+      if (p) p.classList.remove('on');
+      if (trig) trig.classList.remove('on');
+    }
+    /* 通知宿主页面 */
+    var id = box.getAttribute('data-qccasc');
+    if (typeof window.onQcCascade === 'function') window.onQcCascade(id, path, box);
+  }
+
+  /* 全局只装一次：开关面板 / 点选 / 清除 / 点外面收起 */
+  if (typeof document !== 'undefined' && !document._qcCascBound) {
+    document._qcCascBound = true;
+    document.addEventListener('click', function (ev) {
+      var t = ev.target;
+      if (!t || !t.closest) return;
+      var clr = t.closest('[data-qccasc-clear]');
+      if (clr) {
+        var bx = clr.closest('[data-qccasc]');
+        if (bx) {
+          bx._qcPath = [];
+          var v = bx.querySelector('.qc-casc-val');
+          var tg = bx.querySelector('[data-qccasc-trigger]');
+          if (v) { v.textContent = bx.getAttribute('data-qccasc-ph') || '全部地区'; v.classList.add('ph'); }
+          if (tg) tg.classList.remove('has');
+          cascRefresh(bx);
+          var id0 = bx.getAttribute('data-qccasc');
+          if (typeof window.onQcCascade === 'function') window.onQcCascade(id0, [], bx);
+        }
+        ev.stopPropagation();
+        return;
+      }
+      var pick = t.closest('[data-qccasc-pick]');
+      if (pick) {
+        var box2 = pick.closest('[data-qccasc]');
+        var ci = parseInt(pick.getAttribute('data-qccasc-pick'), 10) || 0;
+        var lab = pick.getAttribute('data-qccasc-label') || '';
+        if (box2) cascPick(box2, ci, lab);
+        ev.stopPropagation();
+        return;
+      }
+      var trig = t.closest('[data-qccasc-trigger]');
+      if (trig) {
+        var box3 = trig.closest('[data-qccasc]');
+        var panel = box3 && box3.querySelector('[data-qccasc-panel]');
+        var willOpen = panel && !panel.classList.contains('on');
+        cascCloseAll(box3);
+        if (panel) panel.classList.toggle('on', !!willOpen);
+        trig.classList.toggle('on', !!willOpen);
+        if (willOpen && box3) {
+          if (!box3._qcPath) box3._qcPath = [];
+          cascRefresh(box3);
+        }
+        ev.stopPropagation();
+        return;
+      }
+      /* 点面板内其它空白不收起；点外面收 */
+      if (!t.closest('[data-qccasc-panel]')) cascCloseAll(null);
+    });
   }
 
   /* 筛选条：fields = [{key,label,type:'select'|'text',options:[{v,l}],value,ph}] */
@@ -693,6 +898,9 @@
     /* 列宽测算：供自定义表（如规则配置页的 .qcr-tbl）复用同一口径，
        避免两处各写一套、口径分叉。 */
     fitWidths: fitWidths, displayUnits: displayUnits,
+    /* 级联选择器（区域五级联动） */
+    cascader: cascader, cascRefresh: cascRefresh, cascCloseAll: cascCloseAll,
+    cascPathValue: cascPathValue,
     modal: modal, closeModal: closeModal, toast: toast
   };
 })();

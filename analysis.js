@@ -684,6 +684,15 @@
     return ['所属区划', '区划编码'];
   }
 
+  /* 2026-10-20 按需求：报卡质量监测表去掉纯编码列——区划口径去「区划编码」、单位口径去「单位编码」、
+     用户口径去「账户名」（保留姓名+所属单位即可识别）。
+     注意：dimHeaders/dimCells 被「报卡工作量」页共用，不能直接改，因此这里另起一套；
+     两者必须成对修改，否则表头 colspan 与数据列数会对不上。 */
+  function qcDimHeaders() {
+    if (state.group === 'unit') return ['所属单位', '单位等级'];
+    if (state.group === 'user') return ['姓名', '所属单位'];
+    return [dimHeaders()[0]];
+  }
   function dimCells(g) {
     if (state.group === 'unit') {
       return '<td class="sticky">' + htmlEsc(g.unitName) + '</td><td>' + htmlEsc(g.unitLevel) + '</td><td>' + htmlEsc(g.unitCode) + '</td>';
@@ -692,6 +701,16 @@
       return '<td class="sticky">' + htmlEsc(g.account) + '</td><td>' + htmlEsc(g.userName) + '</td><td>' + htmlEsc(g.unitName) + '</td>';
     }
     return '<td class="sticky">' + htmlEsc(g.regionName) + '</td><td>' + htmlEsc(g.regionCode) + '</td>';
+  }
+  /* 报卡质量监测专用维度列（与 qcDimHeaders 一一对应，顺序不可错位） */
+  function qcDimCells(g) {
+    if (state.group === 'unit') {
+      return '<td class="sticky">' + htmlEsc(g.unitName) + '</td><td>' + htmlEsc(g.unitLevel) + '</td>';
+    }
+    if (state.group === 'user') {
+      return '<td class="sticky">' + htmlEsc(g.userName) + '</td><td>' + htmlEsc(g.unitName) + '</td>';
+    }
+    return '<td class="sticky">' + htmlEsc(g.regionName) + '</td>';
   }
 
   function kpiRow(items) {
@@ -1123,7 +1142,18 @@
      与预警监测 B 层（登记质量预警）规则口径联动：超过预警值的列整列标注预警，
      点击超标列头可直接按 B-COMPLETENESS 规则生成预警 + 工单。
      依据：《中国肿瘤登记年报》《IARC CI5》《中国肿瘤登记工作指导手册》及国家登记质量评价参考 */
+  /* 2026-10-20 追加登记质量五指标（迟报率 / 重复率 / MV% / DCO% / M/I）。
+     本表除「缺失比例」（越低越好，超上限即预警）外还有两类：
+       · ratio 比值（M/I，落在参考区间内才算达标，两端都可能越界）
+       · min 正向指标（MV%，低于下限即预警）
+     取值统一走 qcRowValue，判定/展示走 qcDev / qcNear，避免各处各写一套方向。
+     原「分期与病理完整率」已删：分期完整度由「分期」缺失率反映、病理完整度由「MV%」反映，不再重复立列。 */
   var QC_LIMITS = {
+    '迟报率': { limit: 5, basis: '省级报卡质量考核：报告卡超过上报时限（确诊后 30 日内）的比例参考上限 5%' },
+    '重复率': { limit: 3, basis: '国家登记质量评价参考：疑似重复卡（重卡）占比上限 3%，重卡会虚增分子、抬高全部率值' },
+    'MV%': { limit: 66, dir: 'min', basis: '《中国肿瘤登记年报》可靠性指标；IARC CI5 收录参考下限 MV%（形态学确诊比例）≥ 66%' },
+    'DCO%': { limit: 15, basis: '《中国肿瘤登记年报》完整性指标；DCO%（仅死亡证明来源）上限 15%，与死亡补发病闭环联合研判' },
+    'M/I': { limit: 0.85, low: 0.55, dir: 'ratio', basis: '国家肿瘤登记质量考核参考：死亡发病比 M/I 宜落在 0.55 ~ 0.85 区间，过低提示漏报、过高提示发病补报不足' },
     '户籍外卡': { limit: 5, basis: '国家登记质量评价参考：户籍外卡占比参考上限 5%，超标需核对病例归属口径' },
     '警告卡': { limit: 3, basis: '省级报卡质量考核：逻辑校验警告卡占比参考上限 3%' },
     '身份证号': { limit: 2, basis: '《中国肿瘤登记工作指导手册》：关键身份字段缺失率上限 2%' },
@@ -1142,47 +1172,98 @@
     '治疗信息': { limit: 10, basis: '国家肿瘤登记质量考核：治疗信息缺失率上限 10%' }
   };
   function qcLimitOf(name) { return QC_LIMITS[name] ? QC_LIMITS[name].limit : null; }
-  function qcRowValue(row, colName, fields) {
+  /* 各市登记运营基线：与 cockpit-module.js / home-dashboard.js 的 META 同源同值（mv / dco / dup / mi），
+     本页只读不改；那边改基线时这里同步改，避免报卡质量与数据看板对同一地市给出两套口径。 */
+  function qcCityMeta() {
+    if (qcCityMetaCache) return qcCityMetaCache;
+    qcCityMetaCache = {
+      '360100': { mv: 79.5, dco: 3.6, dup: 2.0, mi: .615 },
+      '360200': { mv: 73.2, dco: 4.6, dup: 2.7, mi: .642 },
+      '360300': { mv: 71.6, dco: 5.2, dup: 3.1, mi: .678 },
+      '360400': { mv: 76.4, dco: 4.3, dup: 2.4, mi: .651 },
+      '360500': { mv: 78.1, dco: 3.9, dup: 2.2, mi: .623 },
+      '360600': { mv: 77.3, dco: 4.0, dup: 2.3, mi: .618 },
+      '360700': { mv: 74.8, dco: 4.9, dup: 3.6, mi: .604 },
+      '360800': { mv: 72.4, dco: 5.4, dup: 3.8, mi: .636 },
+      '360900': { mv: 73.9, dco: 5.1, dup: 3.2, mi: .647 },
+      '361000': { mv: 71.9, dco: 5.7, dup: 4.1, mi: .655 },
+      '361100': { mv: 70.8, dco: 6.1, dup: 4.4, mi: .659 }
+    };
+    return qcCityMetaCache;
+  }
+  var qcCityMetaCache = null;
+  /* 判定基准文字：缺失比例/比值 →「≤x」，正向指标 →「≥x」 */
+  function qcLimitText(name) {
+    var c = QC_LIMITS[name];
+    if (!c) return '';
+    if (c.dir === 'ratio') return c.low + ' ~ ' + c.limit;
+    return (c.dir === 'min' ? '≥' : '≤') + c.limit;
+  }
+  function qcRowValue(row, colName, fields, qual) {
     if (colName === '户籍外卡') return row.outer;
     if (colName === '警告卡') return row.warn;
+    if (qual && qual.indexOf(colName) >= 0) return row[colName];
     var fi = fields.indexOf(colName);
     return fi >= 0 ? row.fields[fi] : null;
   }
+  /* 越界判定：返回偏差量（缺失比例/正向指标为个百分点，比值为偏离最近端点的绝对值），达标返回 null */
+  function qcDev(v, name) {
+    if (!QC_LIMITS[name] || v == null) return null;
+    return null; /* 2026-10-20 按需求：报卡质量监测页只出数，不再做越线判定与预警提示 */
+  }
+  /* 接近预警线（关注级）：同一指标达到偏离量的 80%，M/I 两端各自比 */
+  function qcNear(v, name) {
+    if (!QC_LIMITS[name] || v == null) return false;
+    return false; /* 同上：关注级着色一并关闭 */
+  }
+  function qcFmt(v, name) {
+    return name === 'M/I' ? v.toFixed(2) : v.toFixed(2) + '%';
+  }
+  /* 2026-10-20 按需求：单元格不再标红/标黄、不带判定基准悬停提示，只显示数值 */
   function qcCell(v, name) {
-    var lim = qcLimitOf(name);
-    if (lim == null) return '<td class="num">' + v.toFixed(2) + '%</td>';
-    if (v > lim) return '<td class="num qc-cell-over" title="超过国家预警值 ≤' + lim + '%（' + QC_LIMITS[name].basis + '），超出 ' + (v - lim).toFixed(2) + ' 个百分点；详见下方预警条">' + v.toFixed(2) + '%</td>';
-    if (v >= lim * 0.8) return '<td class="num qc-cell-near" title="接近国家预警值 ≤' + lim + '%（' + QC_LIMITS[name].basis + '）">' + v.toFixed(2) + '%</td>';
-    return '<td class="num" title="国家预警值 ≤' + lim + '%，达标">' + v.toFixed(2) + '%</td>';
+    return '<td class="num">' + qcFmt(v, name) + '</td>';
+  }
+  /* 副行原因文案（当前不再渲染副行，保留函数供预警联动复用） */
+  function qcReasonText(v, name) {
+    var c = QC_LIMITS[name];
+    if (!c) return name + ' ' + qcFmt(v, name);
+    var d = qcDev(v, name);
+    var tail = d ? (d.dirs === 'down' && c.dir !== 'ratio' ? '，偏低 ' : '，偏高 ') + d.dev.toFixed(2) + (c.dir === 'ratio' ? '' : 'pct') : '';
+    return name + ' ' + qcFmt(v, name) + '（判定基准 ' + qcLimitText(name) + '%' + tail + '）';
   }
   var qcLast = null;
   /* 单条建预警：按 dedupeKey 去重（createStatsWarning 内部复用已有预警+工单） */
   function qcCreateOne(row, colName) {
     var lim = qcLimitOf(colName);
     if (lim == null || typeof createStatsWarning !== 'function' || !qcLast) return null;
-    var v = qcRowValue(row, colName, qcLast.fields);
-    if (v == null || v <= lim) return null;
+    var v = qcRowValue(row, colName, qcLast.fields, qcLast.qual);
+    var d = qcDev(v, colName);
+    if (!d) return null;
     var basis = QC_LIMITS[colName].basis;
+    var unit = colName === 'M/I' ? '' : '%';
+    var devText = colName === 'M/I'
+      ? (d.dirs === 'up' ? '高于上界 ' : '低于下界 ') + d.dev.toFixed(2)
+      : (d.dirs === 'down' ? '低于下限 ' : '超出上限 ') + d.dev.toFixed(2) + ' 个百分点';
     return createStatsWarning('B-COMPLETENESS', {
       targetType: 'REGISTRY',
       targetId: row.label + '|报卡质量|' + colName,
-      targetLabel: state.year + '年 ' + row.label + '「' + colName + '」' + v.toFixed(2) + '% 超国家预警值',
+      targetLabel: state.year + '年 ' + row.label + '「' + colName + '」' + v.toFixed(2) + unit + ' 偏离国家预警值',
       period: state.year + '年',
       metricValue: v,
-      metricLabel: colName + ' ' + v.toFixed(2) + '%',
-      severity: v > lim * 1.5 ? 'URGENT' : 'ATTENTION',
-      thresholdSnapshot: '国家预警值 ≤' + lim + '%',
+      metricLabel: colName + ' ' + v.toFixed(2) + unit,
+      severity: d.dev > (colName === 'M/I' ? 0.1 : lim * 0.5) ? 'URGENT' : 'ATTENTION',
+      thresholdSnapshot: '国家预警值 ' + qcLimitText(colName) + unit,
       snapshot: {
         汇总对象: row.label, 指标列: colName, 卡片总数: row.total + '张',
-        实际值: v.toFixed(2) + '%', 国家预警值: '≤' + lim + '%',
-        超出: (v - lim).toFixed(2) + ' 个百分点',
+        实际值: v.toFixed(2) + unit, 国家预警值: qcLimitText(colName) + unit,
+        偏差: devText,
         判定依据: basis, 来源: '报卡质量监测页联动生成'
       },
       evidence: [
         { label: '指标依据', value: basis },
-        { label: '实际/预警值', value: v.toFixed(2) + '% / ≤' + lim + '%' },
-        { label: '核实要求', value: '回补缺失字段并核对上报口径，复核后可在预警工单中反馈' },
-        { label: '触发来源', value: '数据统计 · 报卡质量监测（' + state.year + ' 年）' }
+        { label: '实际/预警值', value: v.toFixed(2) + unit + ' / ' + qcLimitText(colName) + unit },
+        { label: '核实要求', value: colName === 'M/I' ? '核对发病与死亡上报是否同步完整，复核后可在预警工单中反馈' : '回补缺失字段并核对上报口径，复核后可在预警工单中反馈' },
+        { label: '触发来源', value: '数据中心 · 报卡质量监测（' + state.year + ' 年）' }
       ]
     });
   }
@@ -1210,66 +1291,74 @@
     var baseFields = ['身份证号', '其它证件号', '联系电话', '联系人', '联系人电话', '职业', '民族', '婚姻', '工作单位'];
     var tumFields = ['分期', 'T', 'N', 'M', '治疗信息'];
     var fields = baseFields.concat(tumFields);
+    /* 登记质量指标（2026-10-20 追加）：排到所有缺失比例列之前（紧跟维度列）。
+       2026-10-20 二改：「分期与病理完整率」删除——它与「肿瘤信息缺失比例 ▸ 分期」+「MV%」同源重复，
+       且派生值可能高于 MV%，与本列定义冲突；分期完整度看「分期」缺失率、病理完整度看「MV%」，不再另立一列。 */
+    var qualKeys = ['迟报率', '重复率', 'MV%', 'DCO%', 'M/I'];
     var f = factor();
-    var headers = dimHeaders();
+    var headers = qcDimHeaders();
+    /* 登记质量数值：以各市登记运营基线（cockpit-module.js 的 META：mv/dco/dup）为锚，
+       叠加按对象编号的确定性抖动——换筛选/重渲染结果稳定，不会出现同一行数字来回跳。
+       报卡质量监测看的是「报卡口径」，与该市登记处年度口径可以有差异，因此做小幅抖动而非直取原值。 */
+    function qcJit(label, i, salt, amp) {
+      var x = Math.sin(i * 12.9898 + salt * 78.233 + label.length * 3.7) * 43758.5453;
+      return (x - Math.floor(x) - 0.5) * 2 * amp;
+    }
+    /* 区划口径能对上地市码时取该市基线，单位/用户口径取全省均值锚点 */
+    function cityBase(g, key, dflt) {
+      var ck = g && g.regionCode ? String(g.regionCode).slice(0, 6) : null;
+      var meta = ck ? qcCityMeta()[ck] : null;
+      return meta && typeof meta[key] === 'number' ? meta[key] : dflt;
+    }
     var list = groups().map(function (g, index) {
       var total = Math.max(20, Math.round((1220 - index * 126) * f));
-      return {
+      var label = groupLabel(g);
+      var warn = +(1.8 + index * 0.5);
+      var late = Math.max(0.4, +(1.2 + index * 0.45 + qcJit(label, index, 1, 0.8)).toFixed(2));
+      var dup = Math.max(0.2, +(cityBase(g, 'dup', 2.9) * 0.8 + index * 0.22 + qcJit(label, index, 2, 0.5)).toFixed(2));
+      var mv = Math.min(96, +(cityBase(g, 'mv', 74.5) - index * 1.6 + qcJit(label, index, 3, 3.5)).toFixed(2));
+      var dco = Math.max(0.3, +(cityBase(g, 'dco', 4.8) * 0.75 + index * 0.18 + qcJit(label, index, 4, 0.6)).toFixed(2));
+      var mi = +(cityBase(g, 'mi', 0.64) + qcJit(label, index, 5, 0.03)).toFixed(2);
+      var row = {
         g: g,
-        label: groupLabel(g),
+        label: label,
         total: total,
         outer: +(3.3 + index * 0.55),
-        warn: +(1.8 + index * 0.5),
-        fields: fields.map(function (_, fi) { return +(0.9 + index * 0.3 + fi * 0.15); })
+        warn: warn,
+        fields: fields.map(function (_, fi) { return +(0.9 + index * 0.3 + fi * 0.15); }),
+        '迟报率': late,
+        '重复率': dup,
+        'MV%': mv,
+        'DCO%': dco,
+        'M/I': mi
       };
+      return row;
     });
-    var colKeys = ['户籍外卡', '警告卡'].concat(fields);
+    /* 2026-10-20 按需求：登记质量指标（迟报率/重复率/MV%/DCO%/M/I）是登记处级口径，
+       只在「汇总维度 = 区划」时出列；单位 / 用户维度不显示，避免个体口径硬套机构质量指标。 */
+    var showQual = state.group === 'region';
+    var qualCols = showQual ? qualKeys : [];
+    var colKeys = qualCols.concat(['卡片总数', '户籍外卡', '警告卡'], fields);
+    /* 列分组顺序 = 表格实际列序：登记质量指标 → 卡片逻辑校验 → 基本信息缺失比例 → 肿瘤信息缺失比例 */
+    var colGroups = [
+      { cls: 'gq', name: '登记质量指标', keys: qualCols },
+      { cls: 'gx', name: '卡片逻辑校验', keys: ['卡片总数', '户籍外卡', '警告卡'] },
+      { cls: 'gb', name: '基本信息缺失比例', keys: baseFields },
+      { cls: 'gt', name: '肿瘤信息缺失比例', keys: tumFields }
+    ].filter(function (grp) { return grp.keys.length > 0; });
     var colOver = {};
-    list.forEach(function (row) {
-      colKeys.forEach(function (k) {
-        var lim = qcLimitOf(k);
-        if (lim == null) return;
-        var v = qcRowValue(row, k, fields);
-        if (v != null && v > lim) colOver[k] = true;
-      });
-    });
-    var overCols = colKeys.filter(function (k) { return colOver[k]; });
-    qcLast = { list: list, fields: fields, colKeys: colKeys, colOver: colOver, overCols: overCols };
-    var totalCols = 1 + headers.length + 3 + fields.length; /* 序号 + 维度列 + 逻辑校验3列 + 字段列 */
+    var overCols = [];
+    /* 2026-10-20 按需求：本页不再产出越线判定、粉色预警行、列头 ⚠ 与顶部预警条，纯出数 */
+    qcLast = { list: list, fields: fields, qual: qualCols, colKeys: colKeys, colOver: colOver, overCols: overCols };
     var rows = list.map(function (row, index) {
-      /* 该对象超预警值的指标列 */
-      var overList = colKeys.filter(function (k) {
-        var lim = qcLimitOf(k);
-        var v = qcRowValue(row, k, fields);
-        return lim != null && v != null && v > lim;
-      });
-      var hasOver = overList.length > 0;
-      /* 关注级：有指标达到预警值 80% 但未超 */
-      var hasNear = !hasOver && colKeys.some(function (k) {
-        var lim = qcLimitOf(k);
-        var v = qcRowValue(row, k, fields);
-        return lim != null && v != null && v >= lim * 0.8;
-      });
       var hl = state.highlight === row.label ? ' row-hl' : '';
-      var dataRow = '<tr class="row-click' + (hasOver ? ' qc-row-over' : hasNear ? ' qc-row-near' : '') + hl + '" onclick="DA.highlight(\'' + esc(row.label) + '\')"><td class="idx">' + (index + 1) + '</td>' +
-        dimCells(row.g) +
+      return '<tr class="row-click' + hl + '" onclick="DA.highlight(\'' + esc(row.label) + '\')"><td class="idx">' + (index + 1) + '</td>' +
+        qcDimCells(row.g) +
+        qualCols.map(function (k) { return qcCell(row[k], k); }).join('') +
         '<td class="num">' + num(row.total) + '</td>' +
         qcCell(row.outer, '户籍外卡') +
         qcCell(row.warn, '警告卡') +
         row.fields.map(function (p, fi) { return qcCell(p, fields[fi]); }).join('') + '</tr>';
-      if (!hasOver) return dataRow;
-      /* 预警副行：整行横跨，自带对象名 + ⚠原因（指标+方向+偏差%）+ 生成/查看工单按钮，与数据行成对 3px 左红描边 */
-      var reason = overList.map(function (k) {
-        var lim = qcLimitOf(k), v = qcRowValue(row, k, fields);
-        return k + ' ' + v.toFixed(2) + '%（超国家预警值 ≤' + lim + '%，偏高 ' + (v - lim).toFixed(2) + 'pct）';
-      }).join('；');
-      var hasTicket = qcHasWarning(row.label);
-      var btn = hasTicket
-        ? '<button class="qc-warn-btn" onclick="event.stopPropagation();DA.qcOpenTicket(\'' + esc(row.label) + '\')">查看工单</button>'
-        : '<button class="qc-warn-btn" onclick="event.stopPropagation();DA.qcWarnRow(\'' + esc(row.label) + '\')">生成工单</button>';
-      return dataRow +
-        '<tr class="qc-warn-sub"><td colspan="' + totalCols + '"><div class="qc-warn-flex"><span class="qc-warn-text">⚠ <b>' + esc(row.label) + '</b>：' + reason + '</span>' + btn + '</div></td></tr>' +
-        '<tr class="qc-gap" aria-hidden="true"><td colspan="' + totalCols + '"></td></tr>';
     }).join('');
 
     var filter = '<div class="da-filter">' +
@@ -1290,57 +1379,31 @@
         '.da-table-wrap table.data-table thead tr.qc-group-head th.gx{background:linear-gradient(180deg,#6a98df,#4f7fc9)}' +
         '.da-table-wrap table.data-table thead tr.qc-group-head th.gb{background:linear-gradient(180deg,#28b3a5,#128e82)}' +
         '.da-table-wrap table.data-table thead tr.qc-group-head th.gt{background:linear-gradient(180deg,#ec9f42,#cc8220)}' +
+        '.da-table-wrap table.data-table thead tr.qc-group-head th.gq{background:linear-gradient(180deg,#9b7bd4,#7a5bb5)}' +
         '.da-table-wrap table.data-table thead tr.qc-sub-head th{height:38px;font-size:12px;font-weight:600;padding:7px 8px;border-right:1px solid rgba(255,255,255,.15)}' +
         '.da-table-wrap table.data-table thead tr.qc-sub-head th.sd{background:#f1f5f9;color:#475569}' +
         '.da-table-wrap table.data-table thead tr.qc-sub-head th.sx{background:#eef4fd;color:#2f5fa6}' +
         '.da-table-wrap table.data-table thead tr.qc-sub-head th.sb{background:#e8f8f5;color:#0c7b6f}' +
         '.da-table-wrap table.data-table thead tr.qc-sub-head th.st{background:#fdf4e6;color:#9c5e15}' +
-        /* 视觉定稿：异常=数值标红+粉色条带副行（成对 3px 左红描边），关注=仅数值琥珀色 */
-        '.da-table-wrap table.data-table tbody td.qc-cell-over{color:#d92d20;font-weight:700}' +
-        '.da-table-wrap table.data-table tbody td.qc-cell-near{color:#b54708;font-weight:600}' +
-        '.da-table-wrap table.data-table thead tr.qc-sub-head th.qc-col-over{color:#d92d20 !important;border-bottom:2px solid #f04438}' +
-        '.qc-over-banner{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0;padding:8px 14px;border-left:3px solid #d92d20;background:#fdf7f7;border-radius:6px;color:#b42335;font-size:13px;font-weight:600}' +
-        '.qc-over-banner.ok{border-left-color:#12b76a;background:#f7fcf9;color:#067647}' +
-        /* 关键：separate 模式让阴影生效；块间距离用透明间隔行控制，卡片内部无缝 */
-        '.da-table-wrap table.data-table{border-collapse:separate !important;border-spacing:0 !important}' +
-        '.da-table-wrap table.data-table tbody tr.qc-gap td{background:transparent !important;border:none !important;box-shadow:none !important;height:6px !important;min-height:0 !important;padding:0 !important;line-height:0;font-size:0}' +
-        /* 异常数据行：卡片上半，无上下边框（靠阴影+底色区分），左红粗边+顶部圆角；sticky 列同底色 */
-        '.da-table-wrap table.data-table tbody tr.qc-row-over td{background:#fee2e2 !important;border-top:none !important;border-bottom:none !important;box-shadow:0 -2px 8px -2px rgba(0,0,0,.1)}' +
-        '.da-table-wrap table.data-table tbody tr.qc-row-over td.sticky,.da-table-wrap table.data-table tbody tr.qc-row-over td.sticky-inc{background:#fee2e2 !important;box-shadow:none}' +
-        '.da-table-wrap table.data-table tbody tr.qc-row-over td:first-child{border-left:4px solid #dc2626;border-top-left-radius:8px}' +
-        '.da-table-wrap table.data-table tbody tr.qc-row-over td:last-child{border-right:none;border-top-right-radius:8px}' +
-        /* 关注级：白底 + 3px 左黄描边（无副行） */
-        '.da-table-wrap table.data-table tbody tr.qc-row-near td{background:#fff}' +
-        '.da-table-wrap table.data-table tbody tr.qc-row-near td:first-child{box-shadow:inset 3px 0 0 #f4b400}' +
-        /* 预警副行：卡片下半，无上下边框，左红粗边+底部圆角+向下阴影撑出浮起感 */
-        '.da-table-wrap table.data-table tbody tr.qc-warn-sub td{background:#fee2e2 !important;text-align:left;padding:8px 12px 10px 12px;border-top:none;border-bottom:none;box-shadow:0 6px 14px -4px rgba(0,0,0,.22)}' +
-        '.da-table-wrap table.data-table tbody tr.qc-warn-sub td:first-child{border-left:4px solid #dc2626;border-bottom-left-radius:8px}' +
-        '.da-table-wrap table.data-table tbody tr.qc-warn-sub td:last-child{border-right:none;border-bottom-right-radius:8px}' +
-        '.qc-warn-sub .qc-warn-text{color:#b42335;font-weight:600;font-size:12px}' +
-        /* 副行 flex 布局：文字撑满、按钮固定在最右侧（横向滚动时 sticky 跟随可视区右缘） */
-        '.qc-warn-sub .qc-warn-flex{display:flex;align-items:center;gap:12px}' +
-        '.qc-warn-sub .qc-warn-text{flex:1;min-width:0}' +
-        '.qc-warn-btn{position:sticky;right:8px;flex-shrink:0;display:inline-block;padding:4px 14px;background:#d92d20;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;box-shadow:-6px 0 10px -6px rgba(0,0,0,.25)}' +
-        '.qc-warn-btn:hover{background:#b42335}';
+        '.da-table-wrap table.data-table thead tr.qc-sub-head th.sq{background:#f3eefb;color:#5b3f96}' +
+        /* 2026-10-20 按需求：去掉标红/标黄/预警条/副行/间隔行，表格回归普通样式 */
+        '.da-table-wrap table.data-table{border-collapse:separate !important;border-spacing:0 !important}';
       document.head.appendChild(qcCss);
     }
 
     var groupHeader = '<tr class="qc-group-head">' +
       '<th rowspan="2" class="idx gd">序号</th>' +
       headers.map(function (h, i) { return '<th rowspan="2" class="' + (i === 0 ? 'sticky gd' : 'gd') + '">' + h + '</th>'; }).join('') +
-      '<th colspan="3" class="gx">卡片逻辑校验</th>' +
-      '<th colspan="' + baseFields.length + '" class="gb">基本信息缺失比例</th>' +
-      '<th colspan="' + tumFields.length + '" class="gt">肿瘤信息缺失比例</th>' +
+      colGroups.map(function (grp) {
+        return '<th colspan="' + grp.keys.length + '" class="' + grp.cls + '">' + grp.name + '</th>';
+      }).join('') +
       '</tr>';
 
     function qcSubTh(cls, name) {
-      var lim = qcLimitOf(name), over = colOver[name];
-      var tip = lim != null ? '国家预警值 ≤' + lim + '%' + (over ? '，当前有对象超标，点击生成预警工单' : '，当前达标') : '';
-      return '<th class="num ' + cls + (over ? ' qc-col-over' : '') + '"' + (tip ? ' title="' + tip + '"' : '') +
-        (over ? ' style="cursor:pointer" onclick="event.stopPropagation();DA.qcWarn(\'' + name + '\')"' : '') + '>' +
-        name + (over ? ' ⚠' : '') + '</th>';
+      return '<th class="num ' + cls + '">' + name + '</th>';
     }
     var subHeader = '<tr class="qc-sub-head">' +
+      qualCols.map(function (k) { return qcSubTh('sq', k); }).join('') +
       '<th class="num sx">卡片总数</th>' +
       qcSubTh('sx', '户籍外卡') +
       qcSubTh('sx', '警告卡') +
@@ -1348,17 +1411,7 @@
       tumFields.map(function (f) { return qcSubTh('st', f); }).join('') +
       '</tr>';
 
-    var overBanner = overCols.length
-      ? '<div class="qc-over-banner">⚠ ' + overCols.length + ' 列超出国家预警值：' + overCols.join('、') +
-        '（超标单元格已标红，悬停可见预警值与判定依据）' +
-        '<span style="margin-left:auto;display:flex;gap:8px">' +
-        '<button class="btn btn-primary btn-xs" onclick="DA.qcWarnAll()">一键生成预警工单</button>' +
-        (typeof waGo === 'function' ? '<button class="btn btn-outline btn-xs" onclick="waGo(\'REGISTRY_QUALITY\')">查看质量预警记录</button>' : '') +
-        '</span></div>'
-      : '<div class="qc-over-banner ok">✓ 当前汇总口径下全部指标列均在国家预警值以内</div>';
-
     return filter +
-      overBanner +
       (list.length
         ? '<div class="da-table-wrap"><table class="data-table tbl-auto"><thead>' + groupHeader + subHeader + '</thead><tbody>' + rows + '</tbody></table></div>'
         : emptyResult('当前筛选下无数据'));
@@ -2041,7 +2094,7 @@
   });
 
   var analysisMenu = (typeof menuData !== 'undefined') ? menuData.find(function (m) { return m.id === 'analysis'; }) : null;
-  /* 注意：本模块在加载时会把「数据统计」的子菜单整体覆盖成下面这份清单（早于任何后续模块执行），
+  /* 注意：本模块在加载时会把「数据中心」的子菜单整体覆盖成下面这份清单（早于任何后续模块执行），
      因此 app.html 的 menuData 里写了什么都会被这里冲掉——改菜单必须改这里，否则不生效。
      清单需与 app.html 保持一致。
      2026-09-29 按评审意见去掉「业务监测 / 报表」两个分组标题，改为平铺。
@@ -2062,7 +2115,8 @@
     { id: 'report-files', label: '报表文件库' }
   ];
   if (analysisMenu) {
-    analysisMenu.label = '数据统计';
+    /* 2026-10-20 「数据统计」更名为「数据中心」（一级菜单 id 仍为 analysis，不动）。 */
+    analysisMenu.label = '数据中心';
     analysisMenu.children = analysisChildren;
   }
 
