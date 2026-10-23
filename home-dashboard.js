@@ -596,18 +596,16 @@
       legend += '<span><i style="background:' + pal[i] + '"></i>' + num(b0, mf) + ' ~ ' + num(b1, mf) + '</span>';
     }
     legend += '</div>';
-    var scopeChip = ST.city
-      ? '<span class="hd-focus" data-hd-clear="1">聚焦：' + META[ST.city].f + ' ✕ 返回全省</span>'
-      : '<span class="hd-scope">全省 11 设区市</span>';
     /* 2026-10-20 按需求删除地图右上角浮层（峰值地市 / 地市极差 / 登记机构），
        maxCode 变量随之删除（它只服务于该浮层）。
        恢复见 home-dashboard.js.bak_pre_del_extras_20261020。 */
+    /* 2026-10-23 按需求删除地图卡片头右侧整组控件：
+       「全省 11 设区市 / 聚焦：某市 ✕ 返回全省」状态标签 + 「新发病例数(例)」指标下拉。
+       地图指标固定为 ST.metric（默认 cases，仍可由 hdOpen({metric}) 预置）；
+       返回全省仍可点地图空白处或顶部「全省 11 个设区市」下拉。
+       恢复见 home-dashboard.js.bak_pre_del_map_tools_20261023。 */
     return '<section class="hd-panel hd-mapwrap">' +
-      '<header class="hd-p-head"><div class="hd-p-title">江西省行政区域 · ' + ST.year + ' 年' + dom.label + '分布</div>' +
-      '<div class="hd-p-tools">' + scopeChip +
-      '<select class="hd-sel hd-sel-dark" data-hd="metric">' + Object.keys(METRICS).map(function (k) {
-        return '<option value="' + k + '"' + (k === metric ? ' selected' : '') + '>' + (k === 'cases' ? dom.short + '病例数(例)' : METRICS[k].label) + '</option>';
-      }).join('') + '</select></div></header>' +
+      '<header class="hd-p-head"><div class="hd-p-title">江西省行政区域 · ' + ST.year + ' 年' + dom.label + '分布</div></header>' +
       '<div class="hd-map-body" id="hdMapBody">' +
       '<div class="hd-map-grid"></div>' +
       '<svg class="hd-map" viewBox="0 0 ' + p.w + ' ' + p.h + '" preserveAspectRatio="xMidYMid meet">' +

@@ -60,7 +60,13 @@
     for (var k in PAGEMAP) if (PAGEMAP[k] === id) return k;
     return 'qc-pf-nq01';
   }
-  function rerender() { window.renderPage(pageOf()); }
+  /* 重绘当前指标页：必须走 qcRender（只重绘质控容器），
+     不能走全局 window.renderPage —— 那个已被 app.html 的新版实现覆盖，
+     会把页面渲染成别的模块（曾导致点「查询」跳到 MDT 页）。 */
+  function rerender() {
+    if (window.qcRender) { window.qcRender(pageOf()); return; }
+    window.renderPage(pageOf());
+  }
 
   /* ---------- 级联选择器回调（U.cascader 选中/清除时触发） ----------
      路径形如 ['南昌市','东湖区','董家窑街道','民巷社区']。
@@ -144,7 +150,14 @@
   }
   /* ---------- 公共小件 ---------- */
   function badge(p) { return p ? '<span class="badge badge-success">达标</span>' : '<span class="badge badge-danger">未达标</span>'; }
-  function lineOf(i) { return (i.dir === 'down' ? '≤' : '≥') + i.base + '%'; }
+  /* 达标线：判定仍走脊柱的 l1Pass / l1PassLineOf（口径见《六大绩效质控_口径与计算规则.md》），
+     但界面只给结论 —— 不展示达标线数值、来源、依据，也不提供来源切换。 */
+  function lineOf(i) {
+    var L = S.l1PassLineOf(i.id || P.ind);
+    return (i.dir === 'down' ? '≤' : '≥') + L.value + '%';
+  }
+  /* lineCell（表格里的「≥xx%」数值列）已移除：达标线数值本身属于计算口径，
+     页面只给「达标 / 未达标」结论。lineOf 保留给内部导出与说明文案使用。 */
   /* 指标在某机构范围内「达标癌种数 / 覆盖癌种数」——同一指标不同癌种分别判定 */
   function coverStat(indId, orgIds) {
     var i = S.ind(indId);
@@ -351,9 +364,7 @@
     return U.card('',
       U.note('范围：' + S.esc(scopeName()) + '。行 = ' + axisTitle(ax.row) + '，列 = ' + axisTitle(ax.col) +
         '；每格为该行该列<b>交叉条件</b>下的指标值，绿=达标、红=未达标、「—」=该癌种不适用本指标。' +
-        '格子可点，进入的被质控数据<b>同时带行、列两个条件</b>。' +
-        /* 页头副标题已移除，分子/分母口径在这类视图下也要能看到，否则信息缺口 */
-        '<div style="margin-top:6px;color:#94a3b8">分子/分母口径：' + S.esc(i.num) + ' / ' + S.esc(i.den) + '。</div>') +
+        '格子可点，进入的被质控数据<b>同时带行、列两个条件</b>。') +
       U.table(head, body, { compact: true, fit: true }));
   }
 
@@ -376,7 +387,6 @@
         cells: [
           { h: S.esc(ct.name), cls: 'txt' },
           { h: valCell(a.value), cls: 'num' },
-          { h: '<span style="color:#94a3b8">' + lineOf(i) + '</span>', cls: 'num' },
           { h: badge(pass), cls: 'center' },
           { h: covCell(cov), cls: 'num', title: '该地区覆盖的 ' + cov.m + ' 个癌种中已达标数' },
           { h: S.fmt(a.num), cls: 'num' },
@@ -393,7 +403,6 @@
       cells: [
         { h: P.city ? S.cityName(P.city) + ' 合计' : '全省合计', cls: 'txt' },
         { h: valCell(total.value), cls: 'num' },
-        { h: '<span style="color:#94a3b8">达标线</span>', cls: 'num' },
         { h: badge(totalPass), cls: 'num' },
         { h: covCell(coverStat(i.id, cityOrgIds())), cls: 'num' },
         { h: S.fmt(total.num), cls: 'num' },
@@ -404,9 +413,8 @@
       ]
     };
     return U.card('',
-      U.note('适用癌种：' + i.cancers.map(function (c) { return S.esc(S.cancer(c).name); }).join('、') +
-        '；分子/分母口径：' + S.esc(i.num) + ' / ' + S.esc(i.den) + '。') +
-      U.table(['设区市', '#' + i.name, '#达标线', '达标', '癌种达标', '#分子', '#分母', '#异常病例', '#同比', '操作'],
+      U.note('适用癌种：' + i.cancers.map(function (c) { return S.esc(S.cancer(c).name); }).join('、') + '。') +
+      U.table(['设区市', '#' + i.name, '达标', '癌种达标', '#分子', '#分母', '#异常病例', '#同比', '操作'],
         bodyRows.concat([totalRow]), { compact: true, fit: true }));
   }
 
@@ -456,7 +464,6 @@
         cells: [
           { h: (on ? '<b>' : '') + S.esc(r.label) + '<span style="color:#94a3b8;font-size:11px"> ' + S.esc(r.sub) + '</span>' + (on ? '</b>' : ''), cls: 'txt' },
           { h: '<b>' + S.f1(a.value) + '%</b>', cls: 'num' },
-          { h: '<span style="color:#94a3b8">' + lineOf(i) + '</span>', cls: 'num' },
           { h: badge(pass), cls: 'center' },
           { h: S.fmt(a.num), cls: 'num' },
           { h: S.fmt(a.den), cls: 'num' },
@@ -472,7 +479,6 @@
       cells: [
         { h: '合计（当前筛选）', cls: 'txt' },
         { h: '<b>' + S.f1(tot.value) + '%</b>', cls: 'num' },
-        { h: '<span style="color:#94a3b8">' + lineOf(i) + '</span>', cls: 'num' },
         { h: badge(S.l1Pass(i.id, tot.value)), cls: 'center' },
         { h: S.fmt(tot.num), cls: 'num' },
         { h: S.fmt(tot.den), cls: 'num' },
@@ -481,11 +487,16 @@
       ]
     });
     return U.card('',
-      U.note('当前范围：' + S.esc(scopeName()) + '。判定口径：达标线 ' + lineOf(i) +
-        ' 作用于该指标的<b>合计率</b>；下表按癌种拆分，用于定位拉低合计的短板癌种。') +
-      U.table(['癌种', '#' + i.name, '#达标线', '达标', '#分子', '#分母', '#异常病例', '操作'],
+      U.note('当前范围：' + S.esc(scopeName()) +
+        '。下表按癌种拆分，用于定位拉低合计的短板癌种。') +
+      U.table(['癌种', '#' + i.name, '达标', '#分子', '#分母', '#异常病例', '操作'],
         bodyRows, { compact: true, fit: true }));
   }
+
+  /* 分母口径验证卡已从界面移除 —— 分母入组/排除规则、潜在分母与纳入率、
+     病案号级清单导出都属于计算口径，统一收进《六大绩效质控_口径与计算规则.md》，
+     页面只呈现指标值与达标结论。数据层 denBreakdown / denCases / denCsv 保留，
+     供后台核对与导出工具调用。 */
 
   /* 单维表：轴由筛选条自动决定（癌种锁定/机构锁定都会落到单维表） */
   function singleTable(ax) {
@@ -658,7 +669,10 @@
   function keyFieldsOf(r) {
     var src = '云健康';
     if (r.ind === 'NQ-01') {
+      /* 分期评估日期：接口未接入时标注「待接口扩展」，接入后自动出值 */
+      var evSrc = r.stageEvalOn ? (r.stageEvalSrc || '云健康 · 病历') : '待接口扩展（需从病程记录文本提炼）';
       return [['初次诊断日期', r.diagDate, src], ['临床分期', r.stageVal, src],
+        ['分期评估日期', r.stageEvalOn ? (r.stageEvalDate || '') : '（未取数）', evSrc],
         ['首次治疗日期', r.treatDate, src]];
     }
     if (r.ind === 'NQ-02') {
@@ -674,10 +688,24 @@
         ['术后 30 日内死亡', r.deathDate ? '是' : '否', '死因监测']];
     }
     if (r.ind === 'NQ-05') {
-      return [['首次治疗日期', r.treatDate, src], ['首次治疗方式', '靶向/免疫治疗', src],
-        ['分子病理检测', r.mol, '分子病理实验室'], ['检测报告日期', r.pathDate, '分子病理实验室']];
+      /* NQ-05 深化：把"必检项目 / 已检项目 / 缺项"摊开，缺什么一目了然 */
+      var md = r.molDetect || { items: [], detected: [], missing: [] };
+      var def = r.molItems || S.molItemsOf(r.cancer);
+      var rows5 = [
+        ['首次治疗日期', r.treatDate, src], ['首次治疗方式', '靶向/免疫治疗', src],
+        ['分子病理检测结果', r.mol, '分子病理实验室'], ['检测报告日期', r.pathDate, '分子病理实验室']
+      ];
+      if (def) {
+        rows5.push(['本癌种必检项目', def.items.join(' / '), '癌种质控规范（' + (def.label || S.cancer(r.cancer).name) + '）']);
+        rows5.push(['已检项目', md.detected.length ? md.detected.join(' / ') : '（无）', '分子病理实验室']);
+        rows5.push(['缺检项目', md.missing.length ? md.missing.join(' / ') : '无', '判定用']);
+      }
+      return rows5;
     }
+    /* NQ-06：本癌种淋巴结清扫下限（结直肠 ≥12、胃癌 ≥16…） */
+    var lm = r.lymphMin;
     return [['手术日期', r.surgDate, src], ['淋巴结清扫数目', r.lymph, '病理报告'],
+      ['本癌种规范下限', lm ? ('≥ ' + lm.min + ' 枚（' + S.cancer(r.cancer).name + '）') : '≥ 12 枚', lm ? lm.basis : '癌种质控规范'],
       ['病理诊断', r.pathology, '病理系统']];
   }
 
@@ -693,17 +721,18 @@
         U.card('未找到病例', '<div class="qc-empty">请从「被质控数据明细」点击患者进入。</div>') +
         '</div>';
     }
-    var rule = r.rule || S.ruleOf(indId, r.v) || {};
+    var rule = r.rule || S.ruleOf(indId, r.v, r.cancer) || {};
     var ok = r.v === 'ok';
 
     /* 基础信息：只保留与本次质控直接相关、且都能从报告卡/病案首页直取的字段。
        已移除 科室 / 主管医生 / 住院号 / 病案号 —— 与指标判定无关，
        且需额外的病历关联才能取到完整值。 */
+    /* 首次诊断日期已在「诊疗过程」时间轴与「质控相关数据」表中展示，基础信息不再重复。 */
     var baseCard = U.card('基础信息', U.kv([
       ['病例号', S.esc(r.id)], ['姓名', S.esc(r.name)],
       ['性别', r.sex], ['年龄', r.age + ' 岁'],
       ['医疗机构', S.esc(r.orgName)], ['设区市', S.cityName(r.city)],
-      ['癌种', S.esc(r.cancerName)], ['首次诊断日期', r.diagDate]
+      ['癌种', S.esc(r.cancerName)]
     ], 2), '与本次质控判定直接相关的患者与就诊信息');
 
     /* 诊疗过程：只列可直取的时间节点。
@@ -720,7 +749,24 @@
     ];
     if (r.surgDate) tl.push({ title: '手术', date: r.surgDate, desc: '术后病理 pTNM ' + (S.esc(r.ptnm) || '未记录'), state: r.ptnm ? 'ok' : 'miss' });
     if (r.deathDate) tl.push({ title: '死亡', date: r.deathDate, desc: '术后 30 日内死亡', state: 'bad' });
-    var tlCard = U.card('诊疗过程', U.timeline(tl), '诊断 → 病理 → 临床分期 → 首次治疗 → 手术');
+    /* 时间轴按指标裁剪：只保留与本指标判定相关的节点，剔除跑题节点。
+       NQ-01 去掉 病理诊断 / 手术 / 死亡（属 NQ-02~04 的判定字段，与"分期评估率"无关）；
+       严格模式下补回「分期评估」节点，未配置的指标保持原有全量节点行为。 */
+    if (indId === 'NQ-01' && r.stageEvalOn) {
+      tl.splice(2, 0, {
+        title: '分期评估', date: r.stageEvalDate || '—',
+        desc: r.stageEvalDate ? ('评估日期 ' + S.esc(r.stageEvalDate)) : '<span style="color:#d98b2b">未记录分期评估日期</span>',
+        state: r.stageEvalDate ? (r.v === 'ok' ? 'ok' : 'bad') : 'miss'
+      });
+    }
+    var tlSub = '诊断 → 病理 → 临床分期 → 首次治疗 → 手术';
+    var tlKeep = { 'NQ-01': r.stageEvalOn ? ['首次诊断', '临床分期', '分期评估', '首次抗肿瘤治疗'] : ['首次诊断', '临床分期', '首次抗肿瘤治疗'] };
+    var keep = tlKeep[indId];
+    if (keep) {
+      tl = tl.filter(function (n) { return keep.indexOf(n.title) >= 0; });
+      tlSub = tl.map(function (n) { return n.title; }).join(' → ');
+    }
+    var tlCard = U.card('诊疗过程', U.timeline(tl), tlSub);
 
     var fields = keyFieldsOf(r);
     function v(x) {
@@ -733,10 +779,11 @@
         fields.map(function (f) { return { cells: [f[0], { h: v(f[1]) }, f[2]] }; }),
         { compact: true, fit: true }));
 
+    /* 规则判定不再重复列举字段值（已在「质控相关数据」表展示），只给规则与判定结论。
+       NQ-01 的降级/严格判定差异属于计算口径，不在界面提示，改由
+       《六大绩效质控_口径与计算规则.md》§4.3 交代。 */
     var judgeCard = U.card('规则判定',
-      U.judgeBlock(rule, '<div>' + fields.slice(0, 3).map(function (f) {
-        return '<div style="font-size:12.5px;line-height:1.7">· <b>' + S.esc(f[0]) + '</b>：' + v(f[1]) + '</div>';
-      }).join('') + '</div>', r.verdictText, ok ? '' : r.reason) +
+      U.judgeBlock(rule, '详见上方「质控相关数据」表（共 ' + fields.length + ' 项）', r.verdictText, ok ? '' : r.reason) +
       '<div style="height:12px"></div>' +
       U.note(ok
         ? '本病例符合质控规则要求，判定为「符合」，无需整改。'
@@ -757,7 +804,7 @@
   /* 不再有「行/列」控件：表格形态由筛选条自动决定。这条只负责让用户知道
      当前处于哪一级下钻，并提供返回上一级 + 明细入口。 */
   function drillBar() {
-    var trail = '<span class="qc-pf-trail"><span class="lb">统计口径</span>' +
+    var trail = '<span class="qc-pf-trail"><span class="lb">当前范围</span>' +
       '<span class="lv on">全省</span>';
     if (P.city) trail += '<span class="sep">▸</span><span class="lv on">' + S.esc(S.cityName(P.city)) + '</span>';
     if (P.county) trail += '<span class="sep">▸</span><span class="lv on">' + S.esc(P.county) + '</span>';
@@ -922,7 +969,27 @@
 
     if (a === 'pf:toRules') { window.navigateTo('qc-rules'); return; }
     if (a === 'pf:toReport') { window.navigateTo('analysis-quality'); return; }
+    /* 导出分母清单（病案号级 CSV，供试点机构核对圈定逻辑） */
+    if (a.indexOf('pf:exportDen:') === 0) {
+      var did = a.slice('pf:exportDen:'.length);
+      var csv = S.denCsv(did, { orgIds: effOrgIds(), cancerIds: cancerFilter() });
+      try {
+        var blob = new Blob(['\ufeff' + csv.csv], { type: 'text/csv;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement('a');
+        link.href = url; link.download = csv.fileName;
+        document.body.appendChild(link); link.click();
+        setTimeout(function () { URL.revokeObjectURL(url); link.remove(); }, 400);
+        U.toast('已导出分母清单 ' + csv.rows.length + ' 条（' + csv.fileName + '）');
+      } catch (e) {
+        U.toast('导出失败：' + (e && e.message ? e.message : '浏览器不支持'));
+      }
+      return;
+    }
   });
+
+  /* 达标线来源切换已从界面移除（口径收敛到文档）：不再监听 data-qcl 的 change。
+     若后台需要切换来源，直接调 S.setL1PassSource(indId, src) 后 rerender 即可。 */
 
   /* 读取明细页条件条里「非地区」的下拉（机构/癌种）写回 P.scope。
      地区条件由级联控件 onQcCascade 负责写 P.scope.city/county，这里读取时保留它们。 */

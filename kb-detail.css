@@ -1,0 +1,749 @@
+/* ============================================================
+   科普与培训 · 内容详情页样式（kb-detail.css）
+   ------------------------------------------------------------
+   共用骨架：顶条 / 头图 / 三栏（页内导航 · 主栏 · 右栏）
+   每种形式一个主题色（--kbx-a / --kbx-as / --kbx-al）：
+     图文 墨蓝 ｜ 宣传折页 砖红 ｜ 视频 深青 ｜ 问答 青 ｜ 课件 靛 ｜ 操作手册 石板
+   主色仍用站内 --color-primary-*，不另起一套色。
+   ============================================================ */
+
+/* 列表页的卡片清单（科普页 / 我的内容页） */
+/* ================= 列表卡片 =================
+   4 列网格。封面占卡片 62%（约 190px），正文两行，底部一行放标签与收藏/下载。
+   卡片高度由封面比例 + 固定正文高度决定，不留空白。 */
+.kb-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin:4px 0 20px}
+@media(max-width:1440px){.kb-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:1080px){.kb-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:720px){.kb-cards{grid-template-columns:minmax(0,1fr)}}
+
+.kbx-card{position:relative;display:flex;flex-direction:column;border:1px solid #e3e9f0;border-radius:10px;background:#fff;overflow:hidden;box-shadow:0 1px 2px rgba(27,36,50,.05);transition:transform .18s cubic-bezier(.16,1,.3,1),box-shadow .18s,border-color .18s}
+.kbx-card:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(27,36,50,.11);border-color:#b9cde0}
+
+/* 可点区域：封面 + 标题 + 摘要 */
+.kbx-card-hit{display:block;text-decoration:none;color:inherit}
+.kbx-card-cover-wrap{position:relative;display:block;height:172px;overflow:hidden;background:#eef3f9}
+.kbx-card-cover{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.kbx-card-cover img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .35s cubic-bezier(.16,1,.3,1)}
+.kbx-card:hover .kbx-card-cover img{transform:scale(1.03)}
+.kbx-cover-kind{font-size:12.5px;font-weight:600;letter-spacing:2px;color:#7d93a8}
+.kbx-cover-kind--dark{color:#9fb6cc}
+
+.kbx-cover--art{background:linear-gradient(135deg,#eaf1f9,#d3e0ef)}
+.kbx-cover--banner{background:linear-gradient(135deg,#fbeee9,#f2d7ca)}
+.kbx-cover--video{background:linear-gradient(135deg,#e3f4f0,#c6e5df)}
+.kbx-cover--slide{background:linear-gradient(135deg,#eaecfa,#d3d8f3)}
+.kbx-cover--manual{background:linear-gradient(135deg,#e9eff5,#d2dee8)}
+.kbx-cover--collection{background:linear-gradient(135deg,#2d4e6f,#1a3146)}
+
+/* 封面角标：左上形式名、右上「下架」、左下「官方转载」、合集卡右下「N 集」。
+   曾经为了「去掉所有角标」把 .kbx-card-kind 设成 display:none，结果形式名在卡片上彻底看不见，
+   读者分不出文章和折页。现恢复：形式名是扫卡片时最先要判断的信息，必须有。 */
+.kbx-card-kind{position:absolute;left:10px;top:10px;z-index:3;height:22px;padding:0 8px;border-radius:5px;
+  background:rgba(255,255,255,.94);color:#33536f;font-size:11.5px;font-weight:700;letter-spacing:.5px;
+  display:inline-flex;align-items:center;box-shadow:0 1px 3px rgba(15,32,48,.16)}
+.kbx-card--collection .kbx-card-kind{background:rgba(255,255,255,.16);color:#e6eef6;box-shadow:none;backdrop-filter:blur(2px)}
+.kbx-cb{position:absolute;left:10px;bottom:10px;z-index:2;height:20px;padding:0 7px;border-radius:4px;font-size:11px;font-weight:600;display:inline-flex;align-items:center}
+.kbx-cb--off{left:auto;right:10px;bottom:auto;top:42px;background:rgba(54,68,82,.9);color:#fff}
+/* 合集卡右下角「N 集」：合集没有下载/观看按钮，这一格放集数最有用 */
+.kbx-cc-more{position:absolute;right:10px;bottom:10px;z-index:2;height:22px;padding:0 9px;border-radius:11px;
+  background:rgba(15,32,48,.78);color:#fff;font-size:11.5px;font-weight:700;display:inline-flex;align-items:center}
+
+/* 正文：高度自适应。标题最多两行，摘要（非必填）压成一行紧跟标题；
+   没有摘要时不留空隙——固定 86px 的老做法会在空摘要卡上留出一条无意义的空白。 */
+.kbx-card-body{display:flex;flex-direction:column;gap:4px;padding:12px 14px 6px;min-width:0;min-height:70px}
+.kbx-card-title{font-size:14px;font-weight:700;color:#1c2f44;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* 摘要一行短句：字号比标题小一档、颜色浅一档，读起来是标题的注解而不是第二标题 */
+.kbx-card-desc{font-size:12px;line-height:1.55;color:#8494a5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* 上传人一行：夹在正文与标签之间，压成一行省略。
+   一行放「人 · 机构」，机构名最长（如「南昌市东湖区登记处」），空间不够先截机构，人名优先保留。 */
+.kbx-card-up{display:flex;align-items:baseline;gap:6px;padding:0 14px 8px;font-size:11.5px;line-height:1.4;color:#64748b;min-width:0;overflow:hidden;white-space:nowrap}
+/* 行首不再有「上传／转载」二字，人名前的标记层样式一并删除 */
+.kbx-card-up b{flex:0 0 auto;font-weight:600;color:#40536b;max-width:52%;overflow:hidden;text-overflow:ellipsis}
+.kbx-card-up-org{min-width:0;overflow:hidden;text-overflow:ellipsis;color:#8796a6}
+.kbx-card-up-org::before{content:"·";margin-right:5px;color:#c3cdd8}
+
+/* 底部：标签左，按钮右 */
+.kbx-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 14px 12px;margin-top:auto;min-height:34px}
+.kbx-card-tags{display:flex;flex-wrap:nowrap;gap:5px;overflow:hidden;min-width:0}
+.kbx-tag{display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;background:#eef2f7;color:#4d6076;font-size:11px;font-weight:600;white-space:nowrap}
+.kbx-tag--soft{background:#f5f7fa;color:#6b7b8c;font-weight:500}
+.kbx-tag--count{background:#e7eef8;color:#3d5a80}
+.kbx-card-acts{display:flex;gap:4px;flex:0 0 auto}
+.kbx-ico{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #e3e9f0;border-radius:6px;background:#fff;color:#607a90;font-size:13px;line-height:1;cursor:pointer;transition:all .15s}
+.kbx-ico:hover{border-color:var(--primary);color:var(--primary);background:#f2f7fc}
+.kbx-ico.on{color:#dd8a1c;border-color:#f0d9ae;background:#fffaf0}
+.kb-empty{padding:52px 20px;text-align:center;color:#8b9cad;font-size:13px}
+.kb-list-foot{display:flex;align-items:center;justify-content:space-between;gap:16px;font-size:12.5px;color:#64748b;flex-wrap:wrap;margin-top:4px}
+
+/* ---------- 主题 ----------
+   主题名由 PROFILES[kind].theme 拼出来（kbx-theme-<theme>），这里必须与 PROFILE 的取值一一对应：
+   art 图文 / banner 宣传折页 / video 视频 / slide 课件 / manual 操作手册 */
+.kbx-theme-art{--kbx-a:#244765;--kbx-al:#e8eff8;--kbx-as:#f6f9fd}
+.kbx-theme-banner{--kbx-a:#8a3b2a;--kbx-al:#fbeee9;--kbx-as:#fdf7f4}
+.kbx-theme-video{--kbx-a:#0f5a52;--kbx-al:#e2f2ef;--kbx-as:#f3faf8}
+.kbx-theme-slide{--kbx-a:#39448f;--kbx-al:#e8eafb;--kbx-as:#f6f7fd}
+.kbx-theme-manual{--kbx-a:#3b4d63;--kbx-al:#e7ecf2;--kbx-as:#f5f8fb}
+
+/* ---------- 详情页骨架 ---------- */
+/* ================= 页面骨架（对齐设计文档 §3、§6） =================
+   标题区 96px → 主体（主栏 + 可选侧栏）。内容本体必须在首屏。
+   纵向刻度：区块之间 24px，块内 16px，行内 8px。
+   注意：这里不再声明 --kbx-* 变量。主题色由 .kbx-theme-* 提供，若在此重复声明，
+   同权重下后写的这条会盖掉主题色，五种形式就全变成一个蓝。 */
+.kbx-page{min-width:0;padding-bottom:16px}
+
+/* ---- 标题区 ---- */
+.kbx-titlebar{display:block;padding:0 0 14px;margin-bottom:20px;border-bottom:1px solid #e7ecf2}
+/* 返回单独一行靠左：它是「离开这一页」的导航，不与标题和数据抢横向空间 */
+.kbx-tb-crumb{margin-bottom:10px}
+.kbx-back{padding-left:0;color:#5f7285}
+.kbx-back:hover{color:var(--kbx-a);background:transparent}
+.kbx-tb-main{min-width:0}
+.kbx-tb-title{font-size:26px;line-height:1.35;font-weight:700;color:#17233a;margin:0 0 8px;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.kbx-tb-meta{display:flex;flex-wrap:wrap;align-items:center;gap:0 8px;font-size:13px;color:#7d8fa3;line-height:1.6}
+.kbx-dot{color:#c3cdd8;margin:0 2px}
+.kbx-tb-flag{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:4px;background:#eef2f7;color:#5d7084;font-size:11.5px;font-weight:600;margin-left:8px}
+.kbx-tb-acts{display:flex;gap:8px;align-items:center;flex-shrink:0;padding-top:4px}
+.kbx-tb-acts .btn{white-space:nowrap}
+
+/* ---- 主体：单栏 / 两栏 ---- */
+.kbx-body{display:grid;grid-template-columns:minmax(0,1fr);gap:24px;align-items:start}
+.kbx-body.has-aside{grid-template-columns:minmax(0,1fr) 300px}
+/* 视频 / 课件：播放器 + 右侧合集选集 240。
+   播放器宽度跟着屏幕走，但两头都设限：
+     上限 min(56vw, 1080px) —— 超宽屏不至于铺满整行，也不至于固定成一个小盒子。
+     下限由 minmax 的 0 兜底 —— 窄屏交给媒体查询逐级收窄。
+   对齐：播放器贴左、合集栏贴右；两者之间的空隙由 auto 列吸收。
+   用 1fr 会让中间列跟播放器抢宽度（屏幕一窄播放器就骤缩），所以中间必须是 auto。 */
+.kbx-body--with-col{
+  grid-template-columns:minmax(0,min(56vw,1080px)) auto 240px;
+}
+.kbx-body--with-col>.kbx-main-col{grid-column:1}
+.kbx-body--with-col>.kbx-col-right{grid-column:3;margin-left:24px}
+.kbx-col-right{min-width:0;position:sticky;top:8px;align-self:start}
+.kbx-main-col{min-width:0}
+.kbx-side-col{position:sticky;top:8px;align-self:start;min-width:0}
+.kbx-side--col{border:1px solid #e4eaf1;border-radius:10px;background:#fff;box-shadow:var(--shadow-xs);overflow:hidden}
+.kbx-side--col .kbx-side-sec{padding:12px 12px 14px}
+.kbx-side--col .kbx-side-hd{display:block;font-size:12.5px;margin-bottom:2px}
+.kbx-side--col .kbx-side-hd b{display:block;margin-top:2px;font-weight:600;color:#8b9cad}
+/* 合集名可点：进合集目录。悬停变主题色 + 下划线，暗示这是个链接 */
+.kbx-side-hd--link{text-decoration:none;color:#1c2f44;cursor:pointer}
+.kbx-side-hd--link:hover{color:var(--kbx-a)}
+.kbx-side-hd--link:hover b{color:var(--kbx-a)}
+/* 标题区里的合集面包屑链接 */
+.kbx-tb-link{color:#4b6a8c;text-decoration:none;border-bottom:1px dashed #b9cbdd;cursor:pointer}
+.kbx-tb-link:hover{color:var(--kbx-a);border-bottom-color:var(--kbx-a)}
+.kbx-side--col .kbx-ep-list{margin:10px -4px 0}
+.kbx-side--col .kbx-ep-row{padding:7px 6px}
+
+/* ---- 横向页内 tab（替代原左栏目录） ---- */
+.kbx-tabs{display:flex;gap:4px;margin:0 0 16px;border-bottom:1px solid #e7ecf2;overflow-x:auto}
+.kbx-tabs button{position:relative;border:0;background:transparent;padding:10px 14px;font-size:13.5px;font-weight:500;color:#5f7285;cursor:pointer;white-space:nowrap;border-radius:6px 6px 0 0}
+.kbx-tabs button:hover{background:#f4f8fb;color:var(--kbx-a)}
+.kbx-tabs button.active{color:var(--kbx-a);font-weight:700}
+.kbx-tabs button.active::after{content:"";position:absolute;left:10px;right:10px;bottom:-1px;height:2px;border-radius:2px;background:var(--kbx-a)}
+
+/* ---- 转载专区卡片：无封面 ----
+   转载内容拿不到官方封面（防外链、防盗链、纯 PDF/视频页），所以不做"假封面"——
+   与其放一块灰块或形式色块冒充封面，不如把这块空间让给真正的信息：
+   左侧竖色条标识来源平台，标题下面直接给平台 + 日期 + 形式 + 病种。 */
+.kb-cards--rp{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media(max-width:1440px){.kb-cards--rp{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:1080px){.kb-cards--rp{grid-template-columns:minmax(0,1fr)}}
+.kbx-card--rp{flex-direction:row;padding:0;min-height:104px}
+.kbx-card--rp:hover{transform:translateY(-1px)}
+/* 左侧竖色条：平台色，一眼分来源 */
+.kbx-rp-bar{flex:0 0 4px;background:var(--rp-c,#244765);border-radius:10px 0 0 10px}
+.kbx-card--rp .kbx-card-hit{display:flex;flex-direction:column;gap:6px;padding:13px 15px 12px;flex:1;min-width:0}
+.kbx-card--rp .kbx-rp-top{display:flex;align-items:center;gap:8px;font-size:11.5px;color:#7d8fa3;flex-wrap:wrap}
+.kbx-card--rp .kbx-rp-top .kbx-rp-plat{font-weight:700;color:var(--rp-c,#244765)}
+.kbx-card--rp .kbx-rp-top .kbx-rp-dot{color:#cbd5e1}
+.kbx-card--rp .kbx-rp-title{font-size:14px;font-weight:700;color:#1c2f44;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.kbx-card--rp .kbx-rp-desc{font-size:12px;line-height:1.6;color:#748492;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.kbx-card--rp .kbx-rp-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:auto;padding-top:2px}
+.kbx-card--rp .kbx-rp-meta > * + *{margin-left:0}
+.kbx-card--rp .kbx-rp-date{font-size:11.5px;color:#8b9cad;white-space:nowrap;margin-right:2px}
+.kbx-card--rp .kbx-rp-author{font-size:11.5px;color:#8b9cad;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
+/* 底部动作与元信息同排，省一行 */
+.kbx-card--rp .kbx-card-foot{padding:0;margin:0;min-height:0;flex:0 0 auto}
+.kbx-card--rp .kbx-card-foot .kbx-card-acts{margin-left:4px}
+/* 右上角形式/状态小标：不占封面位，贴在标题行右侧 */
+.kbx-card--rp .kbx-cb{position:static;margin-left:auto;flex:0 0 auto}
+/* 只有第一枚徽章顶到最右，后续徽章紧跟其后；否则 margin-left:auto 会把空白平分，
+   状态徽章悬在中间，看着像标题的一部分 */
+.kbx-card--rp .kbx-cb ~ .kbx-cb{margin-left:0}
+/* 「官方转载」角标固定在封面右上角（形式名在左上，两者分居两侧，互不挤压）。
+   原来只规定它在左下，和形式角标一起挤在底部，还因为缺定位样式单独占一行。 */
+.kbx-cb--rp{left:auto;right:10px;top:10px;bottom:auto;z-index:3;
+  background:rgba(36,71,101,.92);color:#fff;border:0;font-weight:600;
+  height:22px;padding:0 8px;border-radius:5px;font-size:11.5px;display:inline-flex;align-items:center}
+/* 「已下架」排在「官方转载」下面一行，避免两个右上角标重叠 */
+.kbx-cb--rp ~ .kbx-cb--off,
+.kbx-cb--off{top:38px}
+.kbx-card--rp .kbx-cb--rp{background:rgba(36,71,101,.92);color:#fff;font-weight:600;padding:0 8px}
+/* 转载卡右侧外发动作区：复制/长图，比进详情更常用 */
+.kbx-rp-side{display:flex;flex-direction:column;justify-content:center;gap:4px;padding:0 12px 0 4px;border-left:1px dashed #e7ecf2;flex:0 0 auto}
+.kbx-rp-side .kbx-ico{width:30px;height:30px}
+
+/* ---- 侧栏：单卡片多小节 ---- */
+.kbx-side{border:1px solid #e4eaf1;border-radius:10px;background:#fff;box-shadow:var(--shadow-xs);overflow:hidden}
+.kbx-side-sec{padding:14px 16px;border-bottom:1px solid #eef2f6}
+.kbx-side-sec:last-child{border-bottom:0}
+.kbx-side-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;font-weight:700;color:#1c2f44;margin-bottom:10px}
+.kbx-side-hd b{font-size:12px;font-weight:600;color:#8b9cad}
+.kbx-side-desc{font-size:12.5px;color:#8b9cad;line-height:1.5;margin:-6px 0 10px}
+.kbx-side-p{font-size:12.5px;line-height:1.7;color:#4f5f70;margin:0}
+.kbx-side-p--warn{color:#8a6100}
+.kbx-side-sec .btn{margin-top:8px}
+/* 侧栏选集列表 */
+.kbx-ep-list{display:flex;flex-direction:column;gap:2px;margin:0 -6px}
+.kbx-ep-row{display:flex;align-items:center;gap:9px;padding:8px 8px;border-radius:6px;text-decoration:none;color:inherit;min-width:0}
+a.kbx-ep-row:hover{background:#f2f7fb}
+.kbx-ep-row.on{background:var(--kbx-al)}
+.kbx-ep-row.off{opacity:.55}
+.kbx-ep-i{flex:0 0 20px;font-family:var(--font-num);font-size:12px;font-weight:700;color:#b0bcc9}
+.kbx-ep-row.on .kbx-ep-i{color:var(--kbx-a)}
+.kbx-ep-t{flex:1 1 auto;min-width:0;font-size:13px;line-height:1.5;color:#33475e;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.kbx-ep-row.on .kbx-ep-t{font-weight:700;color:#17324d}
+.kbx-ep-b{flex:0 0 auto;font-size:11px;color:#94a3b8}
+
+/* ---- 通用键值行 ---- */
+.kbx-kv{display:flex;gap:10px;justify-content:space-between;font-size:12.5px;line-height:1.7;padding:3px 0}
+.kbx-kv>span{flex:0 0 auto;color:#8b9cad}
+.kbx-kv>b{color:#293b51;font-weight:600;text-align:right;word-break:break-word;min-width:0}
+/* 区块 */
+.kbx-block{margin-bottom:18px}
+.kbx-block-hd{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:2px 2px 10px}
+.kbx-block-hd h2{font-size:16px;font-weight:700;color:#1c2f44;margin:0}
+.kbx-block-hd h3{font-size:14px;font-weight:700;color:#1c2f44;margin:0}
+.kbx-block-hd--sm{margin-top:14px}
+.kbx-block-sub{font-size:12px;color:#8b9cad}
+.kbx-item{border:1px solid #e3e9f0;border-radius:10px;background:#fff;padding:20px 22px;box-shadow:var(--shadow-xs)}
+.kbx-item--flat{border:0;box-shadow:none;background:transparent;padding:0 2px}
+
+/* 正文版式（图文 / 手册通用） */
+.kbx-prose{font-size:15.5px;line-height:1.95;color:#2f3d4e;word-break:break-word}.kbx-prose--tight{font-size:14.5px;line-height:1.85}
+.kbx-prose p{margin:0 0 12px}
+.kbx-prose h2{font-size:19px;font-weight:800;color:#17233a;margin:6px 0 10px;line-height:1.45}
+.kbx-prose h3{font-size:16px;font-weight:700;color:#23344a;margin:18px 0 8px;line-height:1.5;padding-left:10px;border-left:3px solid var(--kbx-a)}
+.kbx-prose ul,.kbx-prose ol{margin:0 0 12px;padding-left:22px}
+.kbx-prose li{margin:4px 0}
+.kbx-prose b,.kbx-prose strong{color:#17324d;font-weight:700}
+.kbx-prose blockquote{margin:12px 0;padding:10px 14px;border-left:3px solid var(--kbx-a);background:var(--kbx-as);border-radius:0 6px 6px 0;color:#33475e}
+.kbx-prose table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13.5px}
+.kbx-prose th,.kbx-prose td{border:1px solid #e1e7ee;padding:8px 10px;text-align:left}
+.kbx-prose th{background:#f6f8fb;color:#41586e;font-weight:600}
+.kbx-prose pre{background:#1f2d3d;color:#e6edf3;border-radius:8px;padding:14px 16px;overflow:auto;font-size:13px;line-height:1.7;font-family:Consolas,var(--font-num)}
+.kbx-prose code{background:#f1f4f8;border-radius:4px;padding:1px 5px;font-size:13px;font-family:Consolas,var(--font-num);color:#b4313f}
+.kbx-prose pre code{background:transparent;color:inherit;padding:0}
+.kbx-source-strip{margin-top:14px;padding:10px 14px;border-radius:7px;background:#f6f8fb;border:1px dashed #dbe3ec;font-size:12.5px;color:#5f7285;line-height:1.6}
+
+/* ---- 播放器下方的一条信息带 ----
+   受众 / 标签 / 更新 / 附件全部横排。
+   以前这些都竖排在右栏，右栏一长条、播放器被压到 750px；横着排既省宽度也更好扫。 */
+.kbx-block--strip{margin-top:20px}
+.kbx-strip{display:flex;flex-wrap:wrap;gap:10px 32px;padding:12px 16px;border:1px solid #e4eaf1;border-radius:8px;background:#fff}
+.kbx-strip-cell{display:flex;align-items:baseline;gap:8px;min-width:0}
+.kbx-strip-cell span{font-size:12px;color:#8b9cad;white-space:nowrap}
+.kbx-strip-cell b{font-size:12.5px;color:#293b51;font-weight:600;word-break:break-word}
+/* 依据出处：独立区块（跟在简介之后），不再嵌在信息条里，所以自带上边距。
+   该字段已不再必填——只有历史数据填过时才渲染，空态整块不出。 */
+.kbx-block--evi{margin-top:16px}
+.kbx-strip-ev{display:flex;align-items:baseline;gap:8px;padding:10px 16px;border-radius:8px;background:#f7f9fc;border:1px dashed #dfe6ee}
+.kbx-strip-ev span{flex:0 0 auto;font-size:12px;color:#8b9cad;white-space:nowrap}
+.kbx-strip-ev b{flex:1 1 auto;min-width:0;font-size:12.5px;color:#4f5f70;font-weight:500;line-height:1.6}
+.kbx-strip-ev--warn{background:#fffdf5;border-color:#f0d9a8}
+.kbx-strip-ev--warn b{color:#a1541a}
+.kbx-strip-files{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.kbx-strip-files .kbx-file{flex:0 1 auto;min-width:280px;max-width:420px;margin:0;padding:8px 12px;border:1px solid #e4eaf1;border-radius:8px;background:#fff}
+
+/* ---- 内容下方动作行：收藏 / 下载（取用）/ 编辑 ----
+   读者看完内容才会决定收藏或下载，所以贴着内容放，而不是顶在标题行右侧。
+   视频页的这排紧跟在播放器正下方，所以只留一点上边距、不加分隔线。 */
+.kbx-actbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;margin-top:16px}
+.kbx-actbar .btn{min-width:96px;justify-content:center}
+/* 动作条分组：读者动作（收藏/取用）· 外发（转载件才有）· 管理动作（编辑/上架）。
+   原来五六个按钮平铺一排，读者分不清哪个是"我要的"、哪个是"管理员的"。 */
+.kbx-actbar-grp{display:flex;align-items:center;gap:8px}
+.kbx-actbar-grp--admin{margin-left:auto}
+.kbx-actbar-lb{font-size:11px;color:#94a3b8;letter-spacing:.5px;margin-right:2px}
+/* 图文 / 手册等单栏页：动作行在整篇内容末尾，用一条分隔线收尾 */
+.kbx-main + .kbx-actbar{margin-top:20px;padding-top:16px;border-top:1px solid #eef2f6}
+
+/* 提示块 */
+
+/* ---------- 视频 ---------- */
+.kbx-player{position:relative;border-radius:12px;overflow:hidden;background:#0d1b24;box-shadow:0 16px 36px rgba(13,27,36,.22)}
+/* 课件的讲课视频：它不是整页的主角（下面还有放映机），所以压窄一点、阴影收一收，
+   避免两个大黑块上下叠着抢注意力 */
+/* 课件两栏：左放映（+讲课视频），右说明 / 内容框架。
+   右栏 300px 常驻，翻到第几页说明都在视野内；窄屏（<1180px）自动退回单栏。 */
+.kbx-deck-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:22px;align-items:start}
+.kbx-deck-main{min-width:0}
+.kbx-deck-side{position:sticky;top:12px;display:flex;flex-direction:column;gap:14px;font-size:13.5px}
+.kbx-deck-side .kbx-block{margin:0}
+.kbx-deck-side .kbx-block-hd h2,.kbx-deck-side .kbx-block-hd h3{font-size:14px}
+.kbx-deck-side .kbx-prose{font-size:13.5px;line-height:1.85}
+.kbx-deck-side .kbx-toclist{font-size:13px}
+@media (max-width:1180px){.kbx-deck-layout{grid-template-columns:1fr}.kbx-deck-side{position:static}}
+.kbx-player--compact{max-width:100%;box-shadow:0 8px 22px rgba(13,27,36,.16)}
+.kbx-player--compact .kbx-player-screen{aspect-ratio:16/9}
+/* 浏览器播不了的格式（avi/mkv）给一句明确说明，别让人对着黑屏以为是加载失败 */
+.kbx-play-tip{margin-top:8px;font-size:12px;color:#8b5e3c}
+.kbx-player-screen{position:relative;aspect-ratio:16/9;background:#0b141b;display:flex;align-items:center;justify-content:center}
+.kbx-player-screen video{width:100%;height:100%;object-fit:contain;background:#0b141b}
+.kbx-player-poster{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 40%,#1d3a3a 0%,#0b141b 72%);color:#cfe4e0}
+.kbx-pp-glyph{position:absolute;left:0;right:0;bottom:10px;text-align:center;font-family:"STKaiti","KaiTi",sans-serif;font-size:15px;font-weight:700;color:#3d7b74;letter-spacing:6px;opacity:.75}
+/* 标签压在左上角：中间留给播放按钮，别和它抢位置 */
+.kbx-pp-label{position:absolute;left:16px;top:14px;font-size:12px;letter-spacing:1.5px;color:#9db6b1;border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:2px 9px}
+.kbx-pp-sub{position:absolute;left:16px;top:44px;font-size:11.5px;color:#5f7979;max-width:60%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kbx-playbig{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:76px;height:76px;border-radius:50%;border:0;cursor:pointer;background:rgba(255,255,255,.94);color:#0f5a52;font-size:26px;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 26px rgba(0,0,0,.35);transition:transform var(--dur-base) var(--ease-out)}
+.kbx-playbig span{margin-left:4px}
+.kbx-playbig:hover{transform:translate(-50%,-50%) scale(1.07)}
+.kbx-play-notice{position:absolute;left:16px;right:16px;bottom:16px;display:none;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:8px;background:rgba(10,22,28,.9);color:#d7e6e3;font-size:12.5px;line-height:1.5}
+.kbx-play-again{flex:0 0 auto;height:26px;padding:0 10px;border:1px solid rgba(255,255,255,.35);border-radius:4px;background:transparent;color:#fff;font-size:12px;cursor:pointer}
+.kbx-resume{position:absolute;left:14px;top:14px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.92);color:#0f5a52;font-size:12px;font-weight:600}
+.kbx-player-bar{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#12232c;color:#c9dbe0;font-size:12px;font-family:var(--font-num)}
+.kbx-vbar{position:relative;flex:1 1 auto;height:5px;border-radius:3px;background:rgba(255,255,255,.16);overflow:visible}
+.kbx-vbar i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:3px;background:#4fb3a4}
+.kbx-tick{position:absolute;top:-3px;width:2px;height:11px;border-radius:1px;background:rgba(255,255,255,.55);cursor:pointer;transition:background var(--dur-fast)}
+.kbx-tick.on{background:#4fb3a4}
+.kbx-pbtn{height:26px;padding:0 10px;border:1px solid rgba(255,255,255,.24);border-radius:4px;background:transparent;color:#d7e6e3;font-size:12px;cursor:pointer}
+.kbx-pbtn:hover{border-color:#4fb3a4;color:#fff}
+
+
+.kbx-relrow{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.kbx-rel{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #e3e9f0;border-radius:9px;background:#fff;text-decoration:none;color:inherit;transition:border-color var(--dur-fast),box-shadow var(--dur-fast)}
+.kbx-rel:hover{border-color:#9ecfc8;box-shadow:var(--shadow-sm)}
+.kbx-rel-thumb{flex:0 0 44px;height:44px;border-radius:8px;background:#e2f2ef;color:#0f5a52;font-family:"STKaiti","KaiTi",sans-serif;font-size:20px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.kbx-rel-txt{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px}
+.kbx-rel-txt b{font-size:13.5px;color:#1c2f44;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kbx-rel-txt span{font-size:12px;color:#8b9cad;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kbx-rel-at{flex:0 0 auto;font-size:12px;color:#5f7285;font-family:var(--font-num)}
+
+/* ---------- 步骤（折页流程图 / 手册清单共用色标） ---------- */
+
+
+/* ---------- 课件放映 ---------- */
+/* 和播放器同一个版心上限：铺满 1338 时 16:9 高度 807px，一屏放不下任何其他内容 */
+.kbx-deck{border-radius:12px;overflow:hidden;border:1px solid #dfe3f2;background:#f4f5fb;box-shadow:0 14px 34px rgba(57,68,143,.12);max-width:1020px}
+.kbx-slides{position:relative;aspect-ratio:16/9;background:radial-gradient(circle at 30% 20%,#f7f8ff,#e9ebf8);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.kbx-slide{display:none;width:100%;height:100%;padding:5% 6%}
+.kbx-slide.on{display:block;animation:kbxFade .22s var(--ease-out)}
+@keyframes kbxFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.kbx-slide-inner{position:relative;width:100%;height:100%;background:#fff;border-radius:6px;padding:5% 5.5%;box-shadow:0 2px 10px rgba(40,50,110,.10);display:flex;flex-direction:column}
+.kbx-slide-body{flex:1 1 auto;min-height:0;overflow:auto}
+.kbx-sl-kicker{font-size:12.5px;letter-spacing:1.6px;color:#6c75b8;font-weight:700;margin-bottom:12px}
+.kbx-sl-title{font-size:24px;line-height:1.4;font-weight:800;color:#1d2550;margin:0 0 16px;padding-bottom:12px;border-bottom:3px solid #39448f;display:inline-block}
+.kbx-sl-sub{font-size:14px;color:#6a7295;margin:-6px 0 14px}
+.kbx-sl-bullets{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.kbx-sl-bullets li{position:relative;padding-left:18px;font-size:14.5px;line-height:1.75;color:#33405e}
+.kbx-sl-bullets li::before{content:"";position:absolute;left:2px;top:9px;width:7px;height:7px;border-radius:2px;background:#39448f}
+.kbx-sl-bullets--big li{font-size:16px;line-height:1.8}
+.kbx-sl-bullets--big li::before{top:11px}
+.kbx-sl-foot{margin-top:auto;padding-top:14px;font-size:12px;color:#8a90b6;border-top:1px solid #eceef8}
+.kbx-slide--cover .kbx-slide-inner{background:linear-gradient(135deg,#2f3a80,#39448f 55%,#5562b5);color:#fff}
+.kbx-slide--cover .kbx-sl-kicker{color:#c3c8ef}
+.kbx-slide--cover .kbx-sl-title{color:#fff;border-color:#aab1ea;font-size:28px}
+.kbx-slide--cover .kbx-sl-bullets li{color:#e6e8fb}
+.kbx-slide--cover .kbx-sl-bullets li::before{background:#b6bdf2}
+.kbx-slide--cover .kbx-sl-foot{color:#c3c8ef;border-color:rgba(255,255,255,.18)}
+.kbx-slide-raw{font-size:14.5px;line-height:1.8;color:#33405e}
+.kbx-slide-raw p{margin:0 0 8px}
+.kbx-slide-raw ul{padding-left:20px}
+.kbx-sl-pg{position:absolute;right:5.5%;bottom:4.5%;font-size:12px;color:#a2a8c9;font-family:var(--font-num)}
+.kbx-slide--cover .kbx-sl-pg{color:#c3c8ef}
+.kbx-deck-bar{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff;border-top:1px solid #e2e5f2;flex-wrap:wrap}
+.kbx-sheet-count{font-size:13px;color:#4b559e;font-family:var(--font-num);flex:0 0 auto}
+.kbx-sheet-count b{font-size:15px}
+.kbx-sheets{flex:1 1 auto;display:flex;gap:5px;overflow-x:auto;padding:2px;min-width:120px}
+.kbx-sheets button{flex:0 0 auto;width:30px;height:24px;border:1px solid #dfe3f2;border-radius:4px;background:#f7f8fd;color:#6c75b8;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-num)}
+.kbx-sheets button:hover{border-color:#8b93d6}
+.kbx-sheets button.on{background:#39448f;border-color:#39448f;color:#fff}
+.kbx-slides:fullscreen{aspect-ratio:auto;height:100vh;width:100vw}
+.kbx-slides:fullscreen .kbx-slide{padding:3% 5%}
+.kbx-toclist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px}
+.kbx-toclist li{display:flex;gap:10px;align-items:baseline;font-size:13.5px;color:#33475e;padding:7px 0;border-bottom:1px dashed #e6ebf1}
+.kbx-num{font-family:var(--font-num);font-size:12px;font-weight:700;color:#39448f;flex:0 0 20px}
+
+/* ---------- 操作手册 ---------- */
+.kbx-doc{border:1px solid #e3e9f0;border-radius:10px;background:#fff;box-shadow:var(--shadow-xs);padding:24px 26px}
+.kbx-doc-hd{display:flex;gap:14px;align-items:center;padding-bottom:16px;border-bottom:1px solid #edf1f5;margin-bottom:16px}
+.kbx-doc-hd h2{font-size:19px;font-weight:800;color:#17233a;margin:0 0 4px}
+.kbx-doc-meta{font-size:13px;color:#7d8fa3;line-height:1.6}
+.kbx-toc{background:#f6f8fb;border:1px solid #e6ecf2;border-radius:8px;padding:12px 16px;margin-bottom:18px}
+.kbx-toc-t{font-size:12px;font-weight:700;color:#8b9cad;letter-spacing:.5px;margin-bottom:6px}
+.kbx-toc ol{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 18px}
+.kbx-toc li{display:flex;gap:9px;font-size:13.5px;color:#33475e;padding:3px 0}
+.kbx-toc .kbx-num{color:#3b4d63}
+.kbx-doc-body{font-size:15px;line-height:1.9;color:#2f3d4e}
+.kbx-doc-body p{margin:0 0 12px}
+.kbx-doc-body h3{font-size:16px;font-weight:700;color:#23344a;margin:20px 0 10px;padding-left:10px;border-left:3px solid #3b4d63}
+.kbx-doc-body b{color:#17324d}
+.kbx-doc-foot{display:flex;justify-content:space-between;align-items:center;margin-top:18px;padding-top:12px;border-top:1px dashed #dfe6ee;font-size:12.5px;color:#8b9cad}
+.kbx-doc-foot b{color:#3b4d63}
+.kbx-checklist{display:grid;gap:8px;margin:6px 0 14px}
+.kbx-check{display:flex;gap:12px;align-items:flex-start;padding:11px 14px;border:1px solid #e3e9f0;border-radius:8px;background:#fff;cursor:pointer;transition:background var(--dur-fast),border-color var(--dur-fast)}
+.kbx-check:hover{border-color:#b7c6d6;background:#fafcfd}
+.kbx-check-box{flex:0 0 20px;height:20px;margin-top:2px;border:1.5px solid #b8c5d2;border-radius:5px;color:transparent;font-size:12px;display:inline-flex;align-items:center;justify-content:center;background:#fff}
+.kbx-check-txt{font-size:14px;line-height:1.75;color:#2f3d4e}
+.kbx-check.done{background:#f4f9f5;border-color:#cfe3d1}
+.kbx-check.done .kbx-check-box{background:#3f7d4a;border-color:#3f7d4a;color:#fff}
+.kbx-check.done .kbx-check-txt{color:#6b7c6d;text-decoration:line-through;text-decoration-color:#b6c8b8}
+.kbx-ul{margin:0 0 12px;padding-left:22px}
+.kbx-ul li{margin:4px 0}
+
+/* ---------- 宣传折页 ---------- */
+.kbx-flyer{border:1px solid #efd9cf;border-radius:12px;background:linear-gradient(180deg,#fffdfb,#fdf6f2);box-shadow:var(--shadow-xs);overflow:hidden}
+.kbx-flyer-head{padding:26px 28px 18px;background:linear-gradient(120deg,#8a3b2a,#a9543e);color:#fff}
+.kbx-flyer-kicker{font-size:12px;letter-spacing:2px;color:#f3d6ca;font-weight:600;margin-bottom:8px}
+.kbx-flyer-head h2{font-size:26px;font-weight:800;line-height:1.4;margin:0 0 8px}
+.kbx-flyer-head p{font-size:14px;line-height:1.7;color:#f6e4dc;margin:0}
+.kbx-flyer-pills{display:grid;gap:10px;padding:0 28px 8px}
+/* 大字卡上方的小标题：原稿里这一组的 h3（如「出院后先做这三件」）以前整个丢了，
+   只剩几张没有标题的卡片，读者不知道这几条属于哪一件事 */
+.kbx-flyer-pills-h{padding:22px 28px 10px;font-size:13px;font-weight:700;color:#8a3b2a;letter-spacing:.5px}
+/* 流程节里跟在步骤后面的普通句子（该小标题下不是编号的内容） */
+.kbx-flyer-sub{margin:2px 0 0;padding-left:20px;list-style:disc}
+.kbx-flyer-sub li{font-size:13.5px;line-height:1.8;color:#5a4a42}
+.kbx-flyer-pill{display:flex;align-items:flex-start;gap:16px;padding:14px 18px;border-radius:10px;background:#fff;border:1px solid #f0ddd5;border-left:4px solid #8a3b2a}
+.kbx-pill-no{flex:0 0 auto;font-family:"STKaiti","KaiTi",sans-serif;font-size:26px;font-weight:700;color:#8a3b2a;line-height:1.2;min-width:30px}
+.kbx-flyer-pill p{margin:0;font-size:18px;line-height:1.6;font-weight:700;color:#3b2419}
+.kbx-pill-body{display:flex;flex-direction:column;gap:3px;min-width:0}
+.kbx-pill-label{font-size:12.5px;font-weight:700;color:#a9543e;letter-spacing:.5px}
+.kbx-flyer-flow{padding:10px 28px 6px}
+.kbx-flyer-steps{list-style:none;margin:0;padding:0;display:grid;gap:0}
+.kbx-flyer-steps li{position:relative;display:flex;gap:14px;padding:0 0 14px;font-size:14.5px;line-height:1.75;color:#4a3a33}
+.kbx-flyer-steps li::before{content:"";position:absolute;left:11px;top:26px;bottom:0;width:2px;background:#f0dcd3}
+.kbx-flyer-steps li:last-child{padding-bottom:0}
+.kbx-flyer-steps li:last-child::before{display:none}
+.kbx-fstep-no{position:relative;z-index:1;flex:0 0 24px;height:24px;margin-top:2px;border-radius:50%;background:#8a3b2a;color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.kbx-flyer-steps li:nth-child(1) .kbx-fstep-no::after{content:"1"}
+.kbx-flyer-steps li:nth-child(2) .kbx-fstep-no::after{content:"2"}
+.kbx-flyer-steps li:nth-child(3) .kbx-fstep-no::after{content:"3"}
+.kbx-flyer-steps li:nth-child(4) .kbx-fstep-no::after{content:"4"}
+.kbx-flyer-steps li:nth-child(5) .kbx-fstep-no::after{content:"5"}
+.kbx-flyer-steps li:nth-child(6) .kbx-fstep-no::after{content:"6"}
+.kbx-flyer-notes{padding:16px 28px 6px}
+.kbx-flyer-notes-h{font-size:13px;font-weight:700;color:#8a3b2a;letter-spacing:.5px;margin-bottom:8px}
+.kbx-flyer-notes ul{margin:0;padding-left:20px}
+.kbx-flyer-notes li{font-size:14px;line-height:1.85;color:#4a3a33;margin:2px 0}
+.kbx-flyer-foot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px 28px;margin-top:12px;border-top:1px dashed #ecd6cc;font-size:12.5px;color:#8d6a5c}
+/* 折页是「扫一眼」的单页版式：铺满 1300px 时每行只剩一句话，整块像空的，所以限宽到 A4 感 */
+.kbx-page--flyer .kbx-main{max-width:880px}
+
+/* 空页 / 末尾 */
+.kbx-empty-page{display:flex;align-items:center;justify-content:center;min-height:50vh}
+.kbx-empty-box{text-align:center;padding:28px 34px;border:1px dashed #d7e0ea;border-radius:12px;background:#fff;color:#667085}
+.kbx-empty-box b{display:block;font-size:16px;color:#1c2f44;margin-bottom:6px}
+.kbx-empty-box p{font-size:13px;margin:0 0 14px}
+
+/* ---------- 合集卡（列表里合集作为一种形式）---------- */
+.kbx-card--collection .kbx-cover-img.has-img{background:#0d1b24}
+.kbx-cover-img{position:absolute;inset:0;z-index:0;overflow:hidden}
+.kbx-cover-img img{width:100%;height:100%;object-fit:cover;display:block}
+.kbx-cover-img.has-img::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(13,27,36,0) 42%,rgba(13,27,36,.55))}
+.kbx-card--collection .kbx-card-glyph{z-index:1}
+/* 合集卡右下角「N 集」浮层已按稿取消：卡片标签区已有「4 集」，动作区只留收藏/下载/上下架 */
+
+/* ---------- 合集详情（读者视角）---------- */
+.kb-col-view{min-width:0}
+.kb-col-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+.kb-col-hero{display:grid;grid-template-columns:300px minmax(0,1fr);gap:22px;align-items:center;padding:20px;margin-bottom:16px;border:1px solid #e2e8ef;border-radius:12px;background:#fff;box-shadow:var(--shadow-xs)}
+.kb-col-cover{position:relative;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:linear-gradient(135deg,#eaf0f7,#cfdbe9);display:flex;align-items:center;justify-content:center;color:#3d5a80}
+.kb-col-cover img{width:100%;height:100%;object-fit:cover;display:block}
+.kb-col-cover .kbx-card-glyph{font-family:"STKaiti","KaiTi",serif;font-size:52px;font-weight:700;opacity:.8}
+.kb-col-cover-tip{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:11px;color:#8b9cad}
+.kb-col-cover.has-img .kb-col-cover-tip{display:none}
+.kb-col-kicker{font-size:12px;font-weight:700;color:#3d5a80;letter-spacing:.5px;margin-bottom:6px}
+.kb-col-title{font-size:24px;font-weight:800;color:#17233a;margin:0 0 8px;line-height:1.35}
+.kb-col-meta{font-size:12.5px;color:#7d8fa3;margin-bottom:10px}
+.kb-col-desc{font-size:14px;line-height:1.8;color:#4f5f70;margin:0 0 10px;max-width:640px}
+.kb-col-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.kb-col-actions{display:flex;gap:8px}
+.kb-col-eps{display:flex;flex-direction:column;padding:6px 0}
+.kb-col-ep{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid #eef2f6}
+.kb-col-ep:last-child{border-bottom:0}
+.kb-col-ep:hover{background:#f7fafd}
+.kb-col-ep-no{flex:0 0 26px;font-family:var(--font-num);font-size:14px;font-weight:700;color:#b0bcc9}
+.kb-col-ep-play{flex:0 0 28px;width:28px;height:28px;border-radius:50%;border:1px solid #cfdbe9;background:#f4f8fc;color:#3d5a80;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.kb-col-ep-play:hover{background:#3d5a80;border-color:#3d5a80;color:#fff}
+.kb-col-ep-main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}
+.kb-col-ep-main b{font-size:13.5px;color:#1f2937;font-weight:600}
+.kb-col-ep-main span{font-size:12px;color:#8b9cad;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kb-col-ep-meta{flex:0 0 auto;font-size:12px;color:#8b9cad}
+/* 合集维护：所有入口都在详情页，不另设管理页 */
+.kb-col-tools{display:flex;gap:8px;flex-wrap:wrap}
+.kb-col-ep-ops{flex:0 0 auto;display:flex;gap:2px;margin-left:8px;opacity:0;transition:opacity .15s}
+/* 行内维护按钮默认不占视觉，悬停或聚焦才出现，避免选集列表变成一排按钮 */
+.kb-col-ep:hover .kb-col-ep-ops,.kb-col-ep-ops:focus-within{opacity:1}
+.kb-col-ep-ops .btn{height:24px;padding:0 7px;font-size:11.5px}
+.kb-col-gate{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:10px 14px;border:1px solid #f0cf9a;border-radius:8px;background:#fffdf7;font-size:12.5px;color:#a1541a}
+.kb-col-gate .btn{margin-left:auto}
+@media(max-width:900px){.kb-col-hero{grid-template-columns:1fr}}
+
+/* ---------- 合集「添加内容」弹窗：勾选清单 ---------- */
+.kb-addpick{display:grid;gap:6px;max-height:52vh;overflow:auto}
+.kb-addpick-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid #e5eaf0;border-radius:6px;cursor:pointer}
+.kb-addpick-row:hover{background:#f7fafd;border-color:#bcd0e2}
+.kb-addpick-row input{flex:0 0 auto;margin:0}
+.kb-addpick-t{flex:1 1 auto;min-width:0;font-size:13px;color:#1f2937;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kb-addpick-warn{flex:0 0 auto;font-size:11px;color:#a1541a;background:#fdefe2;border-radius:4px;padding:2px 6px;white-space:nowrap}
+.kb-addpick-m{flex:0 0 auto;font-size:11.5px;color:#94a3b8;white-space:nowrap}
+
+/* ---- 单栏阅读版心（设计文档 §5.2）：正文限宽 760，避免长行 ---- */
+/* 只有纯文章限宽（长行不利阅读）；折页/课件是卡片式版面，铺满可用宽度 */
+.kbx-article{max-width:760px}
+.kbx-article .kbx-source-strip{margin-top:24px;max-width:760px}
+/* ---- 附件行（侧栏） ---- */
+.kbx-file{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed #eef2f6}
+.kbx-file:last-child{border-bottom:0;padding-bottom:0}
+.kbx-file-ext{flex:0 0 auto;width:34px;height:34px;border-radius:6px;background:var(--kbx-al);color:var(--kbx-a);font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+.kbx-file-txt{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:1px}
+.kbx-file-txt b{font-size:12.5px;color:#293b51;font-weight:600;line-height:1.4;word-break:break-all}
+.kbx-file-txt span{font-size:11.5px;color:#94a3b8;font-family:var(--font-num)}
+/* 响应式：播放器宽度随屏幕缩放，但高度不能失控。16:9 下 1080px 宽 = 608px 高，
+   加上标题区与动作行正好一屏，再宽就要挤压正文了。
+   注意：每一档必须与主规则保持同样的三列结构（播放器 / 留白 / 合集栏），
+   否则 grid-column 会指到不存在的列上，播放器就被压扁。 */
+@media(max-width:1440px){
+  .kbx-body--with-col{grid-template-columns:minmax(0,min(56vw,1080px)) auto 216px}
+}
+@media(max-width:1200px){
+  .kbx-body.has-aside{grid-template-columns:minmax(0,1fr) 272px}
+  .kbx-tb-title{font-size:23px}
+  .kbx-body--with-col{grid-template-columns:minmax(0,min(56vw,1080px)) auto 200px}
+}
+@media(max-width:1000px){
+  .kbx-body.has-aside{grid-template-columns:minmax(0,1fr)}
+  /* 窄屏：合集折到播放器下面，播放器独占整行（此时只有一列） */
+  .kbx-body--with-col{grid-template-columns:minmax(0,1fr)}
+  .kbx-body--with-col>.kbx-main-col{grid-column:auto}
+  .kbx-body--with-col>.kbx-col-right{grid-column:auto;order:2;position:static;margin:6px 0 0}
+  .kbx-side-col{position:static}
+  .kbx-relrow,.kbx-toclist,.kbx-toc ol{grid-template-columns:1fr}
+  .kbx-strip-files .kbx-file{min-width:0;flex:1 1 100%}
+}
+@media(max-width:760px){
+  .kbx-titlebar{display:block}
+  .kbx-tb-acts{margin-top:12px;flex-wrap:wrap}
+  .kbx-tb-title{font-size:20px}
+  .kbx-tabs button{padding:9px 10px;font-size:13px}
+}
+/* ================= 批量上传（分类型） ================= */
+.kbb-dialog{width:1180px;max-width:96vw}
+.kbb-kind{font-style:normal;font-size:12px;font-weight:600;color:#fff;background:#244765;border-radius:4px;padding:2px 8px;margin-left:8px}
+.kbb-steps{display:flex;align-items:center;gap:8px;padding:12px 18px;border-bottom:1px solid #eef2f6;background:#fbfcfe}
+.kbb-step{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:#94a3b8}
+.kbb-step i{width:20px;height:20px;border-radius:50%;background:#e6ecf3;color:#8b9cad;font-style:normal;font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.kbb-step.on{color:#1c2f44;font-weight:700}
+.kbb-step.on i{background:#244765;color:#fff}
+.kbb-step.done{color:#2e7d32}
+.kbb-step.done i{background:#2e7d32;color:#fff}
+.kbb-step-line{flex:1 1 auto;height:1px;background:#e6ecf3;min-width:20px}
+.kbb-body{max-height:60vh;overflow:auto}
+
+.kbb-pick-hd{font-size:14px;font-weight:700;color:#1c2f44;margin-bottom:12px}
+.kbb-pick-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.kbb-kind-card{display:flex;flex-direction:column;gap:6px;padding:16px;border:1px solid #e2e8ef;border-radius:8px;background:#fff;text-align:left;cursor:pointer;transition:all .15s}
+.kbb-kind-card:hover{border-color:#244765;background:#f6faff;transform:translateY(-1px)}
+.kbb-kind-card b{font-size:14.5px;color:#1c2f44}
+.kbb-kind-card span{font-size:11.5px;color:#8b9cad;line-height:1.5}
+.kbb-tip{margin-top:14px;font-size:12px;color:#8b9cad}
+
+.kbb-hint{font-size:12.5px;color:#5f7285;background:#f6f9fd;border-left:3px solid #244765;border-radius:0 6px 6px 0;padding:9px 12px;margin-bottom:14px}
+.kbb-mat{margin-bottom:16px}
+.kbb-mat-hd{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.kbb-mat-no{width:20px;height:20px;border-radius:50%;background:#eef3fa;color:#4b6a8c;font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.kbb-mat-hd b{font-size:13.5px;color:#1c2f44}
+.kbb-req{font-style:normal;font-size:11px;color:#b42335;background:#fde7ea;border-radius:3px;padding:1px 6px}
+.kbb-opt{font-style:normal;font-size:11px;color:#7d8fa3;background:#eef2f7;border-radius:3px;padding:1px 6px}
+.kbb-mat-tip{font-size:11.5px;color:#a3b1bf}
+.kbb-drop{border:1px dashed #cfdae6;border-radius:8px;background:#fbfcfe;padding:18px;text-align:center;font-size:12.5px;color:#8b9cad;cursor:pointer;transition:all .15s}
+.kbb-drop:hover{border-color:#244765;background:#f5f9ff;color:#244765}
+.kbb-files{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.kbb-file{display:inline-flex;align-items:center;gap:7px;padding:5px 8px;border:1px solid #e3e9f0;border-radius:6px;background:#fff;font-size:12px;max-width:100%}
+.kbb-file i{font-style:normal;font-size:10px;font-weight:800;color:#4b6a8c;background:#eef3fa;border-radius:3px;padding:1px 5px}
+.kbb-file-n{color:#293b51;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+.kbb-file-s{color:#a3b1bf}
+.kbb-file button{border:0;background:transparent;color:#b0bcc9;cursor:pointer;font-size:11px}
+.kbb-sheet-ops{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.kbb-sheet-ok{font-size:12px;color:#2e7d32}
+
+.kbb-sum{font-size:13px;color:#4f5f70;margin-bottom:12px}
+.kbb-ok{font-style:normal;color:#2e7d32;font-weight:600;margin-left:8px}
+.kbb-bad{font-style:normal;color:#b42335;font-weight:600;margin-left:8px}
+.kbb-rows{display:flex;flex-direction:column;gap:10px}
+.kbb-row{border:1px solid #e2e8ef;border-radius:8px;background:#fff}
+.kbb-row.is-bad{border-color:#f3b4bd;background:#fffafa}
+.kbb-row-hd{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #f0f3f7}
+.kbb-row-no{width:20px;height:20px;border-radius:50%;background:#eef3fa;color:#4b6a8c;font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.kbb-row-hd b{flex:1 1 auto;font-size:13.5px;color:#1c2f44}
+.kbb-row-body{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 16px;padding:10px 12px;font-size:12px;color:#4f5f70}
+.kbb-row-body>div span{display:inline-block;color:#a3b1bf;margin-right:6px}
+.kbb-row-body .wide{grid-column:1/-1}
+.kbb-none{color:#b0bcc9;font-style:normal}
+@media(max-width:760px){.kbb-pick-grid{grid-template-columns:1fr 1fr}.kbb-row-body{grid-template-columns:1fr 1fr}}
+
+/* 解析进度 */
+.kbb-prog{padding:40px 20px;text-align:center}
+.kbb-prog-hd{font-size:14px;font-weight:700;color:#1c2f44;margin-bottom:16px}
+.kbb-prog-bar{height:6px;border-radius:3px;background:#eaf0f6;overflow:hidden;max-width:420px;margin:0 auto 10px}
+.kbb-prog-bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#244765,#3d5a80);transition:width .22s ease-out}
+.kbb-prog-label{font-size:12.5px;color:#7d8fa3;margin-bottom:18px}
+.kbb-prog-list{display:flex;justify-content:center;gap:18px;flex-wrap:wrap}
+.kbb-prog-item{font-size:12px;color:#b0bcc9}
+.kbb-prog-item.on{color:#244765;font-weight:700}
+.kbb-prog-item.done{color:#2e7d32}
+.kbb-parsing{font-size:12.5px;color:#7d8fa3}
+
+/* 预览分组 */
+.kbb-demo{font-style:normal;font-size:11px;color:#8a6100;background:#fff3cf;border-radius:3px;padding:2px 7px;margin-left:10px}
+.kbb-group{margin-bottom:18px}
+.kbb-group-hd{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;padding:8px 0;margin-bottom:8px;border-bottom:1px solid #eef2f6}
+.kbb-group-hd--ok{color:#2e7d32}
+.kbb-group-hd--bad{color:#b42335}
+.kbb-group-hd span{font-weight:400;font-size:11.5px;color:#a3b1bf}
+.kbb-row-line{font-size:11.5px;color:#a3b1bf;margin-left:auto;margin-right:8px}
+/* 行内操作：重试 / 删除。放在「可导入/失败原因」右侧，靠右对齐，不抢标题的视觉重量 */
+.kbb-row-ops{display:inline-flex;gap:6px;flex:0 0 auto}
+.kbb-row-op{border:1px solid #dbe2ea;background:#fff;color:#5f7285;border-radius:5px;padding:2px 9px;font-size:11.5px;cursor:pointer;line-height:1.6}
+.kbb-row-op:hover{border-color:#244765;color:#244765;background:#f4f8fc}
+.kbb-row-op--retry{border-color:#b9cde2;color:#244765;font-weight:600}
+.kbb-row-op--del:hover{border-color:#b42335;color:#b42335;background:#fdf2f3}
+.kbb-warn{font-style:normal;color:#a1541a}
+.kbb-empty{padding:22px;text-align:center;color:#7d8fa3;font-size:12.5px;background:#fafbfd;border:1px dashed #cfdae6;border-radius:8px}
+/* 命名规则说明：用「提示块」而不是又一行小字，这条是解析失败的主要原因，值得占一块 */
+.kbb-note{margin:0 0 16px;padding:12px 14px;background:#fdf8f0;border:1px solid #f0e0c8;border-left:3px solid #c9862b;border-radius:0 6px 6px 0;font-size:12.5px;line-height:1.75;color:#5b4632}
+.kbb-note>b{display:block;margin-bottom:6px;font-size:13px;color:#8a5a1a}
+.kbb-note p b{display:inline;color:#8a5a1a;font-weight:700}
+.kbb-note p{margin:0}
+.kbb-note p+p{margin-top:4px}
+.kbb-note code{background:#f5ecd9;border-radius:3px;padding:0 4px;font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:#7a4a12}
+
+/* ================= 转载件专属（来源行 / 编者按 / 转载声明） =================
+   转载件与原创件共用全部版式，这里只补四个「原创件没有、转载件必须有」的块。
+   颜色沿用 kbx 主题：主色 #244765，暖色提示 #a1541a。 */
+/* 转载件来源条：主信息一行（转载自谁·原文发布日·原文链接），
+   辅助信息另起一行（原文作者 / 发布人·发布单位 / 快照状态）。
+   原来全挤一行，渲染出来是一串没有分隔的字符，读起来像乱码。 */
+.kbx-srcbar{display:flex;flex-direction:column;gap:6px;margin:12px 0 6px;padding:11px 15px;border:1px solid #dbe6f5;border-left:4px solid #244765;border-radius:6px;background:#f6f9ff;font-size:12.5px;color:#334155;line-height:1.6}
+.kbx-srcbar-l1{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.kbx-srcbar-l2{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11.5px;color:#94a3b8}
+.kbx-srcbar-tag{flex:0 0 auto;display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:4px;background:#244765;color:#fff;font-size:11px;font-weight:700;letter-spacing:.5px}
+.kbx-srcbar-main{min-width:0}
+.kbx-srcbar-main b{color:#1f2937;font-weight:600}
+.kbx-srcbar-link{flex:0 0 auto;color:#244765;font-weight:600;text-decoration:none;border-bottom:1px dashed #9db4cd}
+.kbx-srcbar-link:hover{border-bottom-style:solid}
+.kbx-srcbar-warn{color:#a1541a;font-weight:600}
+/* 发布人 / 发布单位是我方责任主体，比「原文作者」更该被读到，用深一点的灰 */
+.kbx-srcbar-pub{color:#475569}
+/* 「未存快照」是常态提示（正文可选），不该抢注意力 */
+.kbx-srcbar-muted{color:#94a3b8}
+/* 原创件的发布署名：单位在前（对外口径）、发布人、日期收尾，右对齐在正文末尾 */
+.kbx-byline{display:flex;align-items:baseline;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin:26px 0 4px;padding-top:14px;border-top:1px dashed #e2e8f0;font-size:12.5px;color:#64748b}
+.kbx-byline-k{font-size:11px;letter-spacing:2px;color:#94a3b8}
+.kbx-byline b{font-size:13px;font-weight:600;color:#244765}
+.kbx-byline-d{color:#94a3b8}
+/* 转载件没贴正文时的空态：说清为什么这里是空的、去哪儿看全文。
+   不放灰块充正文——空白区域会被当成加载失败。 */
+.kbx-prose-empty{margin:2px 0 4px;padding:18px 20px;border:1px dashed #cfdae6;border-radius:8px;background:#fafbfd;color:#475569;font-size:13px;line-height:1.85}
+.kbx-prose-empty>b{display:block;margin-bottom:6px;font-size:13.5px;color:#244765}
+.kbx-prose-empty>p{margin:0 0 12px}
+.kbx-prose-empty .btn{text-decoration:none}
+.kbx-editor-note{display:flex;gap:10px;align-items:flex-start;margin:4px 0 18px;padding:12px 14px;border-radius:6px;background:#fbf7f1;border:1px solid #f0e3cf;font-size:13px;line-height:1.8;color:#5b4632}
+.kbx-editor-note b{flex:0 0 auto;display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:3px;background:#a1541a;color:#fff;font-size:11px;font-weight:700;margin-top:2px}
+.kbx-reprint-decl{margin:18px 0 8px;padding:14px 16px;border-radius:6px;border:1px dashed #cfdae6;background:#fafbfd;font-size:12.5px;line-height:1.85;color:#475569}
+.kbx-reprint-decl>b{display:block;margin-bottom:4px;font-size:12.5px;color:#244765}
+.kbx-reprint-decl p{margin:0}
+.kbx-reprint-decl .kbx-rd-plat{font-weight:700;color:#1f2937}
+.kbx-reprint-decl a{color:#244765;word-break:break-all}
+.kbx-reprint-decl .kbx-rd-at{color:#a1541a;margin-top:4px}
+/* 转载件的动作条：外发两个按钮比收藏更靠前，所以给一贯的间距即可，不再单独加粗 */
+.kbx-actbar .btn[data-kb="rpCopy"],.kbx-actbar .btn[data-kb="rpCard"]{color:#244765;border:1px solid #dbe6f5;background:#f6f9ff}
+.kbx-actbar .btn[data-kb="rpCopy"]:hover,.kbx-actbar .btn[data-kb="rpCard"]:hover{background:#eaf2fc}
+@media(max-width:720px){
+  .kbx-srcbar-l1,.kbx-srcbar-l2{flex-direction:column;align-items:flex-start;gap:4px}
+}
+
+/* 转载角标：与「下架」区分开——下架在右上，转载在左上，深蓝底白字 */
+/* 「官方转载」卡片角标已按稿要求取消；转载属性改由详情页来源条体现 */
+
+/* ---------- 富文本正文编辑器 ----------
+   contenteditable 的区域要有明确的边界和最小高度，否则它和普通文本框看起来一样，
+   用户不知道能不能在这里加粗。 */
+.kb-rte{border:1px solid #d1d8e0;border-radius:6px;background:#fff;overflow:hidden}
+.kb-rte:focus-within{border-color:#168a94;box-shadow:0 0 0 2px #b9e0e2}
+.kb-rte-bar{display:flex;align-items:center;gap:2px;padding:5px 6px;border-bottom:1px solid #eef2f6;background:#f8fafc;flex-wrap:wrap}
+.kb-rte-bar button{height:26px;min-width:28px;padding:0 7px;border:1px solid transparent;border-radius:4px;background:transparent;color:#5f7285;font-size:12.5px;cursor:pointer;line-height:1}
+.kb-rte-bar button:hover{background:#eef3fa;color:#244765;border-color:#d8e2ec}
+.kb-rte-bar button[data-rte="bold"]{font-weight:800}
+.kb-rte-bar button[data-rte="h3"]{font-weight:700;color:#244765}
+.kb-rte-sep{width:1px;height:16px;background:#e2e8f0;margin:0 4px}
+.kb-rte-area{min-height:180px;max-height:460px;overflow:auto;padding:12px 14px;font-size:13.5px;line-height:1.85;color:#1f2937;font-family:inherit}
+.kb-rte-area:focus{outline:none}
+.kb-rte-area:empty::before{content:attr(data-placeholder);color:#a3b1bf}
+.kb-rte-area p{margin:0 0 10px}
+.kb-rte-area h3{margin:14px 0 8px;font-size:15px;font-weight:700;color:#1c2f44}
+.kb-rte-area ul,.kb-rte-area ol{margin:0 0 10px;padding-left:22px}
+.kb-rte-area li{margin:3px 0}
+.kb-rte-area blockquote{margin:0 0 10px;padding:6px 12px;border-left:3px solid #cfdae6;background:#f8fafc;color:#5f7285}
+.kb-rte-area img{max-width:100%;border-radius:6px}
+
+/* ---------- 图集控件（编辑端） ---------- */
+.kb-gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.kb-gal.is-empty{grid-template-columns:1fr}
+.kb-gi{position:relative;border:1px solid #e2e8ef;border-radius:8px;overflow:hidden;background:#fff}
+.kb-gi img{display:block;width:100%;height:120px;object-fit:cover;background:#f1f5f9}
+.kb-gi-ops{position:absolute;top:5px;right:5px;display:flex;gap:3px}
+.kb-gi-ops button{width:22px;height:22px;border:1px solid rgba(255,255,255,.7);border-radius:4px;background:rgba(15,23,42,.55);color:#fff;font-size:11px;line-height:1;cursor:pointer;padding:0}
+.kb-gi-ops button:hover{background:rgba(15,23,42,.78)}
+.kb-gi-cap{width:100%;box-sizing:border-box;border:0;border-top:1px solid #eef2f6;padding:7px 8px;font-size:12px;font-family:inherit;color:#1f2937;outline:none}
+.kb-gi-cap:focus{background:#f8fafc}
+.kb-gi-cap::placeholder{color:#b0bcc9}
+.kb-gal-add{grid-column:1/-1;min-height:74px;border:1px dashed #cfdae6;border-radius:8px;background:#fafbfd;color:#7d8fa3;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.kb-gal-add:hover{border-color:#168a94;color:#168a94;background:#f4f8fb}
+.kb-gal-add span{font-size:12.5px}
+.kb-gal-n{margin-left:8px;font-size:11.5px;color:#94a3b8;font-weight:400}
+
+/* ---------- 图集版式（详情页）：小红书式轮播 ----------
+   一次只出一张大图，配一句说明；左右按钮、圆点、方向键三路翻页。
+   为什么不用九图网格：网格要读者自己按顺序找「第几张」，而这组图本身就是有顺序的步骤；
+   轮播一屏一张，读一张做一步，也不会因为缩略图太小看不清。
+   图片区高度封顶（68vh）并居中，横竖图都不至于把整页顶下去。 */
+.kbx-article--gal{max-width:900px}
+.kbx-car{position:relative;outline:none}
+.kbx-car:focus-visible{outline:2px solid #b9cde2;outline-offset:4px;border-radius:12px}
+.kbx-car-stage{position:relative;border-radius:12px;background:#0f1b24;overflow:hidden;user-select:none}
+.kbx-car-slide{display:none;margin:0}
+.kbx-car-slide.on{display:block}
+.kbx-car-img{display:flex;align-items:center;justify-content:center;background:#0f1b24;max-height:68vh}
+.kbx-car-img img{display:block;max-width:100%;max-height:68vh;width:auto;height:auto;margin:0 auto;object-fit:contain}
+.kbx-car-slide figcaption{padding:12px 16px 14px;background:#fff;font-size:13.5px;line-height:1.75;color:#475569;border-top:1px solid #eef2f6}
+/* 左右翻页：贴在图片两侧中部，半透明底，避免挡住画面主体 */
+.kbx-car-btn{position:absolute;top:calc(50% - 22px);width:36px;height:44px;border:0;border-radius:8px;background:rgba(255,255,255,.86);color:#244765;font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(15,32,48,.18);transition:background .15s}
+.kbx-car-btn:hover:not(:disabled){background:#fff}
+.kbx-car-btn:disabled{opacity:.35;cursor:default}
+.kbx-car-btn--prev{left:10px}
+.kbx-car-btn--next{right:10px}
+.kbx-car-count{position:absolute;right:10px;top:10px;height:22px;padding:0 9px;border-radius:11px;background:rgba(15,32,48,.62);color:#fff;font-size:11.5px;font-weight:600;display:inline-flex;align-items:center}
+.kbx-car-count b{font-weight:700}
+/* 圆点：张数多时自动换行，不撑出横向滚动 */
+.kbx-car-dots{display:flex;flex-wrap:wrap;justify-content:center;gap:7px;padding:12px 0 2px}
+.kbx-car-dot{width:8px;height:8px;padding:0;border:0;border-radius:50%;background:#cdd7e1;cursor:pointer;transition:all .15s}
+.kbx-car-dot:hover{background:#9db0c3}
+.kbx-car-dot.on{width:20px;border-radius:4px;background:#244765}
+/* 引言在轮播下方：它是这组图的说明，放上面会把图片顶到屏幕外 */
+.kbx-gl-intro{margin:16px 0 0;padding:14px 16px;border-left:3px solid #244765;background:#f7fafd;border-radius:0 6px 6px 0;font-size:14px;line-height:1.85;color:#334155}
+.kbx-gl-intro p{margin:0 0 8px}
+.kbx-gl-intro p:last-child{margin:0}
+@media (max-width:720px){
+  .kbx-car-btn{width:30px;height:38px;font-size:18px;top:calc(50% - 19px)}
+  .kbx-car-img,.kbx-car-img img{max-height:56vh}
+}
+/* 弹窗头部的模式切换（单条 / 批量）：批量粘贴曾因页面精简丢失入口，放这里更合理 */
+.rp-hd-ops{margin-left:auto;margin-right:8px;display:flex;gap:6px}
+.rp-mode{height:26px;padding:0 10px;border:1px solid #d1d8e0;border-radius:5px;background:#fff;color:#4b647d;font-size:12px;cursor:pointer}
+.rp-mode:hover{border-color:#168a94;color:#168a94;background:#f4f8fb}

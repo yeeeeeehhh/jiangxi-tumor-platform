@@ -50,7 +50,7 @@
     var unit = i.dir === 'down' ? '%' : '%';
     return {
       l: i.name, v: S.f1(a.value), unit: unit,
-      tone: i.dir === 'down' ? 'info' : (a.value >= i.base ? 'up' : 'warn'),
+      tone: i.dir === 'down' ? 'info' : (S.l1Pass(i.id, a.value) ? 'up' : 'warn'),
       m: '分子 <b>' + S.fmt(a.num) + '</b> / 分母 <b>' + S.fmt(a.den) + '</b> · 同比 ' +
         (y >= 0 ? '+' : '') + y + '% · 异常 <b>' + S.fmt(abn) + '</b> 例',
       action: 'l1:ind:' + i.id
@@ -67,8 +67,8 @@
       tone: lvl, icon: lvl === 'good' ? '✓' : lvl === 'warn' ? '⚠' : '!',
       tt: scope + '诊疗质控综合得分 ' + S.f1(prof.score) + '（六项达标 ' + prof.passN + '/' + prof.total + '）',
       dd: (prof.failN === 0
-        ? '六项国考核心指标<b>全部达到基准</b>，诊疗过程规范性良好。'
-        : '其中 <b>' + prof.failN + ' 项未达基准</b>，共 <b>' + S.fmt(prof.totAbn) + '</b> 例病例被判定异常（异常率 ' + S.f1(prof.abnRate) + '%）。') +
+        ? '六项国考核心指标<b>全部达到考核线</b>，诊疗过程规范性良好。'
+         : '其中 <b>' + prof.failN + ' 项未达考核线</b>，共 <b>' + S.fmt(prof.totAbn) + '</b> 例病例被判定异常（异常率 ' + S.f1(prof.abnRate) + '%）。') +
         ' 同比向好指标 <span class="up">' + prof.improving + '</span> 项。'
     });
     /* 2. 最拖后腿 */
@@ -77,8 +77,8 @@
         tone: w.pass ? 'info' : 'bad', icon: '↓',
         tt: '最需关注：' + w.name + ' ' + S.f1(w.value) + (w.dir === 'down' ? '%（越低越好）' : '%'),
         dd: (w.pass
-          ? '虽已达标，但在六项中裕度最小，仅' + (w.gap >= 0 ? '高于' : '低于') + '基准 <b>' + S.f1(Math.abs(w.gap)) + '%</b>，需保持。'
-          : '<span class="dn">距基准 ' + w.base + (w.dir === 'down' ? '%' : '%') + ' 差 ' + S.f1(Math.abs(w.gap)) + ' 个百分点</span>，' +
+          ? '虽已达标，但在六项中裕度最小，仅' + (w.gap >= 0 ? '高于' : '低于') + '考核线 <b>' + S.f1(Math.abs(w.gap)) + '%</b>，需保持。'
+          : '<span class="dn">距考核线 ' + w.passLine + (w.dir === 'down' ? '%' : '%') + ' 差 ' + S.f1(Math.abs(w.gap)) + ' 个百分点</span>，' +
             '涉及异常病例 <b>' + S.fmt(w.abn) + '</b> 例，建议优先立项整改。') +
           ' <button class="qc-link" data-qc="l1:ind:' + w.id + '">查看该指标分析 →</button>'
       });
@@ -88,7 +88,7 @@
       out.push({
         tone: 'good', icon: '↑',
         tt: '表现标杆：' + b.name + ' ' + S.f1(b.value) + '%',
-        dd: '高于基准 <b>' + S.f1(Math.abs(b.gap)) + '</b> 个百分点，位列六项之首，可作为其他指标的整改参照。'
+        dd: '高于考核线 <b>' + S.f1(Math.abs(b.gap)) + '</b> 个百分点，位列六项之首，可作为其他指标的整改参照。'
       });
     }
     return out;
@@ -111,7 +111,7 @@
           ['六项达标 <b>' + prof.passN + '/' + prof.total + '</b> · 同比向好 ' + prof.improving + ' 项',
            '综合异常率 <b>' + S.f1(prof.abnRate) + '%</b>（' + S.fmt(prof.totAbn) + ' / ' + S.fmt(prof.totDen) + '）',
            '评分 = 达标率×60% + 平均达标裕度×40%']),
-        '<div style="padding:4px 2px"><div style="font-size:12px;color:#667085;font-weight:600;margin-bottom:10px">六项指标达标差距（相对基准，正=优于基准）</div>' +
+        '<div style="padding:4px 2px"><div style="font-size:12px;color:#667085;font-weight:600;margin-bottom:10px">六项指标达标差距（相对考核线，正=优于考核线）</div>' +
         U.divergeBars(prof.rows.map(function (r) {
           return { l: r.short, gap: r.gap, unit: '%' };
         })) + '</div>'
@@ -183,7 +183,7 @@
         if (a.den <= 0) return;
         den += a.den;
         /* 指标完成情况：达标（up 类 ≥ 基准 / down 类 ≤ 基准）的指标数 */
-        var ok = i.dir === 'down' ? a.value <= i.base : a.value >= i.base;
+        var ok = S.l1Pass(i.id, a.value);
         if (ok) done++;
         if (!ok) abnInd++;
         probs += S.abnCount(i.id, ST.cancer || null, [o.id]);
@@ -230,7 +230,7 @@
       var ab = S.abnCount(i.id, ST.cancer || null, fs);
       abnCaseTotal += ab;
       if (ab > 0) abnOrgTotal++;
-      var ok = i.dir === 'down' ? a.value <= i.base : a.value >= i.base;
+      var ok = S.l1Pass(i.id, a.value);
       if (!ok) abnIndTotal++;
     });
     /* 异常问题类型：按当前指标汇总 */
@@ -247,7 +247,7 @@
       U.kpis([
         { l: '异常病例数量', v: S.fmt(abnCaseTotal), unit: '例', tone: 'bad', m: '当前筛选范围内判定异常的病例' },
         { l: '异常机构数量', v: S.fmt(abnOrgTotal), unit: '家', tone: 'warn', m: '存在不达标指标或异常病例' },
-        { l: '异常指标数量', v: S.fmt(abnIndTotal), unit: '项', tone: 'warn', m: '未达到基准值的质控指标' }
+        { l: '异常指标数量', v: S.fmt(abnIndTotal), unit: '项', tone: 'warn', m: '未达到当前考核线（达标线）的质控指标' }
       ], 3) +
       '<div style="margin-top:14px"><div style="font-size:12px;color:#475569;font-weight:600;margin-bottom:6px">异常问题类型分布</div>' +
       U.barChart(typeData, { height: 150, unit: ' 例' }) + '</div>');
@@ -305,12 +305,13 @@
 
     /* —— 结论洞察：这项指标到底怎么样 —— */
     var ins = [];
+    var ln = S.l1PassLineOf(i.id);
     ins.push({
       tone: pass ? 'good' : 'bad', icon: pass ? '✓' : '!',
-      tt: scope + ' · ' + i.name + ' = ' + S.f1(a.value) + '%（基准 ' + i.base + '%）',
+      tt: scope + ' · ' + i.name + ' = ' + S.f1(a.value) + '%',
       dd: (pass
-        ? '<span class="up">已达标</span>，' + (gap >= 0 ? '优于' : '低于') + '基准 <b>' + S.f1(Math.abs(gap)) + '</b> 个百分点。'
-        : '<span class="dn">未达标</span>，距基准差 <b>' + S.f1(Math.abs(gap)) + '</b> 个百分点。') +
+        ? '<span class="up">已达标</span>，' + (gap >= 0 ? '优于' : '低于') + '达标线 <b>' + S.f1(Math.abs(gap)) + '</b> 个百分点。'
+        : '<span class="dn">未达标</span>，距达标线差 <b>' + S.f1(Math.abs(gap)) + '</b> 个百分点。') +
         ' 分子 <b>' + S.fmt(a.num) + '</b> / 分母 <b>' + S.fmt(a.den) + '</b>，同比 ' +
         '<span class="' + (yoyGood ? 'up' : 'dn') + '">' + (y >= 0 ? '+' : '') + y + '%</span>（' + (yoyGood ? '向好' : '回落') + '）。'
     });
@@ -337,7 +338,7 @@
     /* 指标结果 */
     var resultCard = U.card('指标结果',
       U.kpis([
-        { l: '当前指标值', v: S.f1(a.value), unit: '%', tone: i.dir === 'down' ? 'info' : (a.value >= i.base ? 'up' : 'warn'), m: '基准值 ' + i.base + '%' },
+        { l: '当前指标值', v: S.f1(a.value), unit: '%', tone: i.dir === 'down' ? 'info' : (S.l1Pass(i.id, a.value) ? 'up' : 'warn'), m: i.dir === 'down' ? '越低越好' : '越高越好' },
         { l: '分子', v: S.fmt(a.num), unit: '例', tone: 'info', m: '纳入统计的分子病例数' },
         { l: '分母', v: S.fmt(a.den), unit: '例', tone: 'info', m: '纳入统计的分母病例数' },
         { l: '同期值', v: S.f1(a.value - y), unit: '%', tone: 'info', m: '上一年度同口径' },
@@ -345,16 +346,9 @@
         { l: '异常病例数', v: S.fmt(abn), unit: '例', tone: 'bad', m: '判定不符合/缺失/异常' }
       ], 3));
 
-    /* 口径拆解卡：把这个指标"算的是什么"讲清楚 */
-    var defCard = U.card('指标口径与判定',
-      U.kv([
-        ['指标定义', S.esc(i.def)],
-        ['分子口径', S.esc(i.num)],
-        ['分母口径', S.esc(i.den)],
-        ['数据来源', S.esc(i.src)],
-        ['基准值', i.base + '%（' + (i.dir === 'down' ? '越低越好' : '越高越好') + '）'],
-        ['规则版本', S.esc(i.ruleVer)]
-      ], 1), '本指标的计算与达标依据');
+    /* 指标口径与判定卡已从界面移除：指标定义、分子/分母口径、数据来源、达标线、
+       规则版本都属于计算口径，统一收入《六大绩效质控_口径与计算规则.md》，
+       页面只给指标值、达标结论与异常结构。 */
 
     /* 机构达标差距榜（标杆 vs 拖后腿），diverging bar */
     var gapCard = U.card('机构达标差距',
@@ -363,7 +357,7 @@
             return { l: r.name.length > 8 ? r.name.slice(0, 8) + '…' : r.name, gap: r.gap, unit: '%' };
           }))
         : '<div class="qc-empty">当前筛选下暂无机构数据</div>'),
-      '相对基准的差距（红=未达标，绿=优于基准）');
+      '相对考核线的差距（红=未达标，绿=优于考核线）');
 
     /* 异常原因结构 */
     var bdCard = U.card('异常原因结构',
@@ -438,7 +432,7 @@
       U.pager(sl.total, sl.page, ST.per, 'l1'))
 
     return '<div class="qc-page">' +
-      U.head('指标分析 · ' + i.name, '分子 ' + S.fmt(a.num) + ' / 分母 ' + S.fmt(a.den) + '，基准值 ' + i.base + '%', 'l1', '① 诊疗过程与单病种质控',
+      U.head('指标分析 · ' + i.name, '分子 ' + S.fmt(a.num) + ' / 分母 ' + S.fmt(a.den), 'l1', '① 诊疗过程与单病种质控',
         '<button class="btn btn-ghost btn-sm" data-qc="l1:back">返回总览</button>' +
         '<button class="btn btn-ghost btn-sm" data-qc="l1:export">导出数据</button>') +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">' + inds().map(function (x) {
@@ -446,9 +440,8 @@
       }).join('') + '</div>' +
       insightHtml +
       resultCard +
-      U.grid2(defCard, bdCard) +
-      gapCard +
-      U.grid2(trendCard, navCard) +
+      bdCard +
+      gapCard +      U.grid2(trendCard, navCard) +
       dataCard +
       '</div>';
   }
@@ -469,23 +462,23 @@
     var i = cur(), fs = orgFilter();
     var a = S.agg(i.id, fs, null);
     var bc = S.byCancer(i.id, fs);
-    var passCount = bc.filter(function (r) { return r.den > 0 && (i.dir === 'down' ? r.value <= i.base : r.value >= i.base); }).length;
+    var passCount = bc.filter(function (r) { return r.den > 0 && S.l1Pass(i.id, r.value); }).length;
     var failCount = bc.length - passCount;
     var totalAbn = bc.reduce(function (s, r) { return s + r.abn; }, 0);
 
     var kpiHtml = U.kpis([
-      { l: '当前指标值', v: S.f1(a.value), unit: '%', tone: i.dir === 'down' ? 'info' : (a.value >= i.base ? 'up' : 'warn'), m: '基准值 ' + i.base + '%' },
+      { l: '当前指标值', v: S.f1(a.value), unit: '%', tone: i.dir === 'down' ? 'info' : (S.l1Pass(i.id, a.value) ? 'up' : 'warn'), m: i.dir === 'down' ? '越低越好' : '越高越好' },
       { l: '已覆盖癌种', v: bc.length, unit: '个', tone: 'info', m: '分子分母均 > 0 的癌种' },
-      { l: '达标癌种', v: passCount, unit: '个', tone: passCount >= bc.length * 0.5 ? 'up' : 'warn', m: '指标值达到基准要求' },
-      { l: '未达标癌种', v: failCount, unit: '个', tone: failCount > 0 ? 'warn' : 'up', m: '低于基准要求的癌种' },
+      { l: '达标癌种', v: passCount, unit: '个', tone: passCount >= bc.length * 0.5 ? 'up' : 'warn', m: '指标值达到当前考核线' },
+      { l: '未达标癌种', v: failCount, unit: '个', tone: failCount > 0 ? 'warn' : 'up', m: '低于当前考核线的癌种' },
       { l: '异常病例数', v: S.fmt(totalAbn), unit: '例', tone: 'bad', m: '不符合 / 缺失 / 异常合计' }
     ], 3);
 
     var detailRows = bc.map(function (r, idx) {
-      var style = U.heat(r.value, i.dir, i.base);
-      var gap = Math.round((r.value - i.base) * 100) / 100;
+      var style = U.heat(r.value, i.dir, S.l1PassLineOf(i.id).value);
+      var gap = Math.round(S.l1Gap(i.id, r.value) * 100) / 100;
       var abnRate = r.den > 0 ? r.abn / r.den * 100 : 0;
-      var tone = i.dir === 'down' ? (r.value <= i.base ? 'badge-success' : 'badge-danger') : (r.value >= i.base ? 'badge-success' : 'badge-danger');
+      var tone = S.l1Pass(i.id, r.value) ? 'badge-success' : 'badge-danger';
       return {
         cells: [
           { h: '<b>' + (idx + 1) + '</b>', cls: 'num' },
@@ -502,7 +495,7 @@
     });
 
     var detailTable = U.table(
-      ['#', '癌种', '#病例数', '#分子', '#指标值', '#与基准差值', '#异常病例', '#异常率', '#操作'],
+      ['#', '癌种', '#病例数', '#分子', '#指标值', '#与考核线差值', '#异常病例', '#异常率', '#操作'],
       detailRows, { compact: true });
 
     /* 排名柱状图 */
@@ -552,16 +545,16 @@
     var bo = S.byOrg(i.id, cs).filter(function (r) {
       return !cityOrgIds || cityOrgIds.indexOf(r.org) >= 0;
     });
-    var passCount = bo.filter(function (r) { return r.den > 0 && (i.dir === 'down' ? r.value <= i.base : r.value >= i.base); }).length;
+    var passCount = bo.filter(function (r) { return r.den > 0 && S.l1Pass(i.id, r.value); }).length;
     var failCount = bo.length - passCount;
     var totalAbn = bo.reduce(function (s, r) { return s + r.abn; }, 0);
 
     var kpiHtml = U.kpis([
-      { l: '当前指标值', v: S.f1(a.value), unit: '%', tone: i.dir === 'down' ? 'info' : (a.value >= i.base ? 'up' : 'warn'), m: '基准值 ' + i.base + '%' },
+      { l: '当前指标值', v: S.f1(a.value), unit: '%', tone: i.dir === 'down' ? 'info' : (S.l1Pass(i.id, a.value) ? 'up' : 'warn'), m: i.dir === 'down' ? '越低越好' : '越高越好' },
       { l: '区域平均', v: S.f1(a.value), unit: '%', tone: 'info', m: '本指标当前筛选范围的合计值' },
       { l: '已覆盖机构', v: bo.length, unit: '家', tone: 'info', m: '纳入统计的医疗机构' },
-      { l: '达标机构', v: passCount, unit: '家', tone: passCount >= bo.length * 0.5 ? 'up' : 'warn', m: '指标值达到基准要求' },
-      { l: '未达标机构', v: failCount, unit: '家', tone: failCount > 0 ? 'warn' : 'up', m: '低于基准要求' },
+      { l: '达标机构', v: passCount, unit: '家', tone: passCount >= bo.length * 0.5 ? 'up' : 'warn', m: '指标值达到当前考核线' },
+      { l: '未达标机构', v: failCount, unit: '家', tone: failCount > 0 ? 'warn' : 'up', m: '低于当前考核线' },
       { l: '异常病例数', v: S.fmt(totalAbn), unit: '例', tone: 'bad', m: '不符合 / 缺失 / 异常合计' }
     ], 3);
 
@@ -586,8 +579,8 @@
 
     /* 机构明细表 */
     var detailRows = bo.map(function (r, idx) {
-      var style = U.heat(r.value, i.dir, i.base);
-      var tone = i.dir === 'down' ? (r.value <= i.base ? 'badge-success' : 'badge-danger') : (r.value >= i.base ? 'badge-success' : 'badge-danger');
+      var style = U.heat(r.value, i.dir, S.l1PassLineOf(i.id).value);
+      var tone = S.l1Pass(i.id, r.value) ? 'badge-success' : 'badge-danger';
       var abnRate = r.den > 0 ? r.abn / r.den * 100 : 0;
       return {
         cells: [

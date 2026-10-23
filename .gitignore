@@ -39,3 +39,9 @@
 # ==== Node 等 ====
 node_modules/
 *.log
+# ==== 临时/草稿目录（审查快照、恢复备份、PRD 前后对照）====
+/.dsh-review-warning/
+/.prd-review-*/
+/.recover-*/
+# Word 锁文件与零字节误触文件
+~$*

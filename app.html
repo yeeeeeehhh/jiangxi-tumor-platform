@@ -664,6 +664,7 @@ button,input,select,textarea{font-family:inherit}
     /* 安全网：强制隐藏 KPI 钻取提示行（查看明细 →），即便旧缓存 JS 仍渲染该元素 */
     .wa-kpi-hint{display:none !important}
 </style>
+<link rel="stylesheet" href="monitor-fusion.css?v=20261022a">
 </head>
 <body>
 <!-- ===== 内联 SVG Sprite：24×24 视口 / stroke:currentColor / 一套图标适配所有状态色 ===== -->
@@ -734,7 +735,22 @@ const menuData=[
     {id:'warning-tickets',label:'处置工单'},
     {id:'warning-rules',label:'预警规则配置'}
   ]},
-  {id:'health-consult',label:'科普与培训',icon:'📚',children:[{id:'kb-sci',label:'科普内容'},{id:'kb-train',label:'培训内容'},{id:'kb-mine',label:'我的内容'},{id:'kb-dict',label:'分类维护'}]},
+  /* 监测预警2：按《卫健委肿瘤综合平台落地方案》文档实现的监管闭环模块（monitor2-module.js）。 */
+  {id:'monitor2',label:'监测预警2',icon:'●',children:[
+    {id:'m2-hall',label:'监督整改调度大厅'},
+    {id:'m2-records',label:'预警记录中心'},
+    {id:'m2-stats',label:'预警统计与报表中心'},
+    {id:'m2-hospital',label:'机构端整改协同工作台'},
+    {id:'m2-rules',label:'预警规则库'}
+  ]},
+  /* 监测预警（统一查看版 V2.1）：所有用户同一套页面与默认范围，不设角色切换或机构专用工作台。
+     旧页 id（warning-records / mdl-* / warning-tickets / warning-rules）仍保留在原方案中，融合视图不再暴露。 */
+  {id:'monitor-fusion',label:'监测预警',icon:'●',children:[
+    {id:'mf-records',label:'预警记录'},
+    {id:'mf-stats',label:'预警统计'},
+    {id:'mf-rules',label:'规则配置'}
+  ]},
+  {id:'health-consult',label:'科普与培训',icon:'📚',children:[{id:'kb-sci',label:'科普内容'},{id:'kb-train',label:'培训内容'},{id:'kb-mine',label:'我的内容'},{id:'kb-usage',label:'使用统计'},{id:'kb-dict',label:'分类维护'}]},
   {id:'specialty-portrait',label:'专科画像',icon:'●',children:[{id:'sp-patients',label:'患者专科画像'},{id:'sp-overview',label:'画像指标汇总'},{id:'sp-config',label:'画像配置'},{id:'cap-group',label:'肿瘤专科能力分析',children:[{id:'cap-catalog',label:'肿瘤诊疗技术目录'},{id:'cap-records',label:'机构技术开展记录'},{id:'cap-quality',label:'医疗质量核心指标明细'},{id:'cap-complex',label:'疑难病例收治特征库'}]}]},
   {id:'quality-control',label:'质控管理',icon:'●',children:[
     /* 2026-10-12 六大绩效质控改为三级菜单：六个维度各算一个页面，无总览。
@@ -746,6 +762,12 @@ const menuData=[
       {id:'qc-pf-nq04',label:'围手术期死亡率'},
       {id:'qc-pf-nq05',label:'分子病理检测率'},
       {id:'qc-pf-nq06',label:'淋巴结清扫规范率'}
+    ]},
+    {id:'qc-mdt',label:'MDT质控',icon:'●',children:[
+      {id:'qc-mdt-overview',label:'MDT 质控总览'},
+      {id:'qc-mdt-missing',label:'应讨论未讨论'},
+      {id:'qc-mdt-quality',label:'记录与执行质量'},
+      {id:'qc-mdt-rules',label:'入组规则配置'}
     ]},
     {id:'qc-rules',label:'质控规则配置'},
     {id:'qc-issues',label:'整改问题'}
@@ -768,7 +790,23 @@ function updateBreadcrumb(id,extra){const path=findPath(menuData,id)||[];let htm
 function navigateTo(id){if(id==='publish-news'){newsState.mode='list';newsState.editingId=null}if(id==='survey-list'){surveyState.mode='list';surveyState.editingId=null}if(id==='master-address'){addressState.mode='list';addressState.editingId=null;addressState.path=[]}if(id==='master-hospital'){hospitalState.mode='list';hospitalState.editingId=null;hospitalState.page=1;hospitalCascaderState.filter.region=[regionData[0]]}if(id==='master-pop'){popState.mode='list';popState.editingId=null;popState.editingStandardId=null;popState.editingDeathId=null;popState.popType='region';popState.page=1;popState.filters={year:'',gender:''};popCascaderState.filter.region=[regionData[0]]}
 if(id==='notice-center'){noticeCenterState.selectedId=null;setActiveMenu(id);document.getElementById('pageContainer').innerHTML=renderNoticeCenter();autoSizeSelects();const noticeMain=document.getElementById('mainContent');if(noticeMain)noticeMain.scrollTop=0;updateBreadcrumb(id);return}
 if(id==='notice-center-detail'){const noticeItem=newsData.find(r=>r.id===noticeCenterState.selectedId);if(noticeItem){setActiveMenu('notice-center');document.getElementById('pageContainer').innerHTML=renderNoticeCenter();autoSizeSelects();const noticeDetailMain=document.getElementById('mainContent');if(noticeDetailMain)noticeDetailMain.scrollTop=0;updateBreadcrumb('notice-center',noticeItem.title);return}}
-if(id==='collection-batch'&&!window.entryFlowKeepPicked)window.entryFlowPicked=false;else if(id!=='collection-batch')window.entryFlowKeepPicked=false;setActiveMenu(id);renderPage(id);updateBreadcrumb(id)}
+if(id==='collection-batch'&&!window.entryFlowKeepPicked)window.entryFlowPicked=false;else if(id!=='collection-batch')window.entryFlowKeepPicked=false;
+ /* 内容详情页（kb-detail|<内容编号>）：不在侧导航里，菜单高亮与面包屑按所属内容线补，页面本体由 kb-module.js → kb-detail.js 渲染 */
+ if(typeof id==='string'&&id.indexOf('kb-detail|')===0){var kbDid=id.slice(id.indexOf('|')+1);var kbAsset=(window.KB&&window.KB.assets||[]).filter(function(x){return x.id===kbDid})[0];var kbHome=kbAsset&&kbAsset.track==='培训'?'kb-train':'kb-sci';
+  /* 地址栏同步成详情页（replaceState，不堆历史）：刷新、复制链接都能回到这条内容 */
+  try{history.replaceState(null,'','#'+id)}catch(e){}
+  setActiveMenu(kbHome);renderPage(id);updateBreadcrumb(kbHome,kbAsset?kbAsset.title:'内容详情');var kbMain=document.getElementById('mainContent');if(kbMain)kbMain.scrollTop=0;return}
+ /* 转载弹窗（kb-reprint / kb-reprint|<网址>）：不是页面，弹窗挂在 body 上，页面本体仍是当前内容线。
+     高亮与面包屑落在「科普内容」或「培训内容」——转载就是这两页里的内容，不是独立模块 */
+ if(typeof id==='string'&&(id==='kb-reprint'||id.indexOf('kb-reprint|')===0)){
+   try{history.replaceState(null,'','#'+id)}catch(e){}
+   var kbRpBase=(window.KB&&window.KB.page==='kb-train')?'kb-train':'kb-sci';
+   setActiveMenu(kbRpBase);renderPage(id);updateBreadcrumb(kbRpBase);var kbRpMain=document.getElementById('mainContent');if(kbRpMain)kbRpMain.scrollTop=0;return}
+ /* 合集详情（kb-collection|<合集编号>）：合集管理已不是独立页面，高亮落在所属内容线 */
+ if(typeof id==='string'&&id.indexOf('kb-collection|')===0){var kbCid=id.slice(id.indexOf('|')+1);var kbCol=(window.KB&&window.KB.collections||[]).filter(function(x){return x.id===kbCid})[0];var kbColHome=kbCol&&kbCol.track==='培训'?'kb-train':'kb-sci';
+  try{history.replaceState(null,'','#'+id)}catch(e){}
+  setActiveMenu(kbColHome);renderPage(id);updateBreadcrumb(kbColHome,kbCol?kbCol.name:'合集详情');var kbColMain=document.getElementById('mainContent');if(kbColMain)kbColMain.scrollTop=0;return}
+ setActiveMenu(id);renderPage(id);updateBreadcrumb(id)}
 function toast(msg,type='success'){const box=document.getElementById('toastContainer');const el=document.createElement('div');el.className='toast '+(type==='error'?'error':'');el.textContent=msg;box.appendChild(el);setTimeout(()=>el.remove(),2400)}
 /* message 可为普通文本或 HTML 片段（自定义弹窗正文，如带表单的确认）。
    onConfirm 收到 modal 元素本身，便于读取弹窗内表单值；返回 false 表示校验不过、不关闭弹窗。 */
@@ -803,6 +841,9 @@ function wbApplyRole(key){
   wbCtx.level=def.level;
   const label=document.getElementById('roleSwitchLabel');
   if(label)label.textContent=def.label;
+  /* 科普与培训的行为按账号落账：身份一变，收藏角标与统计口径都要重算。
+     kb-module.js 未加载时该钩子不存在，直接跳过。 */
+  if(typeof window.KB_ON_USER_CHANGE==='function'){try{window.KB_ON_USER_CHANGE();}catch(e){}}
 }
 function wbRoleToggle(){
   const box=document.getElementById('roleSwitch');
@@ -1038,8 +1079,10 @@ function wbNoticeAside(){
       const list=wbNewsData[t.id]||[];
       rows=list.length?('<div class="wb-news-list">'+list.map(function(it){
         const isCommon=t.id==='common'&&it.id;
-        const act=isCommon?(' onclick="wbCommonOpen(\''+it.id+'\')"')
-          :(it.go?(' onclick="navigateTo(\''+it.go+'\')"'):'');
+        /* 常用信息 / 培训资料 / 技术指导：库内条目带 go（kb-detail|<编号>）就直接进内容详情页；
+           只有残留的硬编码条目才回落到旧的内嵌详情 */
+        const act=it.go?(' onclick="navigateTo(\''+it.go+'\')"')
+          :(isCommon?(' onclick="wbCommonOpen(\''+it.id+'\')"'):'');
         return '<div class="wb-news-row"'+act+'><span class="wb-news-dot"></span><span class="wb-news-title">'+it.title+'</span><span class="wb-news-meta">'+it.meta+'</span></div>';
       }).join('')+'</div>'):'<div class="wb-news-empty">暂无内容</div>';
     }
@@ -2682,9 +2725,9 @@ return '<div class="page-toolbar"><div class="toolbar-actions"><button class="bt
 function followupBatchUpdateCount(){const c=document.querySelectorAll('.batch-followup-check:checked').length;const el=document.getElementById('batchCount');if(el)el.textContent=c}
 function followupBatchExecute(){const c=document.querySelectorAll('.batch-followup-check:checked').length;if(c===0){toast('请至少选择一条记录','error');return}showConfirm('批量随访确认','确定要对选中的 '+c+' 条记录执行批量随访吗？',()=>{toast('批量随访已执行，共生成 '+c+' 条随访记录')})}
 
-function renderPage(id){const titles={'datamgmt-import':'导入数据管理','datamgmt-patient':'患者信息管理','datamgmt-followup':'随访信息管理','quality-dup':'查重管理','quality-todo':'待办工作台','quality-rules':'质控规则','quality-log':'质控审计日志','followup-tasks':'随访任务','followup':'随访信息上传','followup-upload':'随访批量上传','followup-plan':'随访计划','followup-batch':'随访计划','death-register':'死因批量登记（临时表）','death-entry':'随访报告信息','death-info':'死亡信息列表','death-cause':'死亡信息列表','analysis':'统计分析','data-report':'数据上报','master-hospital':'机构管理','master-pop':'人口基数管理','master-address':'行政区划管理','publish-news':'资讯管理','survey-list':'问卷列表','survey-design':'问卷设计','survey-publish':'发布管理','survey-responses':'答卷管理','survey-stats':'统计分析','survey-fill':'问卷填写','system-users':'用户管理','system-online':'在线用户','system-roles':'角色与权限管理','system-logs':'操作日志','system-config':'系统配置','warning-records':'预警记录','warning-tickets':'发病异常预警工单','warning-rules':'异常监测规则配置','cap-catalog':'肿瘤诊疗技术目录','cap-records':'机构技术开展记录','cap-quality':'医疗质量核心指标明细','cap-complex':'疑难病例收治特征库','mdl-features':'处置总览','mdl-registry':'责任方督导','mdl-training':'时限达成管理','mdl-predictions':'结论与整改成效','mdl-evaluation':'规则命中与误报','kb-sci':'科普内容','kb-train':'培训内容','kb-mine':'我的内容','kb-dict':'分类维护','kb-library':'科普内容'};let html;if(id==='dashboard')html=renderDashboard();else if(id==='collection-entry')html=renderCardEntryForm();else if(id==='collection-batch')html=window.entryFlowPicked?renderHisUploadManagement():'<div class="panel"><div class="panel-body">'+renderEntryModeChoice()+'</div></div>';else if(id==='collection-death')html=renderVoidCardManagement();else if(id==='death-register')html=renderDeathRegister();else if(id==='death-entry')html=renderDeathEntryForm();else if(id==='death-cause')html=renderDeathCause();else if(id==='death-info')html=renderDeathInfo();else if(id==='followup-tasks')html=renderFollowupTasks();else if(id==='followup')html=renderFollowupRecords();else if(id==='followup-upload')html=renderFollowupUploadPage();else if(id==='followup-plan')html=renderFollowupPlan();else if(id==='followup-batch')html=renderFollowupBatch();else if(id==='quality-todo')html=renderQualityTodo();else if(id==='quality-rules')html=renderQualityRules();else if(id==='quality-log')html=renderQualityLog();else if(id==='quality-dup'||id==='quality-dup-card'||id==='quality-dup-pop'||id==='quality-dup-param'||id==='quality-dup-field'){if(id!=='quality-dup')dedupState.subId=id;html=renderDedupPage()}else if(id==='datamgmt-card')html=renderReportCardList();else if(id==='publish-news')html=(newsState.mode==='form'?renderPublishNews():renderNewsList());else if(id==='master-address')html=(addressState.mode==='form'?renderAddressForm():renderAddressList());else if(id==='master-hospital')html=(hospitalState.mode==='form'?renderHospitalForm():renderHospitalList());else if(id==='master-pop')html=(popState.mode==='form'?renderPopulationForm():renderPopulationList());else if(id==='analysis'||id==='report-files'||(id&&id.indexOf('analysis-')===0))html=(typeof DA!=='undefined'?DA.render(id):renderGeneric(titles[id]||'数据分析'));else if(id.startsWith('audit'))html=renderAuditPage(id);else if(id.startsWith('dict'))html=renderDictPage(id);else if(id==='system-online')html=renderOnlineUsers();else if(id==='system-users')html=(userState.mode==='form'?renderUserForm():renderUserList());else if(id==='system-roles')html=(roleState.mode==='form'?renderRoleForm():renderRoleList());else if(id==='system-menu')html=(menuPermState.mode==='form'?renderMenuPermForm():renderMenuPermList());else if(id.startsWith('survey'))html=renderSurveyPage(id);else if(window.warningPageIds&&window.warningPageIds.indexOf(id)>=0)html=window.renderWarningPage(id);else if(window.capabilityPageIds&&window.capabilityPageIds.indexOf(id)>=0)html=window.renderCapabilityPage(id);else if(window.modelPageIds&&window.modelPageIds.indexOf(id)>=0)html=window.renderModelPage(id);else if(window.monitorPageIds&&window.monitorPageIds.indexOf(id)>=0)html=window.renderMonitorPage(id);else if(window.qcPageIds&&window.qcPageIds.indexOf(id)>=0)html=window.renderQCPage(id);else if(window.cockpitPageIds&&window.cockpitPageIds.indexOf(id)>=0&&typeof window.renderCockpitPage==='function'){window.renderCockpitPage(id);const mc=document.getElementById('mainContent');if(mc)mc.scrollTop=0;return}else if(id==='sp-patients'||id==='sp-overview'||id==='sp-config'||id==='specialty-portrait'){if(typeof window.renderSpecialtyPortrait==='function'){var _spSub=id==='sp-overview'?'overview':id==='sp-config'?'config':'workbench';html=window.renderSpecialtyPortrait(_spSub)}else{html=renderGeneric('专科画像')}}else if(window.kbPageIds&&window.kbPageIds.indexOf(id)>=0){window.renderKBPage(id);return}else html=renderGeneric(titles[id]||'页面开发中');document.getElementById('pageContainer').innerHTML=html;if(id==='collection-entry')initEntryWizard();if(id==='master-pop'&&popState.mode==='form')updatePopChart();autoSizeSelects();const mainContent=document.getElementById('mainContent');if(mainContent)mainContent.scrollTop=0}
+function renderPage(id){const titles={'datamgmt-import':'导入数据管理','datamgmt-patient':'患者信息管理','datamgmt-followup':'随访信息管理','quality-dup':'查重管理','quality-todo':'待办工作台','quality-rules':'质控规则','quality-log':'质控审计日志','followup-tasks':'随访任务','followup':'随访信息上传','followup-upload':'随访批量上传','followup-plan':'随访计划','followup-batch':'随访计划','death-register':'死因批量登记（临时表）','death-entry':'随访报告信息','death-info':'死亡信息列表','death-cause':'死亡信息列表','analysis':'统计分析','data-report':'数据上报','master-hospital':'机构管理','master-pop':'人口基数管理','master-address':'行政区划管理','publish-news':'资讯管理','survey-list':'问卷列表','survey-design':'问卷设计','survey-publish':'发布管理','survey-responses':'答卷管理','survey-stats':'统计分析','survey-fill':'问卷填写','system-users':'用户管理','system-online':'在线用户','system-roles':'角色与权限管理','system-logs':'操作日志','system-config':'系统配置','warning-records':'预警记录','warning-tickets':'发病异常预警工单','warning-rules':'异常监测规则配置','cap-catalog':'肿瘤诊疗技术目录','cap-records':'机构技术开展记录','cap-quality':'医疗质量核心指标明细','cap-complex':'疑难病例收治特征库','mdl-features':'处置总览','mdl-registry':'责任方督导','mdl-training':'时限达成管理','mdl-predictions':'结论与整改成效','mdl-evaluation':'规则命中与误报','m2-hall':'监督整改调度大厅','m2-records':'预警记录中心','m2-stats':'预警统计与报表中心','m2-hospital':'机构端整改协同工作台','m2-rules':'预警规则库','kb-sci':'科普内容','kb-train':'培训内容','kb-mine':'我的内容','kb-usage':'使用统计','kb-dict':'分类维护','kb-library':'科普内容'};let html;if(id==='dashboard')html=renderDashboard();else if(id==='collection-entry')html=renderCardEntryForm();else if(id==='collection-batch')html=window.entryFlowPicked?renderHisUploadManagement():'<div class="panel"><div class="panel-body">'+renderEntryModeChoice()+'</div></div>';else if(id==='collection-death')html=renderVoidCardManagement();else if(id==='death-register')html=renderDeathRegister();else if(id==='death-entry')html=renderDeathEntryForm();else if(id==='death-cause')html=renderDeathCause();else if(id==='death-info')html=renderDeathInfo();else if(id==='followup-tasks')html=renderFollowupTasks();else if(id==='followup')html=renderFollowupRecords();else if(id==='followup-upload')html=renderFollowupUploadPage();else if(id==='followup-plan')html=renderFollowupPlan();else if(id==='followup-batch')html=renderFollowupBatch();else if(id==='quality-todo')html=renderQualityTodo();else if(id==='quality-rules')html=renderQualityRules();else if(id==='quality-log')html=renderQualityLog();else if(id==='quality-dup'||id==='quality-dup-card'||id==='quality-dup-pop'||id==='quality-dup-param'||id==='quality-dup-field'){if(id!=='quality-dup')dedupState.subId=id;html=renderDedupPage()}else if(id==='datamgmt-card')html=renderReportCardList();else if(id==='publish-news')html=(newsState.mode==='form'?renderPublishNews():renderNewsList());else if(id==='master-address')html=(addressState.mode==='form'?renderAddressForm():renderAddressList());else if(id==='master-hospital')html=(hospitalState.mode==='form'?renderHospitalForm():renderHospitalList());else if(id==='master-pop')html=(popState.mode==='form'?renderPopulationForm():renderPopulationList());else if(id==='analysis'||id==='report-files'||(id&&id.indexOf('analysis-')===0))html=(typeof DA!=='undefined'?DA.render(id):renderGeneric(titles[id]||'数据分析'));else if(id.startsWith('audit'))html=renderAuditPage(id);else if(id.startsWith('dict'))html=renderDictPage(id);else if(id==='system-online')html=renderOnlineUsers();else if(id==='system-users')html=(userState.mode==='form'?renderUserForm():renderUserList());else if(id==='system-roles')html=(roleState.mode==='form'?renderRoleForm():renderRoleList());else if(id==='system-menu')html=(menuPermState.mode==='form'?renderMenuPermForm():renderMenuPermList());else if(id.startsWith('survey'))html=renderSurveyPage(id);else if(window.warningPageIds&&window.warningPageIds.indexOf(id)>=0)html=window.renderWarningPage(id);else if(window.capabilityPageIds&&window.capabilityPageIds.indexOf(id)>=0)html=window.renderCapabilityPage(id);else if(window.modelPageIds&&window.modelPageIds.indexOf(id)>=0)html=window.renderModelPage(id);else if(window.monitor2PageIds&&window.monitor2PageIds.indexOf(id)>=0)html=window.renderMonitor2Page(id);else if(window.monitorPageIds&&window.monitorPageIds.indexOf(id)>=0)html=window.renderMonitorPage(id);else if(window.qcPageIds&&window.qcPageIds.indexOf(id)>=0)html=window.renderQCPage(id);else if(window.cockpitPageIds&&window.cockpitPageIds.indexOf(id)>=0&&typeof window.renderCockpitPage==='function'){window.renderCockpitPage(id);const mc=document.getElementById('mainContent');if(mc)mc.scrollTop=0;return}else if(id==='sp-patients'||id==='sp-overview'||id==='sp-config'||id==='specialty-portrait'){if(typeof window.renderSpecialtyPortrait==='function'){var _spSub=id==='sp-overview'?'overview':id==='sp-config'?'config':'workbench';html=window.renderSpecialtyPortrait(_spSub)}else{html=renderGeneric('专科画像')}}else if(window.kbPageIds&&window.kbPageIds.indexOf(id)>=0){window.renderKBPage(id);return}else if(typeof id==='string'&&(id.indexOf('kb-detail|')===0||id.indexOf('kb-collection|')===0)){window.renderKBPage(id);return}else html=renderGeneric(titles[id]||'页面开发中');document.getElementById('pageContainer').innerHTML=html;if(id==='collection-entry')initEntryWizard();if(id==='master-pop'&&popState.mode==='form')updatePopChart();autoSizeSelects();const mainContent=document.getElementById('mainContent');if(mainContent)mainContent.scrollTop=0}
 function updateTime(){document.getElementById('currentTime').textContent=new Date().toLocaleString('zh-CN')}
-function initApp(){const menu=document.getElementById('sidebarMenu');menu.innerHTML='';buildMenu(menuData,menu);updateTime();var _h=decodeURIComponent((location.hash||'').replace(/^#/,'')).trim();var _ids=[];(function walk(items){items.forEach(function(i){if(i.id)_ids.push(i.id);if(i.children)walk(i.children)})})(menuData);navigateTo(_ids.indexOf(_h)>=0?_h:'dashboard')}
+function initApp(){const menu=document.getElementById('sidebarMenu');menu.innerHTML='';buildMenu(menuData,menu);updateTime();var _h=decodeURIComponent((location.hash||'').replace(/^#/,'')).trim();var _ids=[];(function walk(items){items.forEach(function(i){if(i.id)_ids.push(i.id);if(i.children)walk(i.children)})})(menuData);navigateTo((_ids.indexOf(_h)>=0||_h.indexOf('kb-detail|')===0||_h.indexOf('kb-collection|')===0)?_h:'dashboard')}
 setInterval(updateTime,1000);document.addEventListener('DOMContentLoaded',initApp);
 </script>
 <script src="modules.js"></script>
@@ -3042,22 +3085,32 @@ function toggleMsDropdown(id){var dd=document.getElementById(id);if(!dd)return;v
 function updateMsDisplay(id){var dd=document.getElementById(id);if(!dd)return;var checks=dd.querySelectorAll('.ms-options input[type=checkbox]');var sel=[];checks.forEach(function(c){if(c.checked)sel.push(c.value)});var disp=dd.querySelector('.ms-display');disp.innerHTML=(sel.length?sel.join(', '):'请选择治疗方式')+'<span class="ms-arrow">▾</span>'}
 function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":"8140/3","C18":"8140/3","C22":"8170/3","C25":"8140/3","C53":"8010/3","C61":"8140/3","C64":"8312/3","C67":"8120/3"};var val=input.value.trim().toUpperCase();var prefix=val.match(/^C\d{2}/)?val.slice(0,3):"";var topoEl=document.getElementById("entry-icdo3-topo");if(topoEl&&!topoEl.dataset.userEdited){topoEl.value=prefix||""}var morphEl=document.getElementById("entry-icdo3-morph");if(morphEl&&!morphEl.dataset.userEdited){morphEl.value=morphMap[prefix]||""}}document.addEventListener("input",function(e){if(e.target&&(e.target.id==="entry-icdo3-topo"||e.target.id==="entry-icdo3-morph")){e.target.dataset.userEdited="1"}});
 </script>
-  <script src="specialty-portrait.js?v=20261009i"></script>
+  <script src="specialty-portrait.js?v=20261022a"></script>
   <script src="monitor-module.js?v=20260829b"></script>
+<script src="monitor2-module.js?v=20261022"></script>
 <script src="warning-module.js?v=20261012d"></script>
 <script src="capability-module.js?v=20260910d"></script>
 <script src="model-module.js?v=20261013b"></script>
   <script src="annual-report-stages.js?v=20261010-noprog"></script>
   <script src="annual-report.js?v=20261010-noprog"></script>
-  <script src="kb-module.js?v=20261009kc5"></script>
-  <script src="qc-data.js?v=20261012c"></script>
+  <script src="kb-module.js?v=20261025i"></script>
+  <!-- 内容详情页渲染器（按内容形式分版式：视频 / 问答 / 课件 / 操作手册 / 宣传折页 / 图文）。
+       必须在 kb-module.js 之后加载：kb-module 的预览动作调用 window.KBDetail。 -->
+  <script src="kb-detail.js?v=20261024p"></script>
+  <script src="kb-sheet.js?v=20261021e6"></script>
+  <script src="kb-bulk.js?v=20261024c"></script>
+  <script src="qc-data.js?v=20261021a"></script>
   <script src="qc-ui.js?v=20261012g"></script>
-  <script src="qc-l1.js?v=20260928qc"></script>
+  <script src="qc-l1.js?v=20261021a"></script>
   <script src="qc-l2.js?v=20260928qc"></script>
   <script src="qc-l3.js?v=20260928qc"></script>
   <script src="qc-l4.js?v=20260928qc"></script>
   <script src="qc-l5.js?v=20260928qc"></script>
-  <script src="qc-performance.js?v=20261012n"></script>
+  <script src="qc-performance.js?v=20261021a"></script>
+  <!-- MDT 多学科诊疗质控：数据层 + 渲染层（三个质控点，两个指标）
+       数据层独立于 qc-data.js 主脊，接真实 EMR 会诊模块时只替换 qc-mdt-data.js。 -->
+  <script src="qc-mdt-data.js?v=20261021a"></script>
+  <script src="qc-mdt.js?v=20261021a"></script>
   <script src="qc-issues.js?v=20261012a"></script>
   <script src="quality-control.js?v=20261012a"></script>
   <script>
@@ -3074,6 +3127,7 @@ function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":
      * 目的是旧链接/旧面包屑不 404；不再出现在侧栏。 */
     var MODS = [
       { key: 'qcPerformance', label: '六大绩效质控' },
+      { key: 'qcMdtPage', label: 'MDT质控' },
       { key: 'qcIssues', label: '整改问题' },
       { key: 'qcL1', label: '诊疗质控（旧）' },
       { key: 'qcL2', label: '编码质控（旧）' },
@@ -3113,7 +3167,10 @@ function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":
       'qc-loop-problem': 'qc-issues', 'qc-loop-task': 'qc-issues',
       'qc-loop-plan': 'qc-issues', 'qc-loop-tasks': 'qc-issues',
       'qc-loop-sampling': 'qc-issues', 'qc-loop-analysis': 'qc-issues',
-      'qc-g-rules': 'qc-rules', 'qc-g-audit': 'qc-rules'
+      'qc-g-rules': 'qc-rules', 'qc-g-audit': 'qc-rules',
+      /* MDT 模块：只有菜单分组节点收口；qc-mdt-detail / qc-mdt-case 是隐藏页，
+         不能进 LEGACY_MAP，否则会被重定向回总览（同 qc-pf-detail 的处理）。 */
+      'qc-mdt': 'qc-mdt-overview'
     };
     window.qcLayerIds = ids;
     window.qcLayerGroups = MODS;
@@ -3126,7 +3183,11 @@ function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":
       'qc-pf-nq03': '术后病理分期率', 'qc-pf-nq04': '围手术期死亡率',
       'qc-pf-nq05': '分子病理检测率', 'qc-pf-nq06': '淋巴结清扫规范率',
       'qc-pf-detail': '被质控数据明细', 'qc-pf-case': '病例质控详情',
-      'qc-rules': '质控规则配置', 'qc-issues': '整改问题'
+      'qc-rules': '质控规则配置', 'qc-issues': '整改问题',
+      'qc-mdt': 'MDT质控', 'qc-mdt-overview': 'MDT 质控总览',
+      'qc-mdt-missing': '应讨论未讨论', 'qc-mdt-quality': '记录与执行质量',
+      'qc-mdt-rules': '入组规则配置',
+      'qc-mdt-detail': '被质控数据', 'qc-mdt-case': '病例详情'
     };
     /* 隐藏页（不占菜单）的面包屑：被质控数据明细 / 病例质控详情挂在来源指标页下。
        navigateTo 与 renderPage 都会独立调用 updateBreadcrumb，因此包在这里最稳。 */
@@ -3135,6 +3196,10 @@ function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":
         if (window.qcPerformance && window.qcPerformance.crumb) {
           var c = window.qcPerformance.crumb(id);
           if (c) return orig(c.menuId, c.extra);
+        }
+        if (window.qcMdtPage && window.qcMdtPage.crumb) {
+          var m = window.qcMdtPage.crumb(id);
+          if (m) return orig(m.menuId, m.extra);
         }
         return orig(id, extra);
       };
@@ -3155,6 +3220,11 @@ function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":
         if (hid && window.qcPerformance && window.qcPerformance.crumb) {
           var c = window.qcPerformance.crumb(id);
           if (c) id = c.menuId;
+        }
+        /* MDT 隐藏页（qc-mdt-detail / qc-mdt-case）同理高亮到总览 */
+        if ((id === 'qc-mdt-detail' || id === 'qc-mdt-case') && window.qcMdtPage && window.qcMdtPage.crumb) {
+          var m = window.qcMdtPage.crumb(id);
+          if (m) id = m.menuId;
         }
         return orig(LEGACY_MAP[id] || id);
       };
@@ -3193,11 +3263,13 @@ function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":
         var isQc = id === 'qc-performance' || id === 'qc-rules' || id === 'qc-issues'
           || PF_IDS.indexOf(id) >= 0
           || (window.qcPageIds && window.qcPageIds.indexOf(id) >= 0)
+          || (window.qcMdtPage && window.qcMdtPage.pageIds.indexOf(id) >= 0)
           || !!LEGACY_MAP[id]
           || (window.qcLayerIds && window.qcLayerIds.indexOf(id) >= 0);
         if (isQc) {
           var target = LEGACY_MAP[id] || id;
           if (target === 'qc-performance') target = 'qc-pf-nq01'; /* 旧 id 兜底到第一维 */
+          if (target === 'qc-mdt') target = 'qc-mdt-overview';
           if (window.updateBreadcrumb) window.updateBreadcrumb(target);
           window.qcRender(target);
           return;
@@ -3244,6 +3316,8 @@ function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":
        该页原先依赖 cockpit-module.js 导出的 CKData，删除后 cockpit 数据层仍保留，
        供其它模块（如决策视图）复用。 -->
   
+  <!-- 融合方案最外层渲染适配：原两套页面保留，数据与原预警模块同源。 -->
+  <script src="monitor-fusion.js?v=20261022a"></script>
 </body>
 </html>
 

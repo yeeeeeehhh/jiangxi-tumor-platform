@@ -382,7 +382,27 @@
       { id: 'C-QUARTER-PREVIEW', name: '季度趋势预评（线索）', type: 'DISEASE_SIGNAL', point: 'QUARTER_PREVIEW',
         scope: '省定重点癌种 × 地市', method: 'TREND季度累计率', threshold: 25, unit: '%', minSample: 20, severity: 'INFO',
         window: '季度（年内累计外推）', basis: '为避免疾病信号拖到年报出来才发现，季度对年内累计率做趋势预评。但季度数据不完整、受上报节奏影响大，只能产出"研判线索"，严禁据此结案或对外发布为疾病流行结论——必须等年度数据齐备后由 C 层年度规则重新判定并经专家组论证',
-        params: '年内累计率外推偏离近3年同期≥25%时提示线索；仅提示级（INFO），不自动升级、不自动结案、不生成对外结论。年内累计不足20例不参与', confirm: '待省级专家组论证' }
+        params: '年内累计率外推偏离近3年同期≥25%时提示线索；仅提示级（INFO），不自动升级、不自动结案、不生成对外结论。年内累计不足20例不参与', confirm: '待省级专家组论证' },
+      { id: 'B-MI-TOTAL', name: 'M/I 死亡发病比（全癌种合计）', type: 'REGISTRY_QUALITY', point: 'MI_TOTAL',
+        scope: '登记处（全癌种合计）', method: 'RANGE参考区间', threshold: 0.15, unit: '（偏离比例）', minSample: 200, severity: 'ATTENTION',
+        window: '年度', basis: '全癌种合计 M/I 参考 0.45～0.70，偏离上下限 15% 判定；总量偏低提示死亡漏报，偏高提示发病漏报',
+        params: '高于上限 15% 关注级；偏离超过 30% 升紧急级', confirm: '待省级登记中心确认' },
+      { id: 'B-DCN-CANCER', name: 'DCN 未闭环（分癌种）', type: 'REGISTRY_QUALITY', point: 'DCN_CANCER',
+        scope: '登记处 × 癌种（死亡库比对结果）', method: 'RATE比率上限', threshold: 20, unit: '%', minSample: 20, severity: 'ATTENTION',
+        window: '年度', basis: '死亡库中未匹配到发病记录且未回溯补发病的病例占比，分癌种观察可定位到具体病种与科室',
+        params: '未闭环率＞20%关注级；＞40%紧急级。比对命中不足20例不参与评价', confirm: '待省级登记中心确认' },
+      { id: 'B-MV-CANCER', name: '分癌种形态学确诊比例偏低', type: 'REGISTRY_QUALITY', point: 'MV_CANCER',
+        scope: '登记处 × 主要癌种', method: 'RATE比率下限', threshold: 66, unit: '%', minSample: 50, severity: 'ATTENTION',
+        window: '年度', basis: '分癌种 MV% 低于 66% 时，该癌种诊断依据可信度不足，单癌种异常比合计值更能定位问题科室',
+        params: 'MV%＜66%关注级；＜55%紧急级。年病例不足50例不参与', confirm: '待省级登记中心确认' },
+      { id: 'ASSIGN-STALE', name: '重点预警长期未接收', type: 'REGISTRY_OPERATION', point: 'ASSIGN_STALE',
+        scope: '全部未接收预警', method: 'STATE状态停留', threshold: 7, unit: '日', minSample: 0, severity: 'ATTENTION',
+        window: '每日扫描', basis: '关注级及以上预警生成后超过7日仍未接收，说明责任分工或通知渠道存在问题',
+        params: '超过7日未接收关注级；超过15日升紧急级。提示级线索不参与', confirm: '待省级登记中心确认' },
+      { id: 'A-DCN-MONTH', name: '死亡补发病回溯逾期（月度）', type: 'REGISTRY_OPERATION', point: 'DCN_MONTHLY',
+        scope: '登记处（死亡库比对结果）', method: 'RATE比率上限', threshold: 15, unit: '%', minSample: 30, severity: 'ATTENTION',
+        window: '月度', basis: '死亡库比对出的病例应在30日内回溯补发病；超过30日未回填占比超过15%即触发，避免拖到年报才集中追赶',
+        params: '超30日未回填＞15%关注级；＞30%紧急级。比对病例不足30例不参与', confirm: '待省级登记中心确认' }
     ];
     defs.forEach(def => {
       rules.push({
@@ -429,6 +449,7 @@
     'C18 结肠': { low: 0.30, high: 0.55 },
     '全癌种合计': { low: 0.45, high: 0.70 }
   };
+  /* 运行环境数据：多数对象达标；萍乡 C34 发病漏报（低于下限），宜春 C18 死亡漏报（高于上限），作对照观察 */
   const registryQualityStats = [
     { registry: '南昌市登记处', cancer: 'C34 肺', inc: 1268, death: 812, mv: 1042, dco: 74, refIncRate: 182.0, incRate: 179.4 },
     { registry: '南昌市登记处', cancer: 'C50 乳腺', inc: 736, death: 142, mv: 692, dco: 11, refIncRate: 182.0, incRate: 179.4 },
@@ -436,8 +457,8 @@
     { registry: '赣州市登记处', cancer: 'C16 胃', inc: 518, death: 402, mv: 336, dco: 62, refIncRate: 165.0, incRate: 152.8 },
     { registry: '九江市登记处', cancer: 'C22 肝', inc: 402, death: 396, mv: 214, dco: 88, refIncRate: 166.0, incRate: 164.7 },
     { registry: '上饶市登记处', cancer: 'C34 肺', inc: 812, death: 498, mv: 604, dco: 96, refIncRate: 168.0, incRate: 169.5 },
-    { registry: '宜春市登记处', cancer: 'C18 结肠', inc: 286, death: 74, mv: 238, dco: 9, refIncRate: 162.0, incRate: 160.9 },
-    { registry: '萍乡市登记处', cancer: 'C34 肺', inc: 214, death: 188, mv: 118, dco: 41, refIncRate: 170.0, incRate: 118.6 }
+    { registry: '宜春市登记处', cancer: 'C18 结肠', inc: 286, death: 182, mv: 238, dco: 9, refIncRate: 162.0, incRate: 160.9 },
+    { registry: '萍乡市登记处', cancer: 'C34 肺', inc: 214, death: 96, mv: 118, dco: 41, refIncRate: 170.0, incRate: 118.6 }
   ];
   /* B 层：登记处全癌种合计口径（UB / O&U / 年龄不明 / DCN / 完整性） */
   const registryOverallStats = [
@@ -458,6 +479,31 @@
     { region: '吉安市', cancer: 'C34 肺', level: '地市', asr: [51.4, 52.1, 51.8, 52.6, 52.2], provinceAsr: 54.8, mortAsr: [38.4, 39.1, 38.8, 39.4, 39.0], cases: 604, expected: 628, ciLow: 0.92, earlyShare: 42.6, provinceEarlyShare: 8.8, context: '' },
     { region: '萍乡市', cancer: 'C34 肺', level: '地市', asr: [46.8, 42.1, 37.6, 33.2, 29.4], provinceAsr: 54.8, mortAsr: [34.2, 33.8, 33.1, 32.6, 32.0], cases: 214, expected: 268, ciLow: 0.72, earlyShare: 8.6, provinceEarlyShare: 8.8, context: '' }
   ];
+  /* B 层新增：M/I 全癌种合计（登记处年度）。inc 发病例数，death 死亡例数，按全癌种参考区间判定 */
+  const registryTotalQuality = [
+    { registry: '南昌市登记处', inc: 11584, death: 7390 },   /* M/I 0.64 达标 */
+    { registry: '赣州市登记处', inc: 13750, death: 4680 },   /* M/I 0.34 低于下限 0.383：死亡漏报或随访不足 */
+    { registry: '九江市登记处', inc: 7576, death: 6350 },    /* M/I 0.84 高于上限 0.805：发病漏报 */
+    { registry: '上饶市登记处', inc: 10848, death: 7289 },   /* M/I 0.67 达标 */
+    { registry: '萍乡市登记处', inc: 2135, death: 1089 }     /* M/I 0.51 达标 */
+  ];
+  /* B 层新增：DCN 分癌种（登记处 × 癌种）。比对命中 dcnTotal，未回溯闭合 dcnOpen */
+  const dcnCancerStats = [
+    { registry: '赣州市登记处', cancer: 'C34 肺', dcnTotal: 126, dcnOpen: 62, note: '死亡库比对的肺癌病例多来自县域，随访员缺口导致未回溯' },
+    { registry: '九江市登记处', cancer: 'C22 肝', dcnTotal: 58, dcnOpen: 21, note: '部分病例只在死因监测系统有记录，需院端补发病' },
+    { registry: '萍乡市登记处', cancer: 'C16 胃', dcnTotal: 22, dcnOpen: 3, note: '总体积压较小，重点在个案回访' }
+  ];
+  /* C 层新增：登记处级年度粗发病率/粗死亡率序列（近4年，末位为最新），用于近三年基线偏离规则。
+     incSeries / morSeries 均为 /10万；checksExpected 为与规则联动的说明。
+     备注：演示口径，正式数据以年报为准。 */
+  const baselineRateStats = [
+    { region: '抚州市', level: '地市', cancer: 'C34 肺', incSeries: [62.4, 61.8, 63.1, 54.2], morSeries: [42.1, 42.6, 43.0, 43.8], cases: 412, note: '粗发病率较近三年均值下降约 14% 以下时，需排除上报延迟' },
+    { region: '上饶市', level: '地市', cancer: 'C18 结肠', incSeries: [18.2, 18.6, 18.9, 23.4], morSeries: [9.4, 9.6, 9.7, 10.1], cases: 286, note: '粗发病率较近三年均值上升 20% 以上，需结合筛查项目研判' },
+    { region: '宜春市', level: '地市', cancer: 'C16 胃', incSeries: [24.6, 24.2, 24.0, 24.1], morSeries: [18.2, 18.4, 18.5, 21.8], cases: 302, note: '发病率平稳但死亡率上升，优先核查死因编码与随访质量' },
+    { region: '吉安市', level: '地市', cancer: 'C50 乳腺', incSeries: [29.4, 30.1, 30.8, 31.2], morSeries: [7.2, 7.1, 7.0, 6.9], cases: 268, note: '对照样本：发病与死亡均平稳' },
+    { region: '九江市', level: '地市', cancer: 'C15 食管', incSeries: [15.8, 15.4, 15.1, 16.0], morSeries: [12.6, 12.4, 12.2, 12.3], cases: 186, note: '对照样本：接近近三年均值' }
+  ];
+
   /* C 层：人口分母核查 */
   const populationChecks = [
     { region: '萍乡市', year: '2025', pop: 1800000, prevPop: 1620000, evidence: '', note: '' },
@@ -484,6 +530,13 @@
     { region: '赣州市信丰县', cancer: 'C15 食管', level: '县区', quarter: 'Q3', cumRate: 18.6, sameQBaseline: 13.8, cases: 126, note: '与年度 ASR 趋势信号方向一致，可作为年度研判的提前线索' },
     { region: '九江市都昌县', cancer: 'C22 肝', level: '县区', quarter: 'Q3', cumRate: 27.4, sameQBaseline: 21.0, cases: 158, note: '' },
     { region: '抚州市', cancer: 'C16 胃', level: '地市', quarter: 'Q3', cumRate: 14.2, sameQBaseline: 20.1, cases: 88, note: '年内累计偏低疑为上报节奏滞后，非真实下降，需待四季度数据补齐' }
+  ];
+
+  /* A 层新增：死亡补发病（DCN）按月回溯进度，按登记处。total 本月死亡库比对病例，closed 已回填发病，overdue 超过30日未回填。用于「死亡补发病回溯逾期」规则 */
+  const dcnMonthly = [
+    { registry: '赣州市登记处', city: '赣州市', total: 96, closed: 44, overdue: 38, note: '随访员缺口集中在县域，超30日病例以乡镇卫生院上报为主' },
+    { registry: '九江市登记处', city: '九江市', total: 58, closed: 39, overdue: 12, note: '已建立院端补报提醒，个别病例仍在等待病理' },
+    { registry: '南昌市登记处', city: '南昌市', total: 120, closed: 112, overdue: 3, note: '对照样本：回溯基本按期完成' }
   ];
 
   /* ==================== 预警与工单生成 ==================== */
@@ -609,6 +662,40 @@
       }
     });
 
+    /* A 层：重点预警长期未接收（每日扫描未接收的关注级及以上预警） */
+    const staleRule = findRule('ASSIGN-STALE');
+    if (staleRule && staleRule.isEnabled) {
+      const now = Date.now();
+      warnings.forEach(function (w) {
+        if (w.severity === 'INFO' || w.status === 'CLOSED') return;
+        const tk = tickets.find(function (t) { return t.warningId === w.id; });
+        if (!tk || tk.status !== 'PENDING') return;
+        const delayDays = (now - new Date(w.triggerTime).getTime()) / 86400000;
+        if (delayDays < staleRule.thresholdValue) return;
+        const severity = delayDays >= 15 ? 'URGENT' : staleRule.defaultSeverity;
+        if (createWarning(staleRule, {
+          targetType: 'ORG', targetId: (w.targetId || w.id) + '|未接收', targetLabel: (w.ruleName || '预警') + ' 生成后 ' + Math.floor(delayDays) + ' 日未接收', period,
+          metricValue: Math.floor(delayDays), metricLabel: '停留 ' + Math.floor(delayDays) + ' 日未接收', severity,
+          relatedWarningId: w.id,
+          snapshot: { 原预警: w.id + ' ' + w.ruleName, 原预警告级别: w.severity, 首办责任: tk.ownerOrg, 首办岗位: tk.ownerRole, 触发时间: fmtTime(w.triggerTime), 停留天数: Math.floor(delayDays) + ' 日', 触发线: staleRule.thresholdDisplay() },
+          evidence: makeEvidence([
+            ['定位', '原预警 ' + w.id + ' 仍处于未接收，先确认责任方后回填接收'],
+            ['核查要求', '若原预警已通过其他渠道处理，应先补充处理记录再关闭'],
+            ['提醒', '此条用于提醒分工与通知渠道，不代替原预警的处置结论']
+          ])
+        })) created++;
+      });
+    }
+    if (staleRule && staleRule.isEnabled && !warnings.some(function (w) { return w.ruleId === 'ASSIGN-STALE' && w.status !== 'CLOSED'; })) {
+      /* 演示兜底：现有数据未出现长期未接收时，用一条明确标注的演示样本说明该规则 */
+      createWarning(staleRule, {
+        targetType: 'ORG', targetId: '演示|未接收', targetLabel: '演示样本：重点预警生成后超 7 日未接收', period: '2026Q3',
+        metricValue: 9, metricLabel: '停留 9 日未接收', severity: 'ATTENTION',
+        snapshot: { 说明: '演示样本，用于展示「长期未接收」提醒机制', 触发线: staleRule.thresholdDisplay(), 处置建议: '先确认责任方是否收到通知，再回填接收或补充处理记录' },
+        evidence: makeEvidence([['定位', '先找原预警确认是否已被其他渠道处理'], ['核实要求', '责任分工与通知渠道问题应反馈至登记中心'], ['提醒', '本规则只做提醒，不改变原预警状态']])
+      });
+    }
+
     /* A-NCCR-SUBMIT：国家上报批次异常（临近截止未提交 / 被退回 / 校验未过） */
     const nccrRule = findRule('A-NCCR-SUBMIT');
     if (nccrRule && nccrRule.isEnabled) {
@@ -647,6 +734,23 @@
           metricValue: s.lostRate, metricLabel: parts.join(' · '), severity,
           snapshot: { 登记处: s.registry, 所属地市: s.city, 随访在册: s.enrolled + '例', 失访率: n1(s.lostRate) + '%', 失访率上限: fuRule.thresholdDisplay(), 紧急线: '35%', 死亡证明回收最长超期: s.dcReturnOverdueDays + '日', 回收时限: '30日' },
           evidence: makeEvidence([['失访率', n1(s.lostRate) + '%（上限 ' + fuRule.thresholdDisplay() + '）'], ['死亡证明回收最长超期', s.dcReturnOverdueDays + '日'], ['情况说明', s.note || '-'], ['后果', '失访拉低生存分析可信度、使 M/I 比失真；死亡证明回收延迟拖慢死亡补发病（DCN）闭环'], ['处理入口', '随访结局管理 · 随访任务列表']])
+        })) created++;
+      });
+    }
+
+    /* A 层：死亡补发病回溯逾期（月度，按月核对30日回填进度） */
+    const dcnMonthRule = findRule('A-DCN-MONTH');
+    if (dcnMonthRule && dcnMonthRule.isEnabled) {
+      dcnMonthly.forEach(function (s) {
+        if (s.total < dcnMonthRule.minSampleSize) return;
+        const lateRate = s.overdue / s.total * 100;
+        if (lateRate <= dcnMonthRule.thresholdValue) return;
+        const severity = lateRate > 30 ? 'URGENT' : dcnMonthRule.defaultSeverity;
+        if (createWarning(dcnMonthRule, {
+          targetType: 'REGISTRY', targetId: s.registry + '|DCN月度', targetLabel: PERIOD_YEAR + 'Q3 ' + s.registry + ' 死亡补发病超30日未回填 ' + n1(lateRate) + '%', period: PERIOD_YEAR + 'Q3',
+          metricValue: lateRate, metricLabel: '逾期 ' + n1(lateRate) + '%（' + s.overdue + '/' + s.total + '）', severity,
+          snapshot: { 登记处: s.registry, 所属地市: s.city, 本月比对病例: s.total + '例', 已回填: s.closed + '例', 超30日未回填: s.overdue + '例', 逾期占比: n1(lateRate) + '%', 触发线: dcnMonthRule.thresholdDisplay() },
+          evidence: makeEvidence([['指标依据', dcnMonthRule.basis], ['逾期病例', s.overdue + '例'], ['情况说明', s.note || '-'], ['处理入口', '随访结局管理 · 死亡补发病回溯']])
         })) created++;
       });
     }
@@ -720,6 +824,18 @@
           })) created++;
         }
       }
+
+      /* B 层：分癌种 MV%（单癌种视角，用于定位具体病种的诊断依据问题） */
+      const mvCancerRule = findRule('B-MV-CANCER');
+      if (mvCancerRule && mvCancerRule.isEnabled && s.inc >= mvCancerRule.minSampleSize && mvRate < mvCancerRule.thresholdValue) {
+        const severity = mvRate < 55 ? 'URGENT' : mvCancerRule.defaultSeverity;
+        if (createWarning(mvCancerRule, {
+          targetType: 'REGISTRY_CANCER', targetId: target + '|MV分癌种', targetLabel: period + '年 ' + s.registry + ' ' + s.cancer + ' MV% ' + n1(mvRate) + '%（分癌种）', period,
+          metricValue: mvRate, metricLabel: 'MV% ' + n1(mvRate) + '%', severity,
+          snapshot: { 登记处: s.registry, 癌种: s.cancer, 形态学确诊: s.mv + '例', 发病例数: s.inc + '例', 'MV%': n1(mvRate) + '%', 考核下限: mvCancerRule.thresholdDisplay(), 紧急线: '55%' },
+          evidence: makeEvidence([['指标依据', mvCancerRule.basis], ['形态学确诊/发病', s.mv + ' / ' + s.inc + ' 例'], ['核实要求', '核对病理报告获取渠道与诊断依据编码']])
+        })) created++;
+      }
     });
 
     registryOverallStats.forEach(function (s) {
@@ -769,6 +885,43 @@
         })) created++;
       }
     });
+
+    /* B 层：M/I 全癌种合计（总量视角，防止单癌种达标掩盖整体漏报） */
+    const miTotalRule = findRule('B-MI-TOTAL');
+    const totalRef = MI_REFERENCE['全癌种合计'];
+    registryTotalQuality.forEach(function (s) {
+      if (!miTotalRule || !miTotalRule.isEnabled || !totalRef || s.inc < miTotalRule.minSampleSize) return;
+      const mi = s.death / s.inc;
+      const tol = miTotalRule.thresholdValue;
+      const highLine = totalRef.high * (1 + tol);
+      const lowLine = totalRef.low * (1 - tol);
+      let hint = '';
+      if (mi > highLine) hint = '高于参考上限，提示发病漏报';
+      else if (mi < lowLine) hint = '低于参考下限，提示死亡漏报或随访不足';
+      if (!hint) return;
+      if (createWarning(miTotalRule, {
+        targetType: 'REGISTRY', targetId: s.registry + '|MI全癌种', targetLabel: period + '年 ' + s.registry + ' 全癌种 M/I ' + n2(mi), period,
+        metricValue: mi, metricLabel: 'M/I ' + n2(mi), severity: miTotalRule.defaultSeverity,
+        thresholdSnapshot: '参考区间 ' + n2(totalRef.low) + '~' + n2(totalRef.high) + '（容差' + (tol * 100) + '%）',
+        snapshot: { 登记处: s.registry, 全癌种发病: s.inc + '例', 全癌种死亡: s.death + '例', 'M/I 比': n2(mi), 参考区间: n2(totalRef.low) + ' ~ ' + n2(totalRef.high), 判定容差: (tol * 100) + '%', 提示: hint },
+        evidence: makeEvidence([['指标依据', miTotalRule.basis], ['死亡/发病', s.death + ' / ' + s.inc + ' 例'], ['方向提示', hint]])
+      })) created++;
+    });
+
+    /* B 层：DCN 未闭环分癌种（定位到具体病种，便于院内分派） */
+    const dcnCancerRule = findRule('B-DCN-CANCER');
+    dcnCancerStats.forEach(function (s) {
+      if (!dcnCancerRule || !dcnCancerRule.isEnabled || s.dcnTotal < dcnCancerRule.minSampleSize) return;
+      const rate = s.dcnOpen / s.dcnTotal * 100;
+      if (rate <= dcnCancerRule.thresholdValue) return;
+      const severity = rate > 40 ? 'URGENT' : dcnCancerRule.defaultSeverity;
+      if (createWarning(dcnCancerRule, {
+        targetType: 'REGISTRY_CANCER', targetId: s.registry + '|' + s.cancer + '|DCN', targetLabel: period + '年 ' + s.registry + ' ' + s.cancer + ' DCN 未闭环 ' + n1(rate) + '%', period,
+        metricValue: rate, metricLabel: '未闭环 ' + n1(rate) + '%（' + s.dcnOpen + '/' + s.dcnTotal + '）', severity,
+        snapshot: { 登记处: s.registry, 癌种: s.cancer, 待回溯: s.dcnOpen + '例', 比对命中: s.dcnTotal + '例', 未闭环率: n1(rate) + '%', 考核上限: dcnCancerRule.thresholdDisplay() },
+        evidence: makeEvidence([['指标依据', dcnCancerRule.basis], ['未回溯病例', s.dcnOpen + '例'], ['情况说明', s.note || '-']])
+      })) created++;
+    });
     return created;
   }
 
@@ -796,6 +949,57 @@
       if (Math.abs(change) > rule.thresholdValue && !p.evidence) set[p.region] = change;
     });
     return set;
+  }
+
+  /* C 层：近三年基线偏离。最近一年 vs 前 3 年均值，返回偏离百分比 */
+  function baselineDev(series) {
+    if (!Array.isArray(series) || series.length < 4) return null;
+    const latest = series[series.length - 1];
+    const prior = series.slice(-4, -1);
+    const mean = prior.reduce(function (a, b) { return a + b; }, 0) / prior.length;
+    if (!mean) return null;
+    return { latest: latest, mean: mean, prior: prior, devPct: (latest - mean) / mean * 100 };
+  }
+
+  function runBaselineEngine() {
+    let created = 0;
+    const period = PERIOD_YEAR;
+    const incRule = findRule('C-INC-RATE-DEV');
+    const morRule = findRule('C-MOR-RATE-DEV');
+    baselineRateStats.forEach(function (s) {
+      const inc = baselineDev(s.incSeries);
+      if (incRule && incRule.isEnabled && inc && s.cases >= incRule.minSampleSize && Math.abs(inc.devPct) >= incRule.thresholdValue) {
+        const severity = Math.abs(inc.devPct) >= 35 ? 'URGENT' : incRule.defaultSeverity;
+        if (createWarning(incRule, {
+          targetType: 'REGION_CANCER', targetId: s.region + '|' + s.cancer + '|发病基线',
+          targetLabel: period + '年 ' + s.region + ' ' + s.cancer + ' 粗发病率偏离近三年均值 ' + percent(inc.devPct),
+          period, metricValue: inc.devPct, metricLabel: '偏离 ' + percent(inc.devPct) + '（近3年均值 ' + n1(inc.mean) + '）', severity,
+          snapshot: { 地区: s.region, 癌种: s.cancer, 粗发病率序列: s.incSeries.join(' → ') + ' /10万', 本年: n1(inc.latest) + '/10万', 近三年均值: n1(inc.mean) + '/10万', 偏离幅度: percent(inc.devPct), 触发线: '±' + incRule.thresholdDisplay() },
+          evidence: makeEvidence([
+            ['判定依据', incRule.basis],
+            ['粗发病率序列', s.incSeries.join(' → ') + ' /10万'],
+            ['情况说明', s.note || '-'],
+            ['研判要求', '先排除上报延迟与人口分母错误，再判断是否为疾病趋势变化']
+          ])
+        })) created++;
+      }
+      const mor = baselineDev(s.morSeries);
+      if (morRule && morRule.isEnabled && mor && s.cases >= morRule.minSampleSize && Math.abs(mor.devPct) >= morRule.thresholdValue && mor.devPct > 0) {
+        const severity = Math.abs(mor.devPct) >= 30 ? 'URGENT' : morRule.defaultSeverity;
+        if (createWarning(morRule, {
+          targetType: 'REGION_CANCER', targetId: s.region + '|' + s.cancer + '|死亡基线',
+          targetLabel: period + '年 ' + s.region + ' ' + s.cancer + ' 粗死亡率偏离近三年均值 ' + percent(mor.devPct),
+          period, metricValue: mor.devPct, metricLabel: '偏离 ' + percent(mor.devPct) + '（近3年均值 ' + n1(mor.mean) + '）', severity,
+          snapshot: { 地区: s.region, 癌种: s.cancer, 粗死亡率序列: s.morSeries.join(' → ') + ' /10万', 本年: n1(mor.latest) + '/10万', 近三年均值: n1(mor.mean) + '/10万', 偏离幅度: percent(mor.devPct), 触发线: '+' + morRule.thresholdDisplay() },
+          evidence: makeEvidence([
+            ['判定依据', morRule.basis],
+            ['情况说明', s.note || '-'],
+            ['研判要求', '先核查随访与死因编码质量，再判断是否为生存变化']
+          ])
+        })) created++;
+      }
+    });
+    return created;
   }
 
   function runSignalEngine() {
@@ -973,14 +1177,14 @@
   }
 
   function runAllEngines() {
-    const count = runOperationEngine() + runQualityEngine() + runSignalEngine();
+    const count = runOperationEngine() + runQualityEngine() + runSignalEngine() + runBaselineEngine();
     toast(count ? '三层规则计算完成，新增 ' + count + ' 条预警' : '本轮计算未发现新命中规则');
     renderPage(state.page);
   }
   function runLayerEngine(type) {
     const count = type === 'REGISTRY_OPERATION' ? runOperationEngine()
       : type === 'REGISTRY_QUALITY' ? runQualityEngine()
-        : runSignalEngine();
+        : runSignalEngine() + runBaselineEngine();
     toast(count ? TYPE_META[type].label + '计算完成，新增 ' + count + ' 条' : TYPE_META[type].label + '本轮无新命中');
     renderPage(state.page);
   }
@@ -1072,6 +1276,7 @@
     runOperationEngine();
     runQualityEngine();
     runSignalEngine();
+    runBaselineEngine();
 
     /* 样例1：B 层 MV% 已完成整改并关闭 */
     const closed = warnings.find(function (w) { return w.ruleId === 'B-MV-LOW' && w.targetId.indexOf('赣州') === 0; });

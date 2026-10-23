@@ -3,7 +3,7 @@
       患者基础：脱敏主索引、出生日期（年龄由系统推导，不双写）、性别、医保类型、区县+机构层级
       肿瘤特征：原发部位 ICD-10、形态学 ICD-O-3、诊断依据、临床分期+分期确认日期、
                 分子标志物（项目名+结果+检测日期三要素，缺一不可）
-      诊疗过程：MDT、首次治疗日期、确诊→首次治疗、是否发生转诊、治疗方式（手术/放疗/化疗）
+      诊疗过程：MDT、首次治疗日期、是否发生转诊、治疗方式（手术/放疗/化疗）
       随访与结局：末次随访日期、生存状态、疾病状态（RECIST+评价日期）、
                   ECOG+评估日期、死亡日期/原因
       派生规则：ICD-O-3 部位码/形态学码由部位与病理文本自动映射，ICD-10 取部位码主码；
@@ -27,7 +27,7 @@
    03 画像配置：要素元数据 / 映射规则 / 智能校验 / 质控报告 / 预警 / 版本 / 归档
    全部指标由患者画像字段实时聚合，不重复采集数据 */
 (function(){ 'use strict';
-var SP_BUILD='V12.8-hospital-filter@20261009a';
+var SP_BUILD='V12.9-block2-grade-basis@20261022a';
 if(typeof console!=='undefined')console.log('[specialty-portrait] '+SP_BUILD+' loaded');
 
 /* ===================== 样式 ===================== */
@@ -110,7 +110,6 @@ spStyle.textContent=`
 .sp-block-head{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--color-border);flex-wrap:wrap}
 .sp-block-idx{width:22px;height:22px;border-radius:6px;background:var(--color-primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:0 0 22px}
 .sp-block-title{font-size:var(--fs-body);font-weight:700;color:var(--color-text-title)}
-.sp-block-tags{margin-left:auto;display:flex;gap:5px;flex-wrap:wrap}
 .sp-block-body{padding:12px 14px}
 /* 画像块内键值网格：两列定宽，避免 3 列时长值折行；长文本用 .sp-span 通栏 */
 .sp-kv-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 18px}
@@ -142,7 +141,7 @@ spStyle.textContent=`
 .sp-rpt-t::before{content:'';width:3px;height:12px;background:var(--color-primary);border-radius:2px}
 .sp-rpt-c{font-size:var(--fs-body);color:var(--color-text-body);line-height:1.75}
 tr.sp-lab-abn>td{color:var(--color-danger-fg)}
-.sp-hot{display:inline-block;font-size:10px;line-height:14px;color:var(--color-primary);border:1px solid var(--color-primary);border-radius:4px;padding:0 4px;margin-left:6px;vertical-align:1px;white-space:nowrap}
+.sp-abn-mark{color:var(--color-danger-fg);font-weight:700}
 .sp-tl-item.sp-tl-exam::before{background:#f59e0b}
 .sp-tl-item.sp-tl-ref::before{background:#14b8a6}
 .sp-tl-legend{display:flex;gap:16px;font-size:var(--fs-xs);color:var(--color-text-muted);margin:2px 0 8px}
@@ -287,178 +286,178 @@ var tumorEvents=[
 /* 检查检验记录（按患者ID）。检查=所见+结论；检验=明细指标（↑↓+ 异常标红） */
 var SP_EXAMS={
 TE001:[
- {d:'2026-01-19',k:'检查',n:'胸部DR',org:'东湖区董家窑街道社区卫生服务中心',r:'右上肺结节样影，建议CT进一步明确',abn:true,
+ {d:'2026-01-19',k:'检查',n:'胸部DR',org:'东湖区董家窑街道社区卫生服务中心',r:'右上肺结节样影，建议CT进一步明确',rid:'EX-CX20260119',dept:'全科医学科',dr:'社区全科医生',recog:'1',tech:'张海燕',review:'王军',purpose:'筛查发现右上肺结节，明确病变性质',body:'右肺上野',method:'数字X线摄影（正侧位）',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,
   j:'两肺纹理增粗，右上肺野近锁骨下区见约3.2cm×2.7cm结节样密度增高影，边界欠清；心影大致正常，肋膈角锐利。',
   y:'右上肺结节影，性质待定，建议胸部增强CT检查。'},
- {d:'2026-01-28',k:'检查',n:'胸部CT增强',org:'南昌市第一医院',r:'右上肺占位考虑恶性；右肺门及纵隔淋巴结转移',abn:true,hot:true,
+ {d:'2026-01-28',k:'检查',n:'胸部CT增强',org:'南昌市第一医院',r:'右上肺占位考虑恶性；右肺门及纵隔淋巴结转移',rid:'EX-20260128',dept:'肿瘤科',dr:'刘志远',recog:'1',tech:'张海燕',review:'王军',purpose:'明确结节性质及纵隔淋巴结分期',body:'右肺',method:'平扫+增强扫描',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,hot:true,
   j:'右上叶后段见约3.4cm×2.8cm不规则软组织密度影，分叶伴毛刺，不均匀强化；右肺门及4R、7组淋巴结增大，短径最大1.6cm；胸膜未见种植结节，双侧肾上腺及骨质未见异常。',
   y:'右上肺占位，考虑周围型肺癌；右肺门及纵隔淋巴结转移（cN2）；未见明确远处转移。'},
- {d:'2026-02-02',k:'检验',n:'CT引导经皮肺穿刺·病理',org:'南昌市第一医院',r:'浸润性腺癌（中分化），EGFR 19del阳性',abn:true,hot:true,
+ {d:'2026-02-02',k:'检验',n:'CT引导经皮肺穿刺·病理',org:'南昌市第一医院',r:'浸润性腺癌（中分化），EGFR 19del阳性',rid:'IN-20260202',dept:'肿瘤科',dr:'刘志远',recog:'1',tech:'张海燕',sno:'JY20260202',review:'王军',remark:'结果无危急值',abn:true,hot:true,
   j:'大体：穿刺组织4条，长0.8~1.5cm。镜下：腺癌组织，中分化。',
   y:'（右上肺穿刺）浸润性腺癌，中分化。免疫组化：TTF-1(+)，NapsinA(+)，CK7(+)，Ki-67(约20%+)。基因检测：EGFR 19外显子缺失突变阳性。'},
- {d:'2026-02-03',k:'检验',n:'肿瘤标志物（肺癌组合）',org:'南昌市第一医院',r:'CEA 18.6↑，CYFRA21-1 9.3↑',abn:true,
+ {d:'2026-02-03',k:'检验',n:'肿瘤标志物（肺癌组合）',org:'南昌市第一医院',r:'CEA 18.6↑，CYFRA21-1 9.3↑',rid:'IN-20260203',dept:'肿瘤科',dr:'刘志远',recog:'1',tech:'张海燕',sno:'JY20260203',review:'王军',remark:'结果无危急值',abn:true,
   items:[['CEA','18.6','ng/mL','0~5.0','↑'],['CYFRA21-1','9.3','ng/mL','0~3.3','↑'],['NSE','14.1','ng/mL','0~16.3',''],['SCC','1.0','ng/mL','0~1.5',''],['ProGRP','48','pg/mL','0~65','']],
   y:'CEA、CYFRA21-1显著升高，与肺占位性质相符，已留作疗效监测基线。'},
- {d:'2026-06-18',k:'检查',n:'头颅MRI增强+全身骨显像',org:'南昌市第一医院',r:'未见脑转移及骨转移征象（M0）',abn:false,hot:true,
+ {d:'2026-06-18',k:'检查',n:'头颅MRI增强+全身骨显像',org:'南昌市第一医院',r:'未见脑转移及骨转移征象（M0）',rid:'EX-20260618',dept:'肿瘤科',dr:'刘志远',recog:'1',tech:'张海燕',review:'王军',purpose:'分期检查，排除脑及骨转移',body:'颅脑,全身骨骼',method:'MRI增强+99mTc-MDP全身骨显像',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:false,hot:true,
   j:'双侧大脑、小脑及脑干未见异常强化灶；静注99mTc-MDP 3小时后全身骨显像未见异常放射性浓聚或稀疏区。',
   y:'未见脑及骨转移征象，完善分期：cT2aN2M0（III期）。'},
- {d:'2026-08-20',k:'检验',n:'血常规+生化（化疗第3周期前）',org:'南昌市第一医院',r:'WBC 3.2↓，PLT 98↓，ALT 56↑，Ⅰ度骨髓抑制',abn:true,
+ {d:'2026-08-20',k:'检验',n:'血常规+生化（化疗第3周期前）',org:'南昌市第一医院',r:'WBC 3.2↓，PLT 98↓，ALT 56↑，Ⅰ度骨髓抑制',rid:'IN-20260820',dept:'肿瘤科',dr:'刘志远',recog:'1',tech:'张海燕',sno:'JY20260820',review:'王军',remark:'结果无危急值',abn:true,
   items:[['白细胞','3.2','×10⁹/L','3.5~9.5','↓'],['中性粒细胞绝对值','1.6','×10⁹/L','1.8~6.3','↓'],['血红蛋白','118','g/L','130~175','↓'],['血小板','98','×10⁹/L','125~350','↓'],['丙氨酸氨基转移酶','56','U/L','9~50','↑'],['肌酐','68','μmol/L','57~97','']],
   y:'Ⅰ度骨髓抑制伴轻度肝功能损害，予保肝升白治疗后按期进入第3周期辅助化疗。'}],
 TE002:[
- {d:'2026-03-20',k:'检查',n:'乳腺钼靶（双侧）',org:'章贡区南外街道社区卫生服务中心',r:'左乳结节伴簇状钙化，BI-RADS 5',abn:true,
+ {d:'2026-03-20',k:'检查',n:'乳腺钼靶（双侧）',org:'章贡区南外街道社区卫生服务中心',r:'左乳结节伴簇状钙化，BI-RADS 5',rid:'EX-CX20260320',dept:'全科医学科',dr:'社区全科医生',recog:'1',tech:'张海燕',review:'王军',purpose:'两癌筛查发现左乳结节，明确性质',body:'双侧乳腺',method:'全数字化乳腺X线摄影',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,
   j:'左乳外上象限见约2.5cm×2.0cm高密度结节影，边缘毛刺，伴簇状细小钙化；双乳背景腺体c型。',
   y:'左乳外上象限占位伴簇状钙化，BI-RADS 5，建议穿刺活检。'},
- {d:'2026-03-25',k:'检查',n:'乳腺及腋窝淋巴结彩超',org:'江西省肿瘤医院',r:'左乳实性占位；左腋窝异常淋巴结，考虑转移',abn:true,hot:true,
+ {d:'2026-03-25',k:'检查',n:'乳腺及腋窝淋巴结彩超',org:'江西省肿瘤医院',r:'左乳实性占位；左腋窝异常淋巴结，考虑转移',rid:'EX-20260325',dept:'乳腺外科',dr:'黄丽萍',recog:'1',tech:'张海燕',review:'王军',purpose:'评估占位性质及腋窝淋巴结状态',body:'左乳,左腋窝',method:'彩色多普勒超声',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,hot:true,
   j:'左乳外上象限低回声结节2.6cm×1.9cm，形态不规则、边界毛刺、纵横比>1，CDFI血流2级；左腋窝见4枚皮质增厚淋巴结，最大短径1.4cm。',
   y:'左乳占位 BI-RADS 5；左腋窝淋巴结异常，考虑转移（cN1）。'},
- {d:'2026-03-27',k:'检验',n:'左乳肿块空芯针穿刺·病理',org:'江西省肿瘤医院',r:'浸润性导管癌（II级），Luminal B型（HER2阴性）',abn:true,hot:true,
+ {d:'2026-03-27',k:'检验',n:'左乳肿块空芯针穿刺·病理',org:'江西省肿瘤医院',r:'浸润性导管癌（II级），Luminal B型（HER2阴性）',rid:'IN-20260327',dept:'乳腺外科',dr:'黄丽萍',recog:'1',tech:'张海燕',sno:'JY20260327',review:'王军',remark:'结果无危急值',abn:true,hot:true,
   j:'大体：穿刺组织6条。镜下：浸润性导管癌，II级。',
   y:'（左乳）浸润性导管癌，II级。ER(约80%+)，PR(约60%+)，HER2(2+，FISH阴性)，Ki-67(约15%+)。分子分型：Luminal B型（HER2阴性）。'},
- {d:'2026-08-22',k:'检验',n:'血常规+肿瘤标志物（化疗结束后）',org:'江西省肿瘤医院',r:'血象恢复，CA15-3、CEA均在参考范围内',abn:false,
+ {d:'2026-08-22',k:'检验',n:'血常规+肿瘤标志物（化疗结束后）',org:'江西省肿瘤医院',r:'血象恢复，CA15-3、CEA均在参考范围内',rid:'IN-20260822',dept:'乳腺外科',dr:'黄丽萍',recog:'1',tech:'张海燕',sno:'JY20260822',review:'王军',remark:'结果无危急值',abn:false,
   items:[['白细胞','4.3','×10⁹/L','3.5~9.5',''],['中性粒细胞绝对值','2.4','×10⁹/L','1.8~6.3',''],['CA15-3','18.6','U/mL','0~25.0',''],['CEA','3.2','ng/mL','0~5.0','']],
   y:'化疗结束后血象恢复，肿瘤标志物正常，进入内分泌维持治疗阶段。'}],
 TE003:[
- {d:'2026-07-09',k:'检查',n:'胃镜+活检',org:'九江市第一人民医院',r:'胃窦溃疡浸润型占位；病理：低分化腺癌',abn:true,hot:true,
+ {d:'2026-07-09',k:'检查',n:'胃镜+活检',org:'九江市第一人民医院',r:'胃窦溃疡浸润型占位；病理：低分化腺癌',rid:'EX-20260709',dept:'消化内科',dr:'郑海涛',recog:'1',tech:'张海燕',review:'王军',purpose:'上腹隐痛伴纳差，明确胃部病变病理',body:'胃窦',method:'内镜下活检',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,hot:true,
   j:'胃窦见约4.5cm×3.8cm不规则溃疡型病变，覆白苔，边缘堤样隆起，质脆易出血，幽门变形、腔隙狭窄，活检6块。',
   y:'胃窦占位（溃疡浸润型），活检：低分化腺癌。'},
- {d:'2026-07-10',k:'检查',n:'全腹CT增强（分期）',org:'九江市第一人民医院',r:'胃窦壁增厚；腹膜多发结节伴少量腹水，考虑腹膜转移',abn:true,hot:true,
+ {d:'2026-07-10',k:'检查',n:'全腹CT增强（分期）',org:'九江市第一人民医院',r:'胃窦壁增厚；腹膜多发结节伴少量腹水，考虑腹膜转移',rid:'EX-20260710',dept:'消化内科',dr:'郑海涛',recog:'1',tech:'张海燕',review:'王军',purpose:'胃癌术前分期评估',body:'上腹部,盆腔',method:'平扫+增强扫描',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,hot:true,
   j:'胃窦壁不均匀增厚最厚约2.1cm，浆膜面模糊；大网膜及腹膜见多发结节样增厚，最大1.2cm；盆腔少量积液；肝脾未见占位，腹膜后未见明显肿大淋巴结。',
   y:'胃窦癌伴腹膜多发转移、少量腹水，分期cT4aN2M1（IV期）。'},
- {d:'2026-07-11',k:'检验',n:'肿瘤标志物组合',org:'九江市第一人民医院',r:'CEA 46.2↑，CA19-9 385.6↑',abn:true,
+ {d:'2026-07-11',k:'检验',n:'肿瘤标志物组合',org:'九江市第一人民医院',r:'CEA 46.2↑，CA19-9 385.6↑',rid:'IN-20260711',dept:'消化内科',dr:'郑海涛',recog:'1',tech:'张海燕',sno:'JY20260711',review:'王军',remark:'结果无危急值',abn:true,
   items:[['CEA','46.2','ng/mL','0~5.0','↑'],['CA19-9','385.6','U/mL','0~27.0','↑'],['CA72-4','41.2','U/mL','0~6.9','↑'],['AFP','3.8','ng/mL','0~7.0','']],
   y:'CEA、CA19-9显著升高，作为姑息化疗疗效监测基线。'},
- {d:'2026-08-24',k:'检验',n:'血常规+生化（姑息化疗第3周期前）',org:'九江市第一人民医院',r:'Hb 92↓，Alb 31.2↓，中度贫血伴低蛋白血症',abn:true,
+ {d:'2026-08-24',k:'检验',n:'血常规+生化（姑息化疗第3周期前）',org:'九江市第一人民医院',r:'Hb 92↓，Alb 31.2↓，中度贫血伴低蛋白血症',rid:'IN-20260824',dept:'消化内科',dr:'郑海涛',recog:'1',tech:'张海燕',sno:'JY20260824',review:'王军',remark:'结果无危急值',abn:true,
   items:[['血红蛋白','92','g/L','130~175','↓'],['白蛋白','31.2','g/L','40.0~55.0','↓'],['前白蛋白','128','mg/L','200~430','↓'],['钾','3.6','mmol/L','3.5~5.3',''],['肌酐','64','μmol/L','57~97','']],
   y:'肿瘤消耗合并不全肠梗阻摄入不足，中度贫血、低蛋白血症，NRS2002评分4分，加强肠外营养支持。'}],
 TE004:[
- {d:'2026-02-18',k:'检查',n:'上腹部MRI增强（肝胆特异对比剂）',org:'上饶市肿瘤医院',r:'右肝后叶占位5.2cm，快进快出，考虑肝细胞癌',abn:true,hot:true,
+ {d:'2026-02-18',k:'检查',n:'上腹部MRI增强（肝胆特异对比剂）',org:'上饶市肿瘤医院',r:'右肝后叶占位5.2cm，快进快出，考虑肝细胞癌',rid:'EX-20260218',dept:'肝胆外科',dr:'方国安',recog:'1',tech:'张海燕',review:'王军',purpose:'肝占位定性及可切除性评估',body:'肝右叶',method:'MRI动态增强',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,hot:true,
   j:'肝右叶后段(S6/7)见约5.2cm×4.6cm类圆形异常信号，T1WI稍低、T2WI稍高，动脉期明显不均匀强化，门脉期廓清，DWI受限；余肝信号不均提示肝纤维化；未见子灶及门脉癌栓。',
   y:'右肝后叶占位符合肝细胞癌（LI-RADS 5）；肝硬化背景；未见肝内子灶及血管侵犯。'},
- {d:'2026-02-19',k:'检验',n:'肿瘤标志物+乙肝病毒学+肝功能',org:'上饶市肿瘤医院',r:'AFP 412.5↑↑，HBV-DNA 2.3×10⁴↑，Alb 34.0↓',abn:true,
+ {d:'2026-02-19',k:'检验',n:'肿瘤标志物+乙肝病毒学+肝功能',org:'上饶市肿瘤医院',r:'AFP 412.5↑↑，HBV-DNA 2.3×10⁴↑，Alb 34.0↓',rid:'IN-20260219',dept:'肝胆外科',dr:'方国安',recog:'1',tech:'张海燕',sno:'JY20260219',review:'王军',remark:'结果无危急值',abn:true,
   items:[['甲胎蛋白(AFP)','412.5','ng/mL','0~7.0','↑'],['异常凝血酶原(DCP)','156','ng/mL','0~40','↑'],['乙肝表面抗原(HBsAg)','阳性','','阴性','+'],['HBV-DNA','2.3×10⁴','IU/mL','低于检测下限','↑'],['白蛋白','34.0','g/L','40.0~55.0','↓'],['总胆红素','18.6','μmol/L','3.4~17.1','↑']],
   y:'AFP、DCP显著升高支持肝癌诊断；HBV复制活跃，已加用恩替卡韦抗病毒；肝功能Child-Pugh A级(6分)。'},
- {d:'2026-03-06',k:'检验',n:'肝部分切除术后·病理',org:'上饶市肿瘤医院',r:'肝细胞癌（中分化），MVI M1，切缘阴性',abn:true,hot:true,
+ {d:'2026-03-06',k:'检验',n:'肝部分切除术后·病理',org:'上饶市肿瘤医院',r:'肝细胞癌（中分化），MVI M1，切缘阴性',rid:'IN-20260306',dept:'肝胆外科',dr:'方国安',recog:'1',tech:'张海燕',sno:'JY20260306',review:'王军',remark:'结果无危急值',abn:true,hot:true,
   j:'大体：距肝切缘1.0cm见6.0cm×5.2cm灰红色肿物，质脆。镜下：中分化肝细胞癌，梁索状结构。',
   y:'（右肝）肝细胞癌，中分化，伴微血管侵犯（MVI M1，低危组），切缘阴性，背景肝硬化。术后分期pT3N0M0（III期）。'},
- {d:'2026-07-18',k:'检查',n:'TACE术后CT增强复查',org:'上饶市肿瘤医院',r:'碘油沉积密实，未见活性强化灶，疗效CR',abn:false,hot:true,
+ {d:'2026-07-18',k:'检查',n:'TACE术后CT增强复查',org:'上饶市肿瘤医院',r:'碘油沉积密实，未见活性强化灶，疗效CR',rid:'EX-20260718',dept:'肝胆外科',dr:'方国安',recog:'1',tech:'张海燕',review:'王军',purpose:'TACE术后疗效评估',body:'肝右叶',method:'平扫+增强扫描',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:false,hot:true,
   j:'原S6/7瘤灶区碘油沉积密实，动脉期及门脉期未见异常强化残留灶；余肝脏未见新发占位；无新增腹水。',
   y:'TACE后改变，瘤灶坏死完全（mRECIST CR），继续定期随访。'},
- {d:'2026-07-20',k:'检验',n:'AFP复查',org:'上饶市肿瘤医院',r:'AFP 6.8，降至正常',abn:false,
+ {d:'2026-07-20',k:'检验',n:'AFP复查',org:'上饶市肿瘤医院',r:'AFP 6.8，降至正常',rid:'IN-20260720',dept:'肝胆外科',dr:'方国安',recog:'1',tech:'张海燕',sno:'JY20260720',review:'王军',remark:'结果无危急值',abn:false,
   items:[['甲胎蛋白(AFP)','6.8','ng/mL','0~7.0',''],['异常凝血酶原(DCP)','38','ng/mL','0~40','']],
   y:'术后联合TACE治疗后AFP降至参考范围内，生化指标有效。'}],
 TE005:[
- {d:'2026-04-14',k:'检查',n:'胸部CT增强',org:'宜春市人民医院',r:'左肺下叶占位3.1cm；左肺门淋巴结增大',abn:true,hot:true,
+ {d:'2026-04-14',k:'检查',n:'胸部CT增强',org:'宜春市人民医院',r:'左肺下叶占位3.1cm；左肺门淋巴结增大',rid:'EX-20260414',dept:'胸外科',dr:'甘伟民',recog:'1',tech:'张海燕',review:'王军',purpose:'明确结节性质及纵隔淋巴结分期',body:'右肺',method:'平扫+增强扫描',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,hot:true,
   j:'左肺下叶背段见约3.1cm×2.6cm类圆形实性占位，边界模糊，中度不均匀强化；左肺门见1.5cm肿大淋巴结，4R组淋巴结增大。',
   y:'左肺下叶占位考虑恶性，伴肺门及纵隔淋巴结转移（cT2bN2M0）。'},
- {d:'2026-04-17',k:'检查',n:'支气管镜+活检',org:'宜春市人民医院',r:'左下叶支气管新生物；病理：鳞状细胞癌',abn:true,hot:true,
+ {d:'2026-04-17',k:'检查',n:'支气管镜+活检',org:'宜春市人民医院',r:'左下叶支气管新生物；病理：鳞状细胞癌',rid:'EX-20260417',dept:'胸外科',dr:'甘伟民',recog:'1',tech:'张海燕',review:'王军',purpose:'获取病理确诊',body:'左肺下叶支气管',method:'支气管镜下活检',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,hot:true,
   j:'镜下：左下叶支气管开口见息肉样新生物，表面坏死渗出，管腔狭窄，活检6块。',
   y:'左下叶支气管恶性肿瘤，活检：中分化鳞状细胞癌（p40+，CK5/6+）。'},
- {d:'2026-05-08',k:'检验',n:'术前组合（血象+凝血+标志物）',org:'宜春市人民医院',r:'SCC 6.8↑，CYFRA21-1 8.2↑；血象凝血正常',abn:true,
+ {d:'2026-05-08',k:'检验',n:'术前组合（血象+凝血+标志物）',org:'宜春市人民医院',r:'SCC 6.8↑，CYFRA21-1 8.2↑；血象凝血正常',rid:'IN-20260508',dept:'胸外科',dr:'甘伟民',recog:'1',tech:'张海燕',sno:'JY20260508',review:'王军',remark:'结果无危急值',abn:true,
   items:[['SCC','6.8','ng/mL','0~1.5','↑'],['CYFRA21-1','8.2','ng/mL','0~3.3','↑'],['白细胞','5.8','×10⁹/L','3.5~9.5',''],['血小板','210','×10⁹/L','125~350',''],['凝血四项','未见异常','','','']],
   y:'鳞癌相关标志物升高；术前血象、凝血正常，符合手术条件，2026-05-10行左下叶袖式切除。'},
- {d:'2026-08-28',k:'检验',n:'血常规（同步放化疗第4周期前）',org:'宜春市人民医院',r:'WBC 2.9↓，Hb 108↓，Ⅱ度骨髓抑制',abn:true,
+ {d:'2026-08-28',k:'检验',n:'血常规（同步放化疗第4周期前）',org:'宜春市人民医院',r:'WBC 2.9↓，Hb 108↓，Ⅱ度骨髓抑制',rid:'IN-20260828',dept:'胸外科',dr:'甘伟民',recog:'1',tech:'张海燕',sno:'JY20260828',review:'王军',remark:'结果无危急值',abn:true,
   items:[['白细胞','2.9','×10⁹/L','3.5~9.5','↓'],['中性粒细胞绝对值','1.4','×10⁹/L','1.8~6.3','↓'],['血红蛋白','108','g/L','130~175','↓'],['血小板','112','×10⁹/L','125~350','↓'],['前白蛋白','186','mg/L','200~430','↓']],
   y:'放化疗相关Ⅱ度骨髓抑制，合并Ⅱ度放射性食管炎进食减少，暂停本周期，G-CSF及营养支持后复评。'}],
 TE006:[
- {d:'2026-05-06',k:'检验',n:'宫颈癌筛查（TCT+HPV）',org:'珠山区里村街道社区卫生服务中心',r:'TCT示HSIL；HPV16阳性；SCC 9.6↑',abn:true,hot:true,
+ {d:'2026-05-06',k:'检验',n:'宫颈癌筛查（TCT+HPV）',org:'珠山区里村街道社区卫生服务中心',r:'TCT示HSIL；HPV16阳性；SCC 9.6↑',rid:'IN-CX20260506',dept:'全科医学科',dr:'社区全科医生',recog:'1',tech:'张海燕',sno:'JY20260506',review:'王军',remark:'结果无危急值',abn:true,hot:true,
   items:[['液基细胞学(TCT)','HSIL（高度鳞状上皮内病变）','','NILM','+'],['高危型HPV','HPV16阳性','','阴性','+'],['SCC','9.6','ng/mL','0~1.5','↑']],
   y:'细胞学HSIL伴HPV16感染、SCC升高，转诊阴道镜下定位活检。'},
- {d:'2026-05-09',k:'检验',n:'阴道镜下宫颈活检·病理',org:'景德镇市第一医院',r:'宫颈鳞状细胞癌（中-低分化）',abn:true,hot:true,
+ {d:'2026-05-09',k:'检验',n:'阴道镜下宫颈活检·病理',org:'景德镇市第一医院',r:'宫颈鳞状细胞癌（中-低分化）',rid:'IN-20260509',dept:'妇科',dr:'饶慧敏',recog:'1',tech:'张海燕',sno:'JY20260509',review:'王军',remark:'结果无危急值',abn:true,hot:true,
   j:'阴道镜下3、6、9、12点转化区醋酸白试验阳性、碘试验不着色，4点取组织。镜下：鳞状细胞癌，中-低分化。',
   y:'（宫颈）鳞状细胞癌，中-低分化；浸润深度约8mm，未见脉管侵犯。'},
- {d:'2026-05-11',k:'检查',n:'盆腔MRI增强',org:'景德镇市第一医院',r:'宫颈肿物3.6cm累及阴道上1/3；盆腔淋巴结可疑转移',abn:true,hot:true,
+ {d:'2026-05-11',k:'检查',n:'盆腔MRI增强',org:'景德镇市第一医院',r:'宫颈肿物3.6cm累及阴道上1/3；盆腔淋巴结可疑转移',rid:'EX-20260511',dept:'妇科',dr:'饶慧敏',recog:'1',tech:'张海燕',review:'王军',purpose:'宫颈癌分期评估',body:'宫颈,盆腔',method:'MRI动态增强',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,hot:true,
   j:'宫颈管内见约3.6cm×3.0cm T2WI稍高信号肿物，向下累及阴道上1/3，未达下1/3，宫旁脂肪间隙清晰；盆腔见2枚短径1.1cm淋巴结。',
   y:'宫颈癌，分期cT2bN1M0（II期）。'},
- {d:'2026-08-25',k:'检验',n:'血常规（放疗中期）',org:'景德镇市第一医院',r:'WBC 3.4↓，Ⅰ度骨髓抑制',abn:true,
+ {d:'2026-08-25',k:'检验',n:'血常规（放疗中期）',org:'景德镇市第一医院',r:'WBC 3.4↓，Ⅰ度骨髓抑制',rid:'IN-20260825',dept:'妇科',dr:'饶慧敏',recog:'1',tech:'张海燕',sno:'JY20260825',review:'王军',remark:'结果无危急值',abn:true,
   items:[['白细胞','3.4','×10⁹/L','3.5~9.5','↓'],['中性粒细胞绝对值','1.8','×10⁹/L','1.8~6.3',''],['血小板','132','×10⁹/L','125~350',''],['血红蛋白','112','g/L','115~150','↓']],
   y:'放疗期间Ⅰ度骨髓抑制，予升白对症治疗，按计划完成根治性外照射。'}],
 TE007:[
- {d:'2026-06-22',k:'检查',n:'结肠镜+活检',org:'南昌市第一医院',r:'距肛门7cm溃疡型占位；病理：直肠腺癌（中分化）',abn:true,hot:true,
+ {d:'2026-06-22',k:'检查',n:'结肠镜+活检',org:'南昌市第一医院',r:'距肛门7cm溃疡型占位；病理：直肠腺癌（中分化）',rid:'EX-20260622',dept:'肿瘤科',dr:'刘志远',recog:'1',tech:'张海燕',review:'王军',purpose:'便血伴排便习惯改变，明确病理',body:'直肠',method:'内镜下活检',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,hot:true,
   j:'进镜8~10cm于直肠中上段见环腔生长溃疡型占位，表面污秽苔，质脆易出血，肠腔狭窄；活检8块；余结肠未见第二病灶。',
   y:'直肠中上段占位，活检：中分化腺癌。'},
- {d:'2026-06-24',k:'检查',n:'直肠高分辨MRI',org:'南昌市第一医院',r:'肿瘤突破固有肌层（T3），MRF阴性；可疑系膜淋巴结2枚',abn:true,hot:true,
+ {d:'2026-06-24',k:'检查',n:'直肠高分辨MRI',org:'南昌市第一医院',r:'肿瘤突破固有肌层（T3），MRF阴性；可疑系膜淋巴结2枚',rid:'EX-20260624',dept:'肿瘤科',dr:'刘志远',recog:'1',tech:'张海燕',review:'王军',purpose:'直肠癌局部分期及环周切缘评估',body:'直肠',method:'高分辨MRI',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,hot:true,
   j:'直肠中上段壁不规则增厚并强化，最厚1.6cm，侵及浆膜下脂肪层（T3b）；直肠系膜筋膜(MRF)及脏层腹膜未受累；系膜内2枚形态不规则淋巴结（最大0.9cm）。',
   y:'直肠中分化腺癌 cT3N1M0（III期）；MRF(-)，经MDT讨论直接手术+术后辅助化疗。'},
- {d:'2026-06-25',k:'检验',n:'肿瘤标志物组合',org:'南昌市第一医院',r:'CEA 12.3↑，CA19-9 28.6↑',abn:true,
+ {d:'2026-06-25',k:'检验',n:'肿瘤标志物组合',org:'南昌市第一医院',r:'CEA 12.3↑，CA19-9 28.6↑',rid:'IN-20260625',dept:'肿瘤科',dr:'刘志远',recog:'1',tech:'张海燕',sno:'JY20260625',review:'王军',remark:'结果无危急值',abn:true,
   items:[['CEA','12.3','ng/mL','0~5.0','↑'],['CA19-9','28.6','U/mL','0~27.0','↑'],['白细胞','5.4','×10⁹/L','3.5~9.5','']],
   y:'CEA明显升高，留作术后辅助化疗疗效监测基线。'},
- {d:'2026-09-03',k:'检验',n:'血常规+肝肾功能（辅助化疗第2周期前）',org:'南昌市第一医院',r:'血象及肝肾功能正常，按期化疗',abn:false,
+ {d:'2026-09-03',k:'检验',n:'血常规+肝肾功能（辅助化疗第2周期前）',org:'南昌市第一医院',r:'血象及肝肾功能正常，按期化疗',rid:'IN-20260903',dept:'肿瘤科',dr:'刘志远',recog:'1',tech:'张海燕',sno:'JY20260903',review:'王军',remark:'结果无危急值',abn:false,
   items:[['白细胞','4.1','×10⁹/L','3.5~9.5',''],['中性粒细胞绝对值','2.6','×10⁹/L','1.8~6.3',''],['血小板','186','×10⁹/L','125~350',''],['丙氨酸氨基转移酶','22','U/L','9~50','']],
   y:'第2周期XELOX方案辅助化疗前评估合格，按期治疗中。'}],
 TE008:[
- {d:'2026-07-25',k:'检查',n:'乳腺钼靶（双侧）',org:'临川区青云街道社区卫生服务中心',r:'右乳肿块伴多发钙化，BI-RADS 5',abn:true,
+ {d:'2026-07-25',k:'检查',n:'乳腺钼靶（双侧）',org:'临川区青云街道社区卫生服务中心',r:'右乳肿块伴多发钙化，BI-RADS 5',rid:'EX-CX20260725',dept:'全科医学科',dr:'社区全科医生',recog:'1',tech:'张海燕',review:'王军',purpose:'两癌筛查发现左乳结节，明确性质',body:'双侧乳腺',method:'全数字化乳腺X线摄影',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,
   j:'右乳外上象限致密结节约3.0cm×2.4cm，边缘毛刺，伴多发簇状钙化；左乳未见明确病变。',
   y:'右乳占位 BI-RADS 5，建议穿刺活检。'},
- {d:'2026-07-28',k:'检验',n:'右乳肿块空芯针穿刺·病理',org:'江西省肿瘤医院',r:'浸润性导管癌（III级），HER2 3+（HER2过表达型）',abn:true,hot:true,
+ {d:'2026-07-28',k:'检验',n:'右乳肿块空芯针穿刺·病理',org:'江西省肿瘤医院',r:'浸润性导管癌（III级），HER2 3+（HER2过表达型）',rid:'IN-20260728',dept:'乳腺外科',dr:'黄丽萍',recog:'1',tech:'张海燕',sno:'JY20260728',review:'王军',remark:'结果无危急值',abn:true,hot:true,
   j:'大体：穿刺组织5条，部分灰白质硬。镜下：浸润性导管癌，III级，核分裂活跃。',
   y:'（右乳）浸润性导管癌，III级。ER(约10%+)，PR(-)，HER2(3+)，Ki-67(约45%+)。分子分型：HER2过表达型。'},
- {d:'2026-07-28',k:'检查',n:'全身骨显像+上腹部CT增强',org:'江西省肿瘤医院',r:'右4-6肋、T12、L3骨转移；肝S7转移灶2.1cm',abn:true,hot:true,
+ {d:'2026-07-28',k:'检查',n:'全身骨显像（ECT）',org:'江西省肿瘤医院',r:'右4-6肋、T12、L3骨转移；肝S7转移灶2.1cm',rid:'EX-20260728',dept:'乳腺外科',dr:'黄丽萍',recog:'1',tech:'张海燕',review:'王军',purpose:'骨转移评估',body:'全身骨骼,上腹部',method:'99mTc-MDP全身骨显像',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,hot:true,
   j:'ECT：右侧第4~6肋骨、T12及L3椎体见异常放射性浓聚。CT：肝S7见约2.1cm×1.8cm低密度灶，动脉期边缘轻度强化，延迟期近等密度，考虑转移；双肺未见明确结节。',
   y:'乳腺癌伴多发骨转移、肝转移，分期cT2N2M1（IV期）。'},
- {d:'2026-08-10',k:'检查',n:'心脏彩超（曲妥珠单抗基线）',org:'江西省肿瘤医院',r:'LVEF 58%，心功能正常',abn:false,hot:true,
+ {d:'2026-08-10',k:'检查',n:'心脏彩超（曲妥珠单抗基线）',org:'江西省肿瘤医院',r:'LVEF 58%，心功能正常',rid:'EX-20260810',dept:'乳腺外科',dr:'黄丽萍',recog:'1',tech:'张海燕',review:'王军',purpose:'抗HER2治疗前心功能基线评估',body:'心脏',method:'经胸超声心动图',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:false,hot:true,
   j:'各房室腔不大，二尖瓣轻度反流，LVEF 58%。',
   y:'基线心功能正常（LVEF≥50%），可启动抗HER2靶向治疗，每3个月复查心功能。'},
- {d:'2026-09-01',k:'检查',n:'胸腹盆CT疗效再评价',org:'江西省肿瘤医院',r:'原发灶及肝转移灶缩小，疗效评价PR',abn:false,hot:true,
+ {d:'2026-09-01',k:'检查',n:'胸腹盆CT（疗效再评价）',org:'江西省肿瘤医院',r:'原发灶及肝转移灶缩小，疗效评价PR',rid:'EX-20260901',dept:'乳腺外科',dr:'黄丽萍',recog:'1',tech:'张海燕',review:'王军',purpose:'靶向治疗疗效评价',body:'右乳,肝,盆腔',method:'平扫+增强扫描',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:false,hot:true,
   j:'右乳原发灶2.2cm×1.6cm（缩小约30%），肝S7病灶1.3cm（缩小约40%）；未见新发转移；骨转移灶范围无扩大。',
   y:'一线化疗+抗HER2靶向2周期，疗效评价部分缓解（PR），维持原方案。'}],
 TE009:[
- {d:'2026-08-02',k:'检查',n:'上消化道钡餐',org:'吉安市中心医院',r:'食管中段狭窄伴6cm充盈缺损，考虑恶性',abn:true,
+ {d:'2026-08-02',k:'检查',n:'上消化道钡餐',org:'吉安市中心医院',r:'食管中段狭窄伴6cm充盈缺损，考虑恶性',rid:'EX-20260802',dept:'胸外科',dr:'欧阳锋',recog:'1',tech:'张海燕',review:'王军',purpose:'吞咽梗阻病因评估',body:'食管胸中段',method:'气钡双重造影',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,
   j:'胸中段食管局限性狭窄，管壁僵硬，见约6cm不规则充盈缺损，黏膜破坏中断，近端食管轻度扩张。',
   y:'胸中段食管占位性病变伴狭窄，考虑食管癌。'},
- {d:'2026-08-05',k:'检查',n:'胃镜+活检',org:'吉安市中心医院',r:'胸中段食管缩窄型新生物；病理：鳞状细胞癌',abn:true,hot:true,
+ {d:'2026-08-05',k:'检查',n:'胃镜+活检',org:'吉安市中心医院',r:'胸中段食管缩窄型新生物；病理：鳞状细胞癌',rid:'EX-20260805',dept:'胸外科',dr:'欧阳锋',recog:'1',tech:'张海燕',review:'王军',purpose:'上腹隐痛伴纳差，明确胃部病变病理',body:'胃窦',method:'内镜下活检',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,hot:true,
   j:'距门齿26~32cm见环周生长缩窄型新生物，表面溃烂覆白苔，管腔狭窄，镜身勉强通过；活检8块。',
   y:'胸中段食管鳞状细胞癌，中分化。'},
- {d:'2026-08-07',k:'检查',n:'胸部CT增强（分期）',org:'吉安市中心医院',r:'食管中段壁增厚1.8cm；隆突下淋巴结转移；无远处转移',abn:true,hot:true,
+ {d:'2026-08-07',k:'检查',n:'胸部CT增强（分期）',org:'吉安市中心医院',r:'食管中段壁增厚1.8cm；隆突下淋巴结转移；无远处转移',rid:'EX-20260807',dept:'胸外科',dr:'欧阳锋',recog:'1',tech:'张海燕',review:'王军',purpose:'食管癌分期评估',body:'食管,纵隔',method:'平扫+增强扫描',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,hot:true,
   j:'食管胸中段壁不均匀增厚最厚约1.8cm，与气管膜部脂肪间隙变窄但未见明确侵犯；隆突下及下段食管旁2枚短径1.3cm淋巴结；肝、肺、骨未见转移征象。',
   y:'食管中段癌 cT3N1M0（III期），无手术指征，MDT建议根治性同步放化疗。'},
- {d:'2026-09-06',k:'检验',n:'血常规+生化（同步放化疗第3周期）',org:'吉安市中心医院',r:'WBC 3.5↓，前白蛋白118↓，Ⅰ度骨髓抑制伴中度营养风险',abn:true,
+ {d:'2026-09-06',k:'检验',n:'血常规+生化（同步放化疗第3周期）',org:'吉安市中心医院',r:'WBC 3.5↓，前白蛋白118↓，Ⅰ度骨髓抑制伴中度营养风险',rid:'IN-20260906',dept:'胸外科',dr:'欧阳锋',recog:'1',tech:'张海燕',sno:'JY20260906',review:'王军',remark:'结果无危急值',abn:true,
   items:[['白细胞','3.5','×10⁹/L','3.5~9.5',''],['中性粒细胞绝对值','1.8','×10⁹/L','1.8~6.3',''],['前白蛋白','118','mg/L','200~430','↓'],['白蛋白','34.8','g/L','40.0~55.0','↓']],
   y:'Ⅱ度放射性食管炎伴经口摄入下降，中度营养风险，留置鼻饲管行肠内营养，同步放化疗继续。'}],
 TE010:[
- {d:'2026-06-01',k:'检验',n:'宫颈癌筛查（TCT+HPV）',org:'临川区青云街道社区卫生服务中心',r:'TCT示ASC-H；HPV18阳性；SCC 7.4↑',abn:true,
+ {d:'2026-06-01',k:'检验',n:'宫颈癌筛查（TCT+HPV）',org:'临川区青云街道社区卫生服务中心',r:'TCT示ASC-H；HPV18阳性；SCC 7.4↑',rid:'IN-CX20260601',dept:'全科医学科',dr:'社区全科医生',recog:'1',tech:'张海燕',sno:'JY20260601',review:'王军',remark:'结果无危急值',abn:true,
   items:[['液基细胞学(TCT)','ASC-H（不除外高度病变）','','NILM','+'],['高危型HPV','HPV18阳性','','阴性','+'],['SCC','7.4','ng/mL','0~1.5','↑']],
   y:'细胞学异常伴HPV18感染、SCC升高，转诊阴道镜下活检。'},
- {d:'2026-06-04',k:'检验',n:'阴道镜下宫颈活检·病理',org:'抚州市第一医院',r:'宫颈鳞状细胞癌（中分化）',abn:true,hot:true,
+ {d:'2026-06-04',k:'检验',n:'阴道镜下宫颈活检·病理',org:'抚州市第一医院',r:'宫颈鳞状细胞癌（中分化）',rid:'IN-20260604',dept:'妇科',dr:'雷秀英',recog:'1',tech:'张海燕',sno:'JY20260604',review:'王军',remark:'结果无危急值',abn:true,hot:true,
   j:'醋酸白及碘试验不着色区取3点组织。镜下：中分化鳞状细胞癌。',
   y:'（宫颈）中分化鳞状细胞癌，浸润深度约9mm。'},
- {d:'2026-06-05',k:'检查',n:'盆腔MRI增强',org:'抚州市第一医院',r:'宫颈肿物3.8cm累及阴道上1/3；闭孔淋巴结增大',abn:true,hot:true,
+ {d:'2026-06-05',k:'检查',n:'盆腔MRI增强',org:'抚州市第一医院',r:'宫颈肿物3.8cm累及阴道上1/3；闭孔淋巴结增大',rid:'EX-20260605',dept:'妇科',dr:'雷秀英',recog:'1',tech:'张海燕',review:'王军',purpose:'宫颈癌分期评估',body:'宫颈,盆腔',method:'MRI动态增强',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,hot:true,
   j:'宫颈见约3.8cm×3.2cm混杂信号肿物，累及阴道上1/3，右侧闭孔见短径1.2cm淋巴结，宫旁脂肪间隙清楚。',
   y:'宫颈癌 cT2bN1M0（II期）。'},
- {d:'2026-08-15',k:'检验',n:'血常规（辅助化疗第2周期前）',org:'抚州市第一医院',r:'WBC 3.5↓，Ⅰ度骨髓抑制',abn:true,
+ {d:'2026-08-15',k:'检验',n:'血常规（辅助化疗第2周期前）',org:'抚州市第一医院',r:'WBC 3.5↓，Ⅰ度骨髓抑制',rid:'IN-20260815',dept:'妇科',dr:'雷秀英',recog:'1',tech:'张海燕',sno:'JY20260815',review:'王军',remark:'结果无危急值',abn:true,
   items:[['白细胞','3.5','×10⁹/L','3.5~9.5',''],['中性粒细胞绝对值','1.8','×10⁹/L','1.8~6.3',''],['血小板','128','×10⁹/L','125~350','']],
   y:'轻度骨髓抑制，利可君口服对症处理后按期完成第2周期辅助化疗。'}],
 TE011:[
- {d:'2026-05-19',k:'检查',n:'结肠镜+活检',org:'鹰潭市人民医院',r:'乙状结肠环周占位；病理：腺癌（中分化）',abn:true,hot:true,
+ {d:'2026-05-19',k:'检查',n:'结肠镜+活检',org:'鹰潭市人民医院',r:'乙状结肠环周占位；病理：腺癌（中分化）',rid:'EX-20260519',dept:'胃肠外科',dr:'桂建平',recog:'1',tech:'张海燕',review:'王军',purpose:'便血伴排便习惯改变，明确病理',body:'直肠',method:'内镜下活检',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,hot:true,
   j:'距肛门25~32cm乙状结肠见环腔生长隆缩型病变，表面溃疡，肠腔狭窄；活检7块；余结直肠未见异常。',
   y:'乙状结肠癌（中分化腺癌）。'},
- {d:'2026-05-21',k:'检查',n:'胸腹盆CT增强（分期）',org:'鹰潭市人民医院',r:'乙状结肠壁增厚（T3）伴肠旁淋巴结；肝肺骨无转移',abn:true,hot:true,
+ {d:'2026-05-21',k:'检查',n:'胸腹盆CT增强（分期）',org:'鹰潭市人民医院',r:'乙状结肠壁增厚（T3）伴肠旁淋巴结；肝肺骨无转移',rid:'EX-20260521',dept:'胃肠外科',dr:'桂建平',recog:'1',tech:'张海燕',review:'王军',purpose:'明确病变性质及范围',body:'检查部位',method:'平扫',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,hot:true,
   j:'乙状结肠壁不规则增厚最厚约1.5cm，浆膜面模糊，肠旁脂肪内3枚小淋巴结；肝、双肺、骨骼未见转移征象。',
   y:'乙状结肠癌 cT3N1M0（III期）。'},
- {d:'2026-08-28',k:'检验',n:'辅助化疗结束复查组合',org:'鹰潭市人民医院',r:'CEA 3.2正常，血象肝肾功能正常',abn:false,
+ {d:'2026-08-28',k:'检验',n:'辅助化疗结束复查组合',org:'鹰潭市人民医院',r:'CEA 3.2正常，血象肝肾功能正常',rid:'IN-20260828',dept:'胃肠外科',dr:'桂建平',recog:'1',tech:'张海燕',sno:'JY20260828',review:'王军',remark:'结果无危急值',abn:false,
   items:[['CEA','3.2','ng/mL','0~5.0',''],['CA19-9','12.4','U/mL','0~27.0',''],['白细胞','5.2','×10⁹/L','3.5~9.5',''],['血小板','204','×10⁹/L','125~350','']],
   y:'完成全部周期辅助化疗，标志物及血象正常，转入术后随访阶段。'}],
 TE012:[
- {d:'2026-06-08',k:'检查',n:'乳腺彩超',org:'渝水区城北街道社区卫生服务中心',r:'左乳结节1.4cm，BI-RADS 5',abn:true,
+ {d:'2026-06-08',k:'检查',n:'乳腺彩超',org:'渝水区城北街道社区卫生服务中心',r:'左乳结节1.4cm，BI-RADS 5',rid:'EX-CX20260608',dept:'门诊',dr:'社区全科医生',recog:'1',tech:'张海燕',review:'王军',purpose:'明确病变性质及范围',body:'检查部位',method:'平扫',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,
   j:'左乳外上象限低回声结节1.4cm×1.0cm，形态不规则、边界毛刺，后方回声轻度衰减，血流2级。',
   y:'左乳结节 BI-RADS 5，建议穿刺活检。'},
- {d:'2026-06-12',k:'检验',n:'左乳结节穿刺·病理',org:'新余市人民医院',r:'浸润性导管癌（II级），Luminal A样',abn:true,hot:true,
+ {d:'2026-06-12',k:'检验',n:'左乳结节穿刺·病理',org:'新余市人民医院',r:'浸润性导管癌（II级），Luminal A样',rid:'IN-20260612',dept:'乳腺外科',dr:'章明华',recog:'1',tech:'张海燕',sno:'JY20260612',review:'王军',remark:'结果无危急值',abn:true,hot:true,
   j:'大体：穿刺组织4条。镜下：浸润性导管癌，II级。',
   y:'（左乳）浸润性导管癌，II级。ER(约90%+)，PR(约70%+)，HER2(1-)，Ki-67(约10%+)。'},
- {d:'2026-06-18',k:'检验',n:'术前血常规+凝血',org:'新余市人民医院',r:'术前评估未见异常',abn:false,
+ {d:'2026-06-18',k:'检验',n:'术前血常规+凝血',org:'新余市人民医院',r:'术前评估未见异常',rid:'IN-20260618',dept:'乳腺外科',dr:'章明华',recog:'1',tech:'张海燕',sno:'JY20260618',review:'王军',remark:'结果无危急值',abn:false,
   items:[['白细胞','5.6','×10⁹/L','3.5~9.5',''],['血红蛋白','124','g/L','115~150',''],['血小板','226','×10⁹/L','125~350',''],['凝血四项','未见异常','','','']],
   y:'术前评估合格，2026-06-20行保乳手术+前哨淋巴结活检。术后计划复查未见记录。'}],
 TE013:[
- {d:'2024-12-18',k:'检查',n:'肝脏MRI增强',org:'浙江大学医学院附属第一医院',r:'右肝后叶占位6.1cm，快进快出，考虑肝细胞癌',abn:true,hot:true,
+ {d:'2024-12-18',k:'检查',n:'肝脏MRI增强',org:'浙江大学医学院附属第一医院',r:'右肝后叶占位6.1cm，快进快出，考虑肝细胞癌',rid:'EX-20241218',dept:'肝胆胰外科',dr:'徐正宇',recog:'1',tech:'张海燕',review:'王军',purpose:'肝占位定性及分期',body:'肝右叶',method:'MRI动态增强',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,hot:true,
   j:'肝右叶后段(S7)见约6.1cm×5.6cm肿物，动脉期明显强化、门脉期廓清伴假包膜强化；肝硬化背景、脾大；未见肝内播散及血管侵犯征象。',
   y:'右肝占位符合肝细胞癌（BCLC A期）；肝硬化、脾大。'},
- {d:'2025-01-06',k:'检验',n:'外省术后病理（转档）',org:'浙江大学医学院附属第一医院',r:'肝细胞癌（中分化），MVI M0，切缘阴性',abn:true,hot:true,
+ {d:'2025-01-06',k:'检验',n:'外省术后病理（转档）',org:'浙江大学医学院附属第一医院',r:'肝细胞癌（中分化），MVI M0，切缘阴性',rid:'IN-20250106',dept:'肝胆胰外科',dr:'徐正宇',recog:'1',tech:'张海燕',sno:'JY20250106',review:'王军',remark:'结果无危急值',abn:true,hot:true,
   j:'大体：右肝叶切除标本，肿物6.3cm。镜下：中分化肝细胞癌。',
   y:'（右肝）肝细胞癌，中分化，MVI M0，切缘1.2cm阴性；背景小结节型肝硬化。'},
- {d:'2026-05-28',k:'检验',n:'肝功能+肿瘤标志物（回赣随访）',org:'南昌市第一医院',r:'TBil 86.4↑，Alb 26.0↓，INR 1.6↑，肝功能失代偿',abn:true,hot:true,
+ {d:'2026-05-28',k:'检验',n:'肝功能+肿瘤标志物（回赣随访）',org:'南昌市第一医院',r:'TBil 86.4↑，Alb 26.0↓，INR 1.6↑，肝功能失代偿',rid:'IN-20260528',dept:'肿瘤科',dr:'刘志远',recog:'1',tech:'张海燕',sno:'JY20260528',review:'王军',remark:'结果无危急值',abn:true,hot:true,
   items:[['总胆红素','86.4','μmol/L','3.4~17.1','↑'],['直接胆红素','42.1','μmol/L','0~6.8','↑'],['白蛋白','26.0','g/L','40.0~55.0','↓'],['INR','1.6','','0.8~1.2','↑'],['甲胎蛋白(AFP)','58.2','ng/mL','0~7.0','↑'],['血红蛋白','98','g/L','130~175','↓']],
   y:'未见肿瘤复发证据，但肝硬化基础致肝功能进行性恶化，Child-Pugh C级，反复腹水及消化道出血，对症保肝治疗。'},
- {d:'2026-06-05',k:'检查',n:'腹部彩超',org:'南昌市第一医院',r:'肝硬化失代偿：中量腹水、脾大、门脉高压',abn:true,
+ {d:'2026-06-05',k:'检查',n:'腹部彩超',org:'南昌市第一医院',r:'肝硬化失代偿：中量腹水、脾大、门脉高压',rid:'EX-20260605',dept:'肿瘤科',dr:'刘志远',recog:'1',tech:'张海燕',review:'王军',purpose:'肝硬化及腹水评估',body:'肝,脾,腹腔',method:'彩色多普勒超声',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,
   j:'肝脏表面不光滑，回声增粗不均，未见明确占位；腹腔中量液性暗区；脾厚5.8cm，门静脉主干内径1.7cm。',
   y:'肝硬化失代偿期、脾大、门静脉高压、中量腹水。（2026-06-10 患者死于肝功能衰竭）'}]
 };
@@ -559,15 +558,6 @@ function spFirstTreat(e){
   var ds=list.map(function(t){return t.start||t.date}).filter(Boolean).sort();
   return ds.length?ds[0]:(e.tTreat||'');
 }
-/* 确诊到首次治疗间隔：治疗及时性指标 */
-function spTreatInterval(e){
-  var a=e.diagDate||e.tConfirm,b=spFirstTreat(e);
-  if(!a||!b)return '—';
-  var d1=new Date(a),d2=new Date(b);
-  if(isNaN(d1)||isNaN(d2)||d2<d1)return '—';
-  var days=Math.round((d2-d1)/86400000);
-  return days+' 天';
-}
 /* ICD-10：由 ICD-O-3 部位码截取主码（C34.9 → C34），与病案/影像口径一致 */
 function spIcd10(e){var c=spTopoCode(e);return c?c.split('.')[0]:''}
 /* 筛查参与状态：由筛查时间/方式推导；「未参与」与「不详」严格区分 */
@@ -583,15 +573,11 @@ function spPathText(e){
   if(/^[中低高]分化$/.test(g))return p+(/分化/.test(p)?'':'（'+g+'）');
   return p+'（'+g+'）';
 }
-/* 分期依据：取病理学诊断或临床诊断，单独一项 */
-function spStageBasisType(e){
-  return spMorphCode(e)?'病理学诊断':'临床诊断';
-}
-/* 分期类型：初诊分期 / 治疗后重新分期（由分期时间与首次治疗日期比较判定） */
-function spStageTiming(e){
-  var t=e.stageDate,first=(e.treatments||[]).map(function(x){return x.start||x.date}).filter(Boolean).sort()[0]||e.tTreat;
-  if(!t)return '—';
-  return (first&&t>first)?'治疗后重新分期':'初诊分期';
+/* 诊断依据：病理学诊断 / 临床诊断（有形态学编码 → 病理学诊断）。对外展示、检查检验归集均用此口径 */
+function spDiagBasisType(e){return spMorphCode(e)?'病理学诊断':'临床诊断';}
+/* 分级：取 e.grade（如「中分化」「II级」），作为「临床分期」位置的展示项 */
+function spGradeText(e){
+  return (e&&e.grade)||'—';
 }
 /* 生存时间：确诊日期 → 死亡日期（已死亡）或末次随访日期（存活/失访），自动推算，不手工录入 */
 function spSurvival(e){
@@ -1300,7 +1286,7 @@ function spDomainPanel(list,agg,siteRows,cityRows){
     var sympN=list.filter(function(e){return (e.symptom||'').trim()&&e.symptom!=='无'}).length;
     var sympItems=[{k:'有症状（因症就诊）',v:sympN,color:'#f59e0b'},{k:'无症状',v:list.length-sympN,color:'#10b981'}];
     /* 诊断依据构成：病理学 / 临床 */
-    var basisDist={};list.forEach(function(e){var b=spStageBasisType(e);basisDist[b]=(basisDist[b]||0)+1});
+    var basisDist={};list.forEach(function(e){var b=spDiagBasisType(e);basisDist[b]=(basisDist[b]||0)+1});
     var basisItems=Object.keys(basisDist).map(function(k){return {k:k,v:basisDist[k]}});
     /* 地区早诊差异 */
     var cityEarly=cityRows.filter(function(r){return r.n>0}).sort(function(a,b){return b.agg.lateRate-a.agg.lateRate}).map(function(r){
@@ -1690,39 +1676,36 @@ function spTimeline(e){
     if(!seen[k]){seen[k]=1;uniq.push(nd)}
   });
   uniq.sort(function(a,b){return a.d<b.d?-1:1});
-  return '<div class="sp-tl-legend"><span><i style="background:var(--color-primary)"></i>诊疗节点</span><span><i style="background:#f59e0b"></i>检查检验（画像依据）</span><span><i style="background:#14b8a6"></i>转诊</span></div><div class="sp-timeline">'+uniq.map(function(nd){
+  return '<div class="sp-tl-legend"><span><i style="background:var(--color-primary)"></i>诊疗节点</span><span><i style="background:#f59e0b"></i>检查检验（影像/检验）</span><span><i style="background:#14b8a6"></i>转诊</span></div><div class="sp-timeline">'+uniq.map(function(nd){
     return '<div class="sp-tl-item'+(nd.t===1?' sp-tl-exam':nd.t===2?' sp-tl-ref':'')+'"><div class="sp-tl-date">'+esc(nd.d)+'</div><div class="sp-tl-content">'+esc(nd.c)+'</div></div>';
   }).join('')+'</div>';
-}
-function spDirBadge(d){
-  return badge(d,d.indexOf('下转')>=0?'badge-accent':d.indexOf('跨')>=0?'badge-caution':'badge-info');
 }
 function spExamTable(pid){
   var list=SP_EXAMS[pid]||[];
   if(!list.length)return '<div class="sp-chart-empty">暂无检查检验记录</div>';
   return '<div class="sp-table-wrap"><table class="data-table" style="min-width:620px"><thead><tr><th style="width:96px">时间</th><th style="width:60px">类型</th><th style="width:210px">项目</th><th class="txt">结果（结论）</th><th style="width:88px">操作</th></tr></thead><tbody>'+
   list.map(function(x,i){
-    return '<tr><td>'+esc(x.d)+'</td><td>'+badge(x.k,x.k==='检查'?'badge-info':'badge-accent')+'</td><td>'+esc(x.n)+(x.hot?'<span class="sp-hot">画像依据</span>':'')+'<div style="font-size:var(--fs-2xs);color:var(--color-text-muted)">'+esc(x.org)+'</div></td><td class="txt">'+esc(x.r)+' '+(x.abn?badge('异常','badge-caution'):badge('未见异常','badge-success'))+'</td><td class="ops"><button class="btn btn-ghost btn-xs" onclick="window._spExamView(\''+pid+'\','+i+')">查看结果</button></td></tr>';
+    return '<tr><td>'+esc(x.d)+'</td><td>'+badge(x.k,x.k==='检查'?'badge-info':'badge-accent')+'</td><td>'+esc(x.n)+'<div style="font-size:var(--fs-2xs);color:var(--color-text-muted)">'+esc(x.org)+'</div></td><td class="txt"'+((x.abn)?' style="color:var(--color-danger-fg)"':'')+'>'+esc(x.r)+'</td><td class="ops"><button class="btn btn-ghost btn-xs" onclick="window._spExamView(\''+pid+'\','+i+')">查看结果</button></td></tr>';
   }).join('')+'</tbody></table></div>';
 }
 function spRefTable(pid){
   var list=SP_REFERRALS[pid]||[];
   if(!list.length)return '<div class="sp-chart-empty">无转院就诊记录（本机构直接建档管理）</div>';
-  return '<div class="sp-table-wrap"><table class="data-table" style="min-width:672px"><thead><tr><th style="width:96px">时间</th><th style="width:88px">类型</th><th style="width:36%">转出 → 转入</th><th class="txt">事由/目的</th><th style="width:190px">接诊状态</th><th style="width:72px">操作</th></tr></thead><tbody>'+
-  list.map(function(x,i){
-    return '<tr><td>'+esc(x.d)+'</td><td>'+spDirBadge(x.dir)+'</td><td>'+esc(x.from)+'<span style="color:var(--color-primary);padding:0 6px">→</span>'+esc(x.to)+'</td><td class="txt">'+esc(x.reason)+'</td><td>'+esc(x.status)+'</td><td class="ops"><button class="btn btn-ghost btn-xs" onclick="window._spRefView(\''+pid+'\','+i+')">查看</button></td></tr>';
+  /* 「类型」列已移除：转出→转入的方向本身已表达上/下转；「操作」列已移除：详情内容在此表内已展示完整 */
+  return '<div class="sp-table-wrap"><table class="data-table" style="min-width:560px"><thead><tr><th style="width:96px">时间</th><th style="width:38%">转出 → 转入</th><th class="txt">事由/目的</th><th style="width:240px">接诊状态</th></tr></thead><tbody>'+
+  list.map(function(x){
+    return '<tr><td>'+esc(x.d)+'</td><td>'+esc(x.from)+'<span style="color:var(--color-primary);padding:0 6px">→</span>'+esc(x.to)+'</td><td class="txt">'+esc(x.reason)+'</td><td>'+esc(x.status)+'</td></tr>';
   }).join('')+'</tbody></table></div>';
 }
 function spRptSec(title,bodyHtml){return '<div class="sp-rpt-sec"><div class="sp-rpt-t">'+esc(title)+'</div><div class="sp-rpt-c">'+bodyHtml+'</div></div>'}
-/* ================= 检查检验结果：宽幅阅片式查看器（内联于 IIFE，可访问私有数据） =================
-   替换原 spModal(min(720px,100%)×86vh 单栏) —— 影像与报告挤在一起导致信息显示不全。
-   注意：SP_EXAMS / tumorEvents / esc / badge / spRptSec 均为本 IIFE 私有，故必须内联，不可拆成外部脚本。 */
-/* ---- 影像材料登记表：key = 检查日期|检查项目名 ----------------------
-   src   : 影像地址（可为 data URI、相对路径、或 PACS 预览图 URL）
-   series: 序列数组 [{name:'正位PA', src:'...', note:''}]
-   roi   : 病灶标注，相对主图百分比 {x,y,r}（0~100）
-   size  : 测量值文案
-   --------------------------------------------------------------------- */
+/* ================= 检查检验结果弹窗：字段严格对齐《江西省全民健康信息平台数据接口规范 V3.1》 =================
+   对照口径（只展示接口文档存在的字段，不新增任何自定义字段）：
+   · 检查 → 检查记录 examination_record（CDR_5411）  + 检查项目 examination_exam
+   · 检验 → 检验记录 inspection_record（CDR_5401）   + 检验结果(常规) inspection_test_res
+   影像 → 检查记录.image_link / innet_image_link / doc_format（附件类型 14DICOM）与 8.3 DICOM 影像采集接口
+   注意：SP_EXAMS / tumorEvents / esc / badge 均为本 IIFE 私有，故必须内联，不可拆成外部脚本。 */
+/* ---- 影像材料登记表：key = 检查日期|检查项目名（对应 检查记录.image_link / innet_image_link 所指的 DICOM 影像） ----
+   src: 影像地址（data URI / 相对路径 / PACS 预览图 URL）  roi: 病灶标注（相对主图百分比）  size: 报告中的测量值  series: 序列 */
 var EXAM_IMAGES = {
   '2026-01-19|胸部DR': {
     src: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
@@ -1743,8 +1726,7 @@ var EXAM_IMAGES = {
       '<text x="20" y="386" fill="#6a6a6a" font-size="10" font-family="sans-serif">120kVp 4mAs STAND</text>' +
       '</svg>'),
     roi: { x: 58, y: 37, r: 11 },
-    size: '3.2 × 2.7 cm',
-    series: [{ name: '正位 PA' }, { name: '侧位 LAT' }, { name: '局部放大' }, { name: '历史对比 2025-06' }]
+    size: '3.2 × 2.7 cm'
   },
   '2026-01-28|胸部CT增强': {
     src: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
@@ -1765,133 +1747,217 @@ var EXAM_IMAGES = {
       '<text x="20" y="386" fill="#6a6a6a" font-size="10" font-family="sans-serif">WL 40 WW 400 CE</text>' +
       '</svg>'),
     roi: { x: 64, y: 38, r: 12 },
-    size: '3.4 × 2.8 cm',
-    series: [{ name: '肺窗' }, { name: '纵隔窗' }, { name: '增强动脉期' }, { name: '冠状位 MPR' }, { name: '淋巴结 4R' }]
+    size: '3.4 × 2.8 cm'
   }
 };
 
-/* 按检查类型推断阅片位占位说明（无图时使用） */
-function spImgPlaceholder(kind) {
-  if (kind === '检验') return null;
-  if (/CT/i.test(kind)) return { tip: 'CT 断层影像', hint: '可接入 PACS 调阅原始 DICOM 序列' };
-  if (/MRI|MR/i.test(kind)) return { tip: 'MRI 断层影像', hint: '可接入 PACS 调阅原始 DICOM 序列' };
-  if (/DR|X线|钼靶|X光/i.test(kind)) return { tip: 'X 线 / DR 影像', hint: '可接入 PACS 调阅原始影像' };
-  if (/骨显像|ECT|PET/i.test(kind)) return { tip: '核医学影像', hint: '可接入 PACS 调阅原始影像' };
-  return { tip: '影像资料', hint: '可接入 PACS 调阅原始影像' };
+var SP_PACS_STORE_CODE = '123502004266007916';   /* 影像云索引「存储单位代码」示例值（接口文档 8.x 影像云索引规则） */
+
+/* 由结果提示（↑↓+）判定检查结果代码 CC04_30_017：1正常 2异常 3不确定 */
+function spResCode(s) { return (s === '↑' || s === '↓' || s === '+') ? '2' : '1'; }
+
+/* 按检查项目名称取影像材料（影像链接） */
+function spExamImage(x) {
+  var hit = null;
+  Object.keys(EXAM_IMAGES).forEach(function (key) {
+    if (hit) return;
+    var parts = key.split('|');
+    if (parts[0] === x.d && parts[1] === x.n) hit = EXAM_IMAGES[key];
+  });
+  return hit;
+}
+/* 影像云索引：身份证类型(6)-证件号码(34)-检查日期时间(14)-成像设备代码(13)-检查部位代码(9)-存储单位代码(18)，共 94 位 */
+function spCloudIndex(e, x) {
+  return spF('111') + '-' + spF(e && e.idNo || '', 34) + '-' + spF(x.d.replace(/\D/g, '') + '000000', 14) +
+    '-' + spF('0', 13) + '-' + spF('0', 9) + '-' + spF(SP_PACS_STORE_CODE, 18);
+}
+function spF(v, n) { v = String(v == null ? '' : v); while (v.length < n) v += ' '; return v.slice(0, n); }
+
+/* ---- 检验结果(常规)检出的定性/定量结果，统一展示为字符 ---- */
+function spLabResultText(it) { return String(it[1] == null ? '' : it[1]); }
+
+/* 通用「字段」表：rows = [[中文名称, 节点标识(仅代码留档，不展示), 值], ...]；界面只显示中文名称 */
+function spFldTable(rows) {
+  var body = rows.map(function (r) {
+    var v = (r[2] === undefined || r[2] === null || r[2] === '') ? '—' : r[2];
+    return '<tr><th class="spfx-k">' + esc(r[0]) + '</th><td class="spfx-v txt">' + (/^—$/.test(v) ? '—' : esc(String(v))) + '</td></tr>';
+  }).join('');
+  return '<div class="sp-table-wrap"><table class="data-table spfx-table"><tbody>' + body + '</tbody></table></div>';
+}
+function spFxRow(label, code, val) { return [label, code, val]; }
+
+/* ---- 患者与就诊：检查/检验记录公共字段（只留认人认机构必需的字段） ---- */
+function spVisitRows(e, x) {
+  return [
+    spFxRow('患者姓名', 'name', e && e.patient),
+    spFxRow('性别名称', 'sex_name', e && e.sex),
+    spFxRow('年龄（岁）', 'age', e ? e.age : ''),
+    spFxRow('就诊机构名称', 'visit_org_name', x.org),
+    spFxRow('检查/检验报告机构名称', 'report_organization_name', x.org)
+  ];
+}
+function spJoinRows(list) { return list.map(function (r) { return r[2]; }).join(' / '); }
+
+/* ---- 检查记录 examination_record + 检查项目 examination_exam ---- */
+function spReportExam(e, x) {
+  var html = '';
+  html += '<div class="sp-rpt-sec"><div class="sp-rpt-t">患者与就诊信息</div><div class="sp-rpt-c">' +
+    spFldTable(spVisitRows(e, x)) + '</div></div>';
+
+  /* 签名（检查医师/技师/报告医师/审核医师）、编码类、链接类、备注类字段不进弹窗，接口直连时由对接层统一映射 */
+  html += '<div class="sp-rpt-sec"><div class="sp-rpt-t">检查报告信息</div><div class="sp-rpt-c">' +
+    spFldTable([
+      spFxRow('记录名称', 'record_title', x.n),
+      spFxRow('检查日期时间', 'execute_date', x.d),
+      spFxRow('报告单编号', 'report_id', x.rid),
+      spFxRow('检查申请科室名称', 'request_dept_name', x.dept),
+      spFxRow('检查报告科室名称', 'report_dept_name', x.dept),
+      spFxRow('检查目的', 'examination_purpose', x.purpose),
+      spFxRow('检查报告结果（客观）', 'examination_display', x.j),
+      spFxRow('检查报告结果（主观）', 'examination_result', x.y),
+      spFxRow('参考意见或建议', 'suggestion', x.sug)
+    ]) + '</div></div>';
+
+  /* 检查项目（examination_exam）：表头即接口字段中文名称 */
+  html += '<div class="sp-rpt-sec"><div class="sp-rpt-t">检查项目</div><div class="sp-rpt-c">' +
+    '<div class="sp-table-wrap"><table class="data-table" style="min-width:420px"><thead><tr>' +
+    '<th class="txt" style="width:34%">检查项目名称</th><th>检查部位名称</th><th>检查方法名称</th><th style="width:96px">检查结果名称</th>' +
+    '</tr></thead><tbody><tr>' +
+    '<td class="txt">' + esc(x.n) + '</td><td>' + esc(x.body || '—') + '</td><td>' + esc(x.method || '—') + '</td>' +
+    '<td' + (x.abn ? ' style="color:var(--color-danger-fg);font-weight:700"' : '') + '>' + esc(x.abn ? '异常' : '正常') + '</td>' +
+    '</tr></tbody></table></div></div></div>';
+
+  return html;
 }
 
-/* ---- 阅片器（左栏） ---- */
-function spImagingPane(x) {
-  var img = EXAM_IMAGES[x.d + '|' + x.n];
-  var ph = spImgPlaceholder(x.k);
-  var head = '<div class="spvw-pane-head"><span class="spvw-pane-title">影像资料</span>' +
-    '<span class="spvw-pane-sub">' + esc(x.n) + ' · ' + esc(x.d) + '</span></div>';
+/* ---- 检验记录 inspection_record + 检验结果(常规) inspection_test_res ---- */
+function spReportLab(e, x) {
+  var html = '';
+  html += '<div class="sp-rpt-sec"><div class="sp-rpt-t">患者与就诊信息</div><div class="sp-rpt-c">' +
+    spFldTable(spVisitRows(e, x)) + '</div></div>';
 
-  if (!img) {
-    if (!ph) return '';
-    return '<section class="spvw-pane spvw-pane-img">' + head +
-      '<div class="spvw-viewer"><div class="spvw-noimg">' +
-      '<div class="spvw-noimg-ico">🖼</div>' +
-      '<div class="spvw-noimg-t">' + esc(ph.tip) + '</div>' +
-      '<div class="spvw-noimg-h">' + esc(ph.hint) + '</div>' +
-      '</div></div></section>';
-  }
+  /* 签名（检验医师/技师/报告/审核）、标本过程类、打印/自动审核标志、链接类字段不进弹窗 */
+  html += '<div class="sp-rpt-sec"><div class="sp-rpt-t">检验报告信息</div><div class="sp-rpt-c">' +
+    spFldTable([
+      spFxRow('项目名', 'project_name', x.n),
+      spFxRow('检验日期', 'inspection_date', x.d),
+      spFxRow('检验报告单编号', 'report_id', x.rid),
+      spFxRow('检验申请科室', 'request_dept_name', x.dept),
+      spFxRow('检验报告科室', 'report_dept_name', x.dept),
+      spFxRow('检验异常标志', 'exception_flag', x.abn ? '异常' : '正常'),
+      spFxRow('检验报告结果-客观所见', 'report_result', x.j),
+      spFxRow('检验报告结果-主观提示', 'report_subjectivity_result', x.y)
+    ]) + '</div></div>';
 
-  var roiStyle = img.roi
-    ? 'left:' + img.roi.x + '%;top:' + img.roi.y + '%;width:' + (img.roi.r * 2) + '%;padding-bottom:' + (img.roi.r * 2) + '%'
-    : '';
-  var tools = [
-    ['🔍', '原始', 1], ['✨', '增强', 0], ['⚖', '对比', 0], ['📏', '测量', 0],
-    ['◐', '窗宽', 0], ['☀', '窗位', 0], ['↻', '翻转', 0], ['⤢', '全屏', 0]
-  ].map(function (t) {
-    return '<button class="spvw-tool' + (t[2] ? ' active' : '') + '" type="button">' +
-      '<i>' + t[0] + '</i><span>' + t[1] + '</span></button>';
+  /* 检验结果(常规)（inspection_test_res）：无明细指标时，以记录级结果作为单条结果呈现 */
+  var rows = x.items || [[x.n, x.r, '', '', x.abn ? '↑' : '']];
+  var hasItems = !!x.items;
+  var trs = rows.map(function (it) {
+    var flag = it[4] || '', ab = spResCode(flag) === '2';
+    var res = spLabResultText(it);
+    return '<tr' + (ab ? ' class="sp-lab-abn"' : '') + '>' +
+      '<td class="txt">' + esc(it[0]) + '</td>' +
+      '<td style="font-weight:700">' + esc(res) + '</td>' +
+      '<td>' + esc(it[2] || '—') + '</td>' +
+      '<td>' + esc(it[3] || '—') + '</td>' +
+      '<td>' + esc(ab ? '异常' : '正常') + '</td>' +
+      '<td style="font-weight:700">' + (flag === '↑' || flag === '+' ? '<span style="color:var(--color-danger-fg)">' + esc(flag) + '</span>' : flag === '↓' ? '<span style="color:var(--color-primary)">↓</span>' : '') + '</td>' +
+      '</tr>';
   }).join('');
+  html += '<div class="sp-rpt-sec"><div class="sp-rpt-t">检验结果（常规）</div><div class="sp-rpt-c">' +
+    '<div class="sp-table-wrap"><table class="data-table" style="min-width:560px"><thead><tr>' +
+    '<th class="txt" style="width:32%">检验项目名称</th><th style="width:130px">检验定量结果</th><th style="width:90px">计量单位</th>' +
+    '<th style="width:112px">参考值范围</th><th style="width:82px">检验结果名称</th><th style="width:48px">结果标识</th>' +
+    '</tr></thead><tbody>' + trs + '</tbody></table></div>' +
+    (hasItems ? '' : '<div class="spfx-note-line">该报告未回传逐项检验结果，以上为报告级结果。</div>') +
+    '</div></div>';
+  return html;
+}
 
-  var thumbs = (img.series || []).map(function (s, i) {
-    return '<div class="spvw-thumb' + (i === 0 ? ' active' : '') + '">' + esc(s.name) + '</div>';
-  }).join('');
-
-  return '<section class="spvw-pane spvw-pane-img">' + head +
-    '<div class="spvw-viewer">' +
-    '<div class="spvw-stage">' +
-    '<img class="spvw-img" src="' + img.src + '" alt="' + esc(x.n) + '">' +
-    '<div class="spvw-ovl">' +
-    '<div>STUDY: ' + esc(x.n) + '</div>' +
-    '<div>DATE: ' + esc(x.d) + '</div>' +
-    '<div>ORG: ' + esc(x.org) + '</div>' +
-    '</div>' +
-    (roiStyle ? '<div class="spvw-roi" style="' + roiStyle + '"></div>' : '') +
-    (img.size ? '<div class="spvw-measure">◉ ' + esc(img.size) + '</div>' : '') +
-    '</div>' +
-    '<div class="spvw-tools">' + tools + '</div>' +
-    (thumbs ? '<div class="spvw-thumbs">' + thumbs + '</div>' : '') +
-    '</div></section>';
+/* ---- 结论小结：只拼接口字段值（检验报告结果-主观提示 / 检查报告结果（主观）） ---- */
+function spReportSummary(x) {
+  if (x.k === '检查') return x.abn ? '<span class="sp-abn-mark">' + esc(x.y) + '</span>' : esc(x.y);
+  return x.items ? esc(x.y) : (x.abn ? '<span class="sp-abn-mark">' + esc(x.r) + '</span>' : esc(x.r));
 }
 
 /* ---- 主入口：检查检验结果查看器（表格内 onclick="window._spExamView(...)" 调用）---- */
 function _spExamView(pid, i) {
   var x = (SP_EXAMS[pid] || [])[i]; if (!x) return;
   var e = tumorEvents.filter(function (t) { return t.id === pid; })[0];
-  var hasImg = !!EXAM_IMAGES[x.d + '|' + x.n] || !!spImgPlaceholder(x.k);
+  var img = x.k === '检查' ? spExamImage(x) : null;
+  var hasImg = x.k === '检查';
 
-  /* 顶部患者信息条 */
-  var info = '<div class="spvw-info">' +
-    '<span><b>患者</b>' + esc(e ? e.patient + '（' + e.sex + '，' + e.age + '岁）' : pid) + '</span>' +
-    '<span><b>时间</b>' + esc(x.d) + '</span>' +
-    '<span><b>类型</b>' + esc(x.k) + '</span>' +
-    '<span><b>机构</b>' + esc(x.org) + '</span>' +
-    (x.hot ? '<span>' + badge('画像依据', 'badge-info') + '</span>' : '') +
-    (x.abn ? '<span>' + badge('结果异常', 'badge-caution') : '<span>' + badge('未见异常', 'badge-success')) + '</span>' +
-    '</div>';
+  var info = [
+    ['患者', e ? e.patient + '（' + e.sex + '，' + e.age + '岁）' : pid],
+    ['日期', x.d],
+    ['类别', x.k],
+    ['机构', x.org]
+  ].map(function (r) { return '<span><b>' + esc(r[0]) + '</b>' + esc(r[1]) + '</span>'; }).join('');
 
-  /* 报告正文 */
-  var body = '';
-  if (x.items) {
-    body += '<div class="sp-rpt-sec"><div class="sp-rpt-t">检验结果明细</div><div class="sp-table-wrap">' +
-      '<table class="data-table" style="min-width:620px"><thead><tr><th class="txt">项目</th><th style="width:130px">结果</th><th style="width:86px">单位</th><th style="width:110px">参考区间</th><th style="width:44px">提示</th></tr></thead><tbody>' +
-      x.items.map(function (it) {
-        var f = it[4] || '', ab = f === '↑' || f === '↓' || f === '+';
-        return '<tr' + (ab ? ' class="sp-lab-abn"' : '') + '><td class="txt">' + esc(it[0]) + '</td><td style="font-weight:700">' + esc(String(it[1])) + '</td><td>' + esc(it[2] || '—') + '</td><td>' + esc(it[3] || '—') + '</td><td style="font-weight:700">' +
-          (f === '↑' || f === '+' ? '<span style="color:var(--color-danger-fg)">' + (f === '+' ? '+' : '↑') + '</span>' : f === '↓' ? '<span style="color:var(--color-primary)">↓</span>' : '') +
-          '</td></tr>';
-      }).join('') + '</tbody></table></div></div>';
-  } else if (x.j) {
-    body += spRptSec(x.k === '检查' ? '检查所见' : '大体与镜下所见', esc(x.j));
-  }
-  if (x.y) body += spRptSec(x.items ? '结果说明' : (x.k === '检查' ? '影像/内镜结论' : '诊断意见'), esc(x.y));
-  body += spRptSec('结论小结', esc(x.r) + ' ' + (x.abn ? badge('结果异常', 'badge-caution') : badge('未见异常', 'badge-success')));
-
-  /* 结论区高亮（异常时）：文案按检查/检验区分，不硬套「影像」二字 */
-  if (x.abn) {
-    var isExam = x.k === '检查';
-    var alertT = isExam
-      ? '本项检查结果异常，建议结合影像所见与临床进一步评估'
-      : '本项检验结果异常，建议结合临床与既往基线进一步评估';
-    var alertC = isExam
-      ? '请主管医师确认后续诊疗路径；如需多学科讨论可在 MDT 模块发起。'
-      : '如为疗效监测指标，建议与基线值及既往趋势对比判读。';
-    body += '<div class="spvw-alert"><span class="spvw-alert-ico">⚠</span><div>' +
-      '<div class="spvw-alert-t">' + alertT + '</div>' +
-      '<div class="spvw-alert-c">' + alertC + '</div>' +
-      '</div></div>';
-  }
-
-  var foot = '<button class="btn btn-ghost btn-sm" data-sp-close>关闭</button>' +
-    (hasImg && x.k === '检查' ? '<button class="btn btn-ghost btn-sm" type="button">调阅 PACS 原始影像</button>' : '') +
-    '<button class="btn btn-primary btn-sm" type="button">导出报告 PDF</button>';
+  var body = (x.k === '检查' ? spReportExam(e, x) : spReportLab(e, x));
+  body += '<div class="sp-rpt-sec"><div class="sp-rpt-t">结论小结</div><div class="sp-rpt-c">' + spReportSummary(x) + '</div></div>';
 
   spModalWide(
     '检查检验结果 · ' + x.n,
     '<div class="spvw' + (hasImg ? '' : ' spvw-narrow') + '">' +
-    (hasImg ? spImagingPane(x) : '') +
+    (hasImg ? spImagingPane(x, img, e) : '') +
     '<section class="spvw-pane spvw-pane-rpt">' +
-    '<div class="spvw-rpt-body">' + info + body + '</div>' +
+    '<div class="spvw-rpt-body"><div class="spvw-info">' + info + '</div>' + body + '</div>' +
     '</section></div>',
-    foot
+    '<button class="btn btn-ghost btn-sm" data-sp-close>关闭</button>'
   );
 }
 window._spExamView = _spExamView;
+
+/* ---- 影像阅片：只保留 放大 / 缩小 / 全屏 三个操作（全屏后再点一次退出，Esc 退出） ---- */
+function spImagingPane(x, img, e) {
+  var head = '<div class="spvw-pane-head"><span class="spvw-pane-title">影像资料</span>' +
+    '<span class="spvw-pane-sub">' + esc(x.n) + ' · ' + esc(x.d) + '</span></div>';
+  var zoomTools = [
+    ['−', '缩小', 'data-sp-zoom="-1"'],
+    ['+', '放大', 'data-sp-zoom="1"'],
+    ['⛶', '全屏', 'data-sp-full="1"']
+  ].map(function (t) {
+    return '<button class="spvw-tool" type="button" ' + t[2] + ' title="' + t[1] + '">' +
+      '<i>' + t[0] + '</i><span>' + t[1] + '</span></button>';
+  }).join('');
+
+  /* 影像云索引（接口文档 8.x 影像云索引规则）：按检查记录可定位 DICOM 原始序列 */
+  var idx = spCloudIndex(e, x);
+
+  if (!img) {
+    return '<section class="spvw-pane spvw-pane-img">' + head +
+      '<div class="spvw-viewer"><div class="spvw-noimg">' +
+      '<div class="spvw-noimg-ico">🗂</div>' +
+      '<div class="spvw-noimg-t">暂无影像</div>' +
+      '<div class="spvw-noimg-h">该检查未回传影像，可查看右侧报告</div>' +
+      '</div>' +
+      '<div class="spvw-index"><span>影像云索引</span><code>' + esc(idx) + '</code></div>' +
+      '</div></section>';
+  }
+
+  var roiStyle = img.roi
+    ? 'left:' + img.roi.x + '%;top:' + img.roi.y + '%;width:' + (img.roi.r * 2) + '%;padding-bottom:' + (img.roi.r * 2) + '%'
+    : '';
+
+  return '<section class="spvw-pane spvw-pane-img">' + head +
+    '<div class="spvw-viewer">' +
+    '<div class="spvw-stage">' +
+    '<div class="spvw-zoomwrap">' +
+    '<img class="spvw-img" src="' + img.src + '" alt="' + esc(x.n) + '">' +
+    (roiStyle ? '<div class="spvw-roi" style="' + roiStyle + '"></div>' : '') +
+    '</div>' +
+    '<div class="spvw-ovl">' +
+    '<div>检查项目：' + esc(x.n) + '</div>' +
+    '<div>检查日期：' + esc(x.d) + '</div>' +
+    '<div>检查机构：' + esc(x.org) + '</div>' +
+    '</div>' +
+    (img.size ? '<div class="spvw-measure">◉ ' + esc(img.size) + '</div>' : '') +
+    '</div>' +
+    '<div class="spvw-tools">' + zoomTools + '</div>' +
+    '<div class="spvw-index"><span>影像云索引</span><code>' + esc(idx) + '</code></div>' +
+    '</div></section>';
+}
 
 /* ---- 宽幅模态：与 spModal 同交互（点遮罩/×/关闭按钮关闭），仅尺寸与结构升级 ---- */
 function spModalWide(title, bodyHtml, foot) {
@@ -1910,31 +1976,59 @@ function spModalWide(title, bodyHtml, foot) {
   mask.addEventListener('click', function (ev) { if (ev.target === mask) mask.remove(); });
   box.querySelector('.spvw-x').addEventListener('click', function () { mask.remove(); });
   box.querySelectorAll('[data-sp-close]').forEach(function (b) { b.addEventListener('click', function () { mask.remove(); }); });
-  /* 阅片器轻交互：工具切换 / 序列切换 */
-  box.querySelectorAll('.spvw-tool').forEach(function (b) {
+
+  /* 放大 / 缩小 / 全屏 */
+  var wrap = box.querySelector('.spvw-zoomwrap');
+  var img = wrap && wrap.querySelector('.spvw-img');
+  var zoom = 1, baseW = 100, baseH = 100;
+  function applyZoom() {
+    if (!img) return;
+    img.style.width = (baseW * zoom) + '%';
+    img.style.height = (baseH * zoom) + '%';
+    wrap.classList.toggle('zoomed', zoom > 1);
+  }
+  box.querySelectorAll('[data-sp-zoom]').forEach(function (b) {
     b.addEventListener('click', function () {
-      box.querySelectorAll('.spvw-tool').forEach(function (t) { t.classList.remove('active'); });
-      this.classList.add('active');
+      if (!img) return;
+      var full = box.classList.contains('spvw-full');
+      zoom = Math.min(4, Math.max(0.5, zoom + (Number(b.getAttribute('data-sp-zoom')) > 0 ? 0.25 : -0.25)));
+      if (full) { baseW = 100; baseH = 100; }   /* 全屏下按舞台铺满再缩放 */
+      applyZoom();
     });
   });
-  box.querySelectorAll('.spvw-thumb').forEach(function (t) {
-    t.addEventListener('click', function () {
-      box.querySelectorAll('.spvw-thumb').forEach(function (o) { o.classList.remove('active'); });
-      this.classList.add('active');
-    });
+  var fullBtn = box.querySelector('[data-sp-full]');
+  function toggleFull() {
+    var on = box.classList.toggle('spvw-full');
+    if (fullBtn) { fullBtn.querySelector('span').textContent = on ? '退出全屏' : '全屏'; fullBtn.classList.toggle('active', on); }
+    zoom = 1; baseW = 100; baseH = 100; applyZoom();
+  }
+  if (fullBtn) fullBtn.addEventListener('click', toggleFull);
+  mask.__spEsc = function (ev) {
+    if (ev.key !== 'Escape') return;
+    if (box.classList.contains('spvw-full')) { toggleFull(); ev.preventDefault(); }
+    else { mask.remove(); }
+  };
+  document.addEventListener('keydown', mask.__spEsc);
+
+  var mo = new MutationObserver(function () {
+    if (!document.body.contains(mask)) { document.removeEventListener('keydown', mask.__spEsc); mo.disconnect(); }
   });
+  mo.observe(document.body, { childList: true });
+
   (document.getElementById('pageContainer') || document.body).appendChild(mask);
   return mask;
 }
 
 /* ---- 样式注入（复用站点设计令牌） ---- */
 (function () {
-  if (document.getElementById('spvw-style')) return;
+  var old = document.getElementById('spvw-style'); if (old) old.remove();
   var st = document.createElement('style');
   st.id = 'spvw-style';
   st.textContent = `
 .spvw-mask{position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;z-index:1200;padding:24px}
-.spvw-box{display:flex;flex-direction:column;width:min(1240px,100%);height:min(92vh,900px);background:var(--surface);border-radius:var(--radius-lg);box-shadow:0 24px 60px rgba(15,23,42,.34);overflow:hidden}
+.spvw-box{display:flex;flex-direction:column;width:min(1240px,100%);height:min(92vh,900px);background:var(--surface);border-radius:var(--radius-lg);box-shadow:0 24px 60px rgba(15,23,42,.34);overflow:hidden;transition:width .18s ease,height .18s ease,border-radius .18s ease}
+.spvw-box.spvw-full{width:100vw;height:100vh;border-radius:0}
+.spvw-mask:has(.spvw-full){padding:0}
 .spvw-head{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--color-border);flex:0 0 auto;background:var(--surface)}
 .spvw-head-t{font-size:var(--fs-h2);font-weight:var(--fw-bold);color:var(--color-text-title)}
 .spvw-x{width:30px;height:30px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--color-text-muted);cursor:pointer;font-size:20px;line-height:1;transition:background var(--dur-fast)}
@@ -1942,7 +2036,7 @@ function spModalWide(title, bodyHtml, foot) {
 .spvw-body{flex:1 1 auto;min-height:0;overflow:hidden;padding:0}
 .spvw-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;border-top:1px solid var(--color-border);flex:0 0 auto;background:var(--surface)}
 
-.spvw{display:grid;grid-template-columns:minmax(340px,400px) 1fr;height:100%;min-height:0}
+.spvw{display:grid;grid-template-columns:minmax(380px,460px) 1fr;height:100%;min-height:0}
 .spvw.spvw-narrow{grid-template-columns:1fr}
 .spvw-pane{min-width:0;min-height:0;display:flex;flex-direction:column}
 .spvw-pane-img{border-right:1px solid var(--color-border);background:var(--color-gray-25)}
@@ -1953,23 +2047,23 @@ function spModalWide(title, bodyHtml, foot) {
 .spvw-viewer{padding:14px;display:flex;flex-direction:column;gap:10px;overflow:auto;min-height:0}
 
 .spvw-stage{position:relative;width:100%;aspect-ratio:1/1;background:#0a0a0a;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--color-gray-300)}
-.spvw-img{width:100%;height:100%;object-fit:cover;display:block}
-.spvw-ovl{position:absolute;left:10px;top:10px;background:rgba(0,0,0,.62);color:#fff;font-size:10px;line-height:1.65;padding:7px 9px;border-radius:var(--radius-xs);max-width:78%;backdrop-filter:blur(3px)}
+.spvw-zoomwrap{position:absolute;inset:0;overflow:auto;display:flex;align-items:flex-start;justify-content:center}
+.spvw-zoomwrap.zoomed{align-items:flex-start}
+.spvw-img{width:100%;height:100%;object-fit:contain;display:block;flex:0 0 auto}
+.spvw-ovl{position:absolute;left:10px;top:10px;background:rgba(0,0,0,.62);color:#fff;font-size:10px;line-height:1.65;padding:7px 9px;border-radius:var(--radius-xs);max-width:78%;pointer-events:none;backdrop-filter:blur(3px)}
 .spvw-ovl div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .spvw-roi{position:absolute;border:2px dashed #ef4444;border-radius:50%;box-sizing:border-box;animation:spvwPulse 2s infinite;pointer-events:none}
 @keyframes spvwPulse{0%,100%{opacity:1}50%{opacity:.5}}
-.spvw-measure{position:absolute;right:10px;bottom:10px;background:rgba(220,38,38,.92);color:#fff;font-size:var(--fs-xs);font-weight:var(--fw-bold);padding:6px 10px;border-radius:var(--radius-sm);display:flex;align-items:center;gap:5px}
+.spvw-measure{position:absolute;right:10px;bottom:10px;background:rgba(220,38,38,.92);color:#fff;font-size:var(--fs-xs);font-weight:var(--fw-bold);padding:6px 10px;border-radius:var(--radius-sm);display:flex;align-items:center;gap:5px;pointer-events:none}
 
-.spvw-tools{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.spvw-tool{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;border:1px solid var(--color-border);background:var(--surface);border-radius:var(--radius-sm);font-size:var(--fs-2xs);color:var(--color-text-body);cursor:pointer;font-family:inherit;transition:all var(--dur-fast)}
-.spvw-tool i{font-style:normal;font-size:13px;line-height:1}
+.spvw-tools{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.spvw-tool{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px;border:1px solid var(--color-border);background:var(--surface);border-radius:var(--radius-sm);font-size:var(--fs-2xs);color:var(--color-text-body);cursor:pointer;font-family:inherit;transition:all var(--dur-fast)}
+.spvw-tool i{font-style:normal;font-size:14px;line-height:1;font-weight:var(--fw-bold)}
 .spvw-tool:hover{border-color:var(--color-primary-300);color:var(--color-primary);background:var(--color-primary-50)}
 .spvw-tool.active{background:var(--color-primary);border-color:var(--color-primary);color:var(--color-text-invert)}
 
-.spvw-thumbs{display:flex;gap:7px;overflow-x:auto;padding-bottom:2px}
-.spvw-thumb{flex:0 0 auto;min-width:74px;height:54px;display:flex;align-items:center;justify-content:center;text-align:center;padding:4px;background:var(--color-gray-100);border:2px solid var(--color-border);border-radius:var(--radius-sm);font-size:var(--fs-2xs);color:var(--color-text-muted);cursor:pointer;transition:all var(--dur-fast);line-height:1.25}
-.spvw-thumb:hover{border-color:var(--color-gray-400)}
-.spvw-thumb.active{border-color:var(--color-primary);color:var(--color-primary);background:var(--color-primary-50)}
+.spvw-index{display:flex;flex-direction:column;gap:3px;font-size:var(--fs-2xs);color:var(--color-text-muted)}
+.spvw-index code{display:block;font-family:ui-monospace,Consolas,monospace;font-size:10px;line-height:1.5;color:var(--color-text-body);background:var(--color-gray-100);border-radius:var(--radius-xs);padding:6px 8px;word-break:break-all}
 
 .spvw-noimg{width:100%;aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:var(--color-gray-100);border:1px dashed var(--color-gray-300);border-radius:var(--radius-md);color:var(--color-text-muted);text-align:center;padding:20px}
 .spvw-noimg-ico{font-size:30px;opacity:.5}
@@ -1981,10 +2075,15 @@ function spModalWide(title, bodyHtml, foot) {
 .spvw-info{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:var(--fs-sm);color:var(--color-text-body);margin-bottom:14px;padding-bottom:12px;border-bottom:1px dashed var(--color-border)}
 .spvw-info b{color:var(--color-text-muted);font-weight:var(--fw-medium);margin-right:4px}
 
-.spvw-alert{display:flex;gap:10px;align-items:flex-start;margin-top:14px;padding:12px 14px;background:var(--color-danger-bg);border:1px solid var(--color-danger-border);border-left:3px solid var(--color-danger-solid);border-radius:0 var(--radius-md) var(--radius-md) 0}
-.spvw-alert-ico{font-size:15px;line-height:1.4}
-.spvw-alert-t{font-size:var(--fs-sm);font-weight:var(--fw-semibold);color:var(--color-danger-fg)}
-.spvw-alert-c{font-size:var(--fs-xs);color:var(--color-text-muted);margin-top:3px;line-height:1.6}
+.sp-rpt-sec{margin-bottom:14px}
+.sp-rpt-t{display:flex;align-items:baseline;gap:8px;font-size:var(--fs-sm);font-weight:var(--fw-bold);color:var(--color-text-title);margin-bottom:8px;padding-left:8px;border-left:3px solid var(--color-primary)}
+.sp-rpt-c{font-size:var(--fs-sm);color:var(--color-text-body);line-height:1.7}
+.spfx-note-line{margin-top:6px;font-size:var(--fs-2xs);color:var(--color-text-muted)}
+.sp-table-wrap .spfx-table{width:100%;max-width:100%;table-layout:fixed;min-width:0}
+.sp-table-wrap .spfx-table td.spfx-v,.sp-table-wrap .spfx-table th.spfx-k{white-space:normal;word-break:break-word;line-height:1.6;height:auto;padding-top:8px;padding-bottom:8px;vertical-align:top}
+.spfx-table th.spfx-k{width:236px;font-weight:var(--fw-medium);color:var(--color-text-muted);font-size:var(--fs-xs);vertical-align:middle;background:var(--color-gray-25);white-space:nowrap}
+.spfx-table th.spfx-k i{display:inline;font-style:normal;font-size:10px;font-family:ui-monospace,Consolas,monospace;color:var(--color-gray-400);font-weight:var(--fw-regular);margin-left:8px}
+.spfx-table td.spfx-v{font-size:var(--fs-xs);line-height:1.65}
 
 @media(max-width:1080px){
   .spvw{grid-template-columns:1fr;overflow:auto}
@@ -2004,8 +2103,8 @@ window._spRefView=function(pid,i){
     '<div class="sp-kv-grid" style="margin-top:14px">'+spKv('事由/目的',x.reason)+spKv('接诊状态',x.status)+spKv('随转材料',x.mat)+spKv('画像联动','该转诊事件已并入画像时间线')+'</div>';
   spModal('转院就诊记录 · '+x.d,body,'<button class="btn btn-ghost btn-sm" data-sp-close>关闭</button>');
 };
-function spBlock(idx,title,tags,bodyHtml){
-  return '<div class="sp-profile-block"><div class="sp-block-head"><span class="sp-block-idx">'+idx+'</span><span class="sp-block-title">'+esc(title)+'</span><span class="sp-block-tags">'+tags+'</span></div><div class="sp-block-body">'+bodyHtml+'</div></div>';
+function spBlock(idx,title,bodyHtml){
+  return '<div class="sp-profile-block"><div class="sp-block-head"><span class="sp-block-idx">'+idx+'</span><span class="sp-block-title">'+esc(title)+'</span></div><div class="sp-block-body">'+bodyHtml+'</div></div>';
 }
 function spDetailPage(e){
   var cmp=spProfileCompleteness(e);
@@ -2032,24 +2131,21 @@ function spDetailPage(e){
     spKvI('筛查结果',e.screenResult||'—')+
     spKvI('筛查建议',e.screenAdvice||'—')+
     '</div>';
-  /* 2 肿瘤特征：瘤种身份（部位+病理+分化）+ 分期 + 时间起点 */
+  /* 2 肿瘤特征：瘤种身份（原发部位+病理类型）+ 编码（ICD-10、ICD-O-3）+ 分级/TNM + 确诊日期 + 诊断依据 */
   var b2=spSub('瘤种与分期')+'<div class="sp-kv-grid">'+
     spKvI('原发部位',e.laterality)+
     spKvI('病理类型',spPathText(e))+
     spKvI('ICD-10',spIcd10(e)||'—')+
     spKvI('ICD-O-3 部位码',spTopoCode(e)||'—')+
     spKvI('ICD-O-3 形态码',spMorphCode(e)||'—')+
-    spKvI('临床分期',e.stage)+
+    spKvI('分级',spGradeText(e))+
     spKvI('TNM',e.tNm||'—')+
     spKvI('确诊日期',e.diagDate||'—')+
-    spKvI('分期依据',spStageBasisType(e))+
-    spKvI('分期时间',e.stageDate||e.diagDate||'—')+
-    spKvI('分期类型',spStageTiming(e))+
+    spKvI('诊断依据',spDiagBasisType(e))+
     '</div>';
   /* 3 诊疗过程：治疗与转诊（治疗方式三项同行；转诊仅记是否） */
   var b3=spSub('治疗与转诊')+'<div class="sp-kv-grid">'+
     spKvI('首次治疗日期',spFirstTreat(e)||'—')+
-    spKvI('确诊→首次治疗',spTreatInterval(e))+
     spKvI('是否发生转诊',e.referral?'是':'否')+
     spKvI('MDT',e.mdt?'已开展':'未开展')+
     '</div>'+
@@ -2064,10 +2160,10 @@ function spDetailPage(e){
     spKvI('死亡原因',e.vitalStatus==='死亡'?(e.deathCause||'—'):'—')+
     '</div>';
   var blocks='<div class="sp-profile-blocks">'+
-    spBlock(1,'患者基础',badge(e.insurance,'badge-accent'),b1)+
-    spBlock(2,'肿瘤特征',badge(e.stage,spEarly(e)?'badge-success':'badge-caution'),b2)+
-    spBlock(3,'诊疗过程',e.mdt?badge('MDT','badge-info'):badge('未记录MDT','badge-neutral'),b3)+
-    spBlock(4,'随访与结局',badge(e.followStatus,spFuCls(e))+badge(e.vitalStatus,'badge-neutral'),b5)+
+    spBlock(1,'患者基础',b1)+
+    spBlock(2,'肿瘤特征',b2)+
+    spBlock(3,'诊疗过程',b3)+
+    spBlock(4,'随访与结局',b5)+
     '</div>';
   var exList=SP_EXAMS[e.id]||[],rfList=SP_REFERRALS[e.id]||[];
   var exP=spPanel('检查检验记录（'+exList.length+'条 · 点击查看结果）',spExamTable(e.id));
@@ -2099,9 +2195,8 @@ var SP_ELEM_FIELD_MAP=[
  {key:'icdo3morph',name:'ICD-O-3 形态码',fn:function(e){return spMorphCode(e)}},
  {key:'stage',name:'临床分期、TNM（早晚期占比）',fn:function(e){return e.stage&&e.tNm}},
  {key:'diagdate',name:'确诊日期（时间类指标起点）',fn:function(e){return e.diagDate}},
- {key:'stagebasis',name:'分期依据',fn:function(e){return e.stage&&e.stageDate}},
- {key:'stagedate',name:'分期时间',fn:function(e){return e.stageDate}},
- {key:'stagetype',name:'分期类型（初诊/再分期）',fn:function(e){return e.stageDate}},
+ {key:'grade',name:'分级（分化程度）',fn:function(e){return e.grade}},
+ {key:'diag_basis',name:'诊断依据',fn:function(e){return spMorphCode(e)}},
  {key:'modes',name:'治疗方式分项（手术/放疗/化疗）',fn:function(e){return e.treatments&&e.treatments.length}},
  {key:'mdt',name:'MDT（开展率）',fn:function(e){return e.mdt!==undefined}},
  {key:'tfirst',name:'首次治疗日期（治疗及时性）',fn:function(e){return e.treatments&&e.treatments.length}},
@@ -2133,9 +2228,8 @@ var _spElements=[
  {id:'DE01c',dim:'肿瘤特征',name:'ICD-O-3 形态码',src:'病理报告数据',fkey:'icdo3morph',on:true},
  {id:'DE02',dim:'肿瘤特征',name:'临床分期、TNM（早晚期占比）',src:'TNM分期质控',fkey:'stage',on:true},
  {id:'DE03',dim:'肿瘤特征',name:'确诊日期（时间类指标起点）',src:'登记报告卡',fkey:'diagdate',on:true},
- {id:'DE04',dim:'肿瘤特征',name:'分期依据',src:'TNM分期质控',fkey:'stagebasis',on:true},
- {id:'DE05',dim:'肿瘤特征',name:'分期时间',src:'TNM分期质控',fkey:'stagedate',on:true},
- {id:'DE06',dim:'肿瘤特征',name:'分期类型（初诊/再分期）',src:'TNM分期质控',fkey:'stagetype',on:true},
+ {id:'DE04',dim:'肿瘤特征',name:'分级',src:'登记报告卡',fkey:'grade',on:true},
+ {id:'DE05',dim:'肿瘤特征',name:'诊断依据',src:'登记报告卡',fkey:'diag_basis',on:true},
  {id:'TR02',dim:'诊疗过程',name:'治疗方式分项（手术/放疗/化疗）',src:'病案首页数据',fkey:'modes',on:true},
  {id:'TR03',dim:'诊疗过程',name:'MDT（开展率）',src:'MDT与转诊管理',fkey:'mdt',on:true},
  {id:'TR04',dim:'诊疗过程',name:'首次治疗日期（治疗及时性）',src:'病案首页数据',fkey:'tfirst',on:true},
@@ -2187,11 +2281,21 @@ var SP_CHECKS=[
  {id:'R013',name:'生存时间无法推算',run:function(){var bad=tumorEvents.filter(function(e){return spSurvival(e).n===null});return {bad:bad,detail:bad.length?bad.map(function(e){return e.patient}).join('、'):'全部患者生存时间可自动推算'}}}
 ];
 var _spCheckTime='2026-09-11 08:30';
-var SP_ELEM_CHECK={stage:'R001',site_path:'R002',stagebasis:'R004',modes:'R006',tfirst:'R007',lastfu:'R011',death:'R012',survival:'R013'};
+var SP_ELEM_CHECK={stage:'R001',site_path:'R002',diag_basis:'R004',modes:'R006',tfirst:'R007',lastfu:'R011',death:'R012',survival:'R013'};
 function spCheck(id){return SP_CHECKS.filter(function(c){return c.id===id})[0];}
 /* 画像版本：含变更明细 */
 var SP_VERSIONS=[
- {v:'V12.8',time:'2026-10-09 15:00',by:'管理员',desc:'患者专科画像筛选栏新增「医院」筛选：按就诊医院精确过滤患者列表',cur:true,changes:[
+  {v:'V12.9',time:'2026-10-22 15:00',by:'管理员',desc:'块2 肿瘤特征字段调整：临床分期位改显示「分级」，诊断依据单列，删除分期类型与分期时间',cur:true,changes:[
+   '「临床分期」位置改为展示「分级」（取 e.grade，如「中分化」「II级」），标签与取值同步替换',
+   '「分期依据」改名为「诊断依据」，口径不变：有病灶形态学编码（ICD-O-3）即判为病理学诊断，否则为临床诊断；随位置调整移至该行末列，保留单列一项、不跨行',
+   '删除「分期类型」（初诊分期/治疗后重新分期）与「分期时间」两项，块 2 由 11 项减为 9 项',
+   '清理随之失效的 spStageBasisType、spStageTiming 两个函数；段②「确诊依据构成」改由新增的 spDiagBasisType 承接，口径不变',
+   '配置页同步：画像要素 DE04/DE05 替换为「分级」「诊断依据」两项（DE06 删除），覆盖判定字段库 stagebasis/stagedate/stagetype 改为 grade/diag_basis，要素-校验绑定诊断依据沿用 R004',
+   '完整度仍按画像块展示项统计（未纳入分级、诊断依据），口径与本次改动前一致',
+   '块标题右侧的状态标签（职工医保 / III期 / MDT / 随访中+存活）一并移除：这些值与块内字段重复，且样式各自不同显得杂乱；spBlock 去掉 tags 形参与 .sp-block-tags 样式',
+   '检查检验记录表移除「画像依据」「异常」「未见异常」三个标签：异常改为结果文字标红（沿用表内 tr.sp-lab-abn 的红色口径），「项目」列的灰色机构名保留',
+   '检查结果弹窗同步：顶部信息条与「结论小结」去掉「画像依据 / 结果异常 / 未见异常」标签，异常时只把结论与「结果异常」字样标红']},
+ {v:'V12.8',time:'2026-10-09 15:00',by:'管理员',desc:'患者专科画像筛选栏新增「医院」筛选：按就诊医院精确过滤患者列表',cur:false,changes:[
   '问题：列表页已展示「就诊医院」列，但筛选栏只能按地市粗筛；同一地市下有多家医院（如南昌市同时有江西省肿瘤医院与南昌市第一医院），无法只看某一家机构的收治患者',
   '筛选栏在「地市」与「随访状态」之间新增「医院」下拉（标准 170px 档，与其它条件同宽同高），取值精确匹配 e.hospital，与关键字/瘤种/分期/地市/随访状态各条件为「与」关系',
   '选项来源新增 SP_HOSPITALS：由既有机构-地市映射 SP_HOSP_CITY 按地市顺序派生，不另行硬编码一份医院名单，避免两处名单漂移',
@@ -2849,4 +2953,6 @@ function render(sub){
   return '<div style="padding:0"><div id="spMainContent">'+content+'</div></div>';
 }
 window.renderSpecialtyPortrait=render;
+/* 调试导出：仅供本地回归测试读取内部状态，不影响业务逻辑 */
+if(window.__SP_TEST__){window.__SP_TEST__={tumorEvents:function(){return tumorEvents},spDetailPage:function(e){return spDetailPage(e)},spProfileCompleteness:function(e){return spProfileCompleteness(e)},spDiagBasisType:function(e){return spDiagBasisType(e)},spGradeText:function(e){return spGradeText(e)},_spElements:function(){return _spElements},SP_ELEM_CHECK:function(){return SP_ELEM_CHECK},SP_ELEM_FIELD_MAP:function(){return SP_ELEM_FIELD_MAP},spFieldFn:function(k){return spFieldFn(k)},spCheck:function(id){return spCheck(id)}};}
 })();
