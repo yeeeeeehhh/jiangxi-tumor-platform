@@ -12,22 +12,17 @@
       注：被移出画像的字段（既往史、吸烟饮酒、家族史、分化程度、多原发、
           住院次数天数费用、TNM 独立项等）数据仍保留在患者记录中，
           供患者列表与指标汇总页使用；详见版本 V8.0 变更记录。
-   02 群体专科画像：按肿瘤防治链条（cancer care continuum）读人群——个体读"值"，群体读"一条防治链上哪一环在掉人、掉多少"
-      页面顺序：范围筛选 → 一句话摘要（口语化归纳 + 自动挑偏离最大的短板）→
-      链条节点指标带（8 项，带 vs 全省同瘤种基准差值）→ 防治链条级联漏斗（逐环累积达标、标环间流失）→
-      五段 Tab → 重点问题闭环
-      五段 Tab（防治链条）：① 疾病负担（人群/瘤谱/分期，性别唯一出处=年龄金字塔）
-        ② 早期发现（筛查/早诊率/地区病种差异，分期饼归段①不重复）
-        ③ 规范诊疗（确诊/时效/MDT/治疗模式）④ 生存结局（随访/生存/复发死亡）
-        ⑤ 资源与公平（地图/就医流向/费用，地理与费用图唯一归此段）
-      全省→地市→病种聚合，每个数字可下钻，「查看」带筛选条件回跳板块01患者列表
-      指标唯一归属见同目录《群体专科画像_重构方案.md》第六节
-      患者列表列：患者/性别/年龄/户籍地市/就诊医院/瘤种/部位/病理/分期/治疗方式/随访状态
+   02 患者群体总览：范围筛选 → 事实摘要 → 八项核心概况 → 五组分析与指标明细
+      按患者/瘤例分别去重，比例提供有效分母、不详及不适用，历史状态需日期或快照证据。
+      五组：人群与病情构成 / 发现与诊断 / 诊疗过程 / 随访与结局 / 就医与可及性。
+      记录占比不替代正式质量、生存或筛查成效指标；费用未接入时不生成估算值。
+      总览、CSV与患者下钻使用同一纳入范围及统计结果。
+      患者列表列：患者/性别/年龄/户籍地市/就诊医院/瘤种/部位/病理/分期/随访状态
       列表筛选：关键字 / 瘤种 / 分期 / 地市 / 医院 / 随访状态（条件为「与」关系）
    03 画像配置：要素元数据 / 映射规则 / 智能校验 / 质控报告 / 预警 / 版本 / 归档
-   全部指标由患者画像字段实时聚合，不重复采集数据 */
+   当前使用内置样例记录，不代表已经接入生产数据 */
 (function(){ 'use strict';
-var SP_BUILD='V12.9-block2-grade-basis@20261022a';
+var SP_BUILD='V13.0-overview-statistics@20261025a';
 if(typeof console!=='undefined')console.log('[specialty-portrait] '+SP_BUILD+' loaded');
 
 /* ===================== 样式 ===================== */
@@ -97,20 +92,29 @@ spStyle.textContent=`
 /* ---- 01 患者详情：摘要条 + 四块画像 + 时间线 ---- */
 .sp-detail-shell{min-width:0}
 .sp-detail-back{display:flex;align-items:center;margin-bottom:10px}
-.sp-patient-strip{display:grid;grid-template-columns:auto minmax(240px,1.25fr) minmax(300px,1fr) auto;align-items:center;gap:14px;padding:12px 16px;margin-bottom:14px;background:var(--surface);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-xs)}
+.sp-patient-strip{display:grid;grid-template-columns:auto minmax(240px,1fr);align-items:center;gap:14px;padding:12px 16px;margin-bottom:14px;background:var(--surface);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-xs)}
 .sp-patient-avatar{width:42px;height:42px;border-radius:50%;background:var(--color-primary-soft);color:var(--color-primary);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700}
 .sp-patient-name{display:flex;align-items:baseline;gap:10px;min-width:0;font-size:var(--fs-h2);font-weight:700;color:var(--color-text-title);flex-wrap:wrap}
 .sp-patient-meta{font-size:var(--fs-xs);font-weight:500;color:var(--color-text-muted);white-space:nowrap}
-.sp-patient-sub{margin-top:3px;font-size:var(--fs-xs);color:var(--color-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sp-patient-score{text-align:right;min-width:50px}
-.sp-patient-score .k{font-size:var(--fs-2xs);color:var(--color-text-muted)}
-.sp-patient-score .v{font-size:24px;font-weight:700;font-family:var(--font-num);color:var(--color-primary);line-height:1.05}
 .sp-profile-blocks{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:16px}
 .sp-profile-block{background:var(--surface);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-xs);min-width:0}
 .sp-block-head{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--color-border);flex-wrap:wrap}
 .sp-block-idx{width:22px;height:22px;border-radius:6px;background:var(--color-primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:0 0 22px}
 .sp-block-title{font-size:var(--fs-body);font-weight:700;color:var(--color-text-title)}
 .sp-block-body{padding:12px 14px}
+/* 多原发瘤例切换键：位于「肿瘤特征」块头右侧，分段按钮形态，选中项当前瘤例高亮 */
+.sp-tumor-switch{display:flex;align-items:center;gap:2px;margin-left:auto;flex-wrap:wrap;padding:2px;background:var(--color-bg-subtle);border:1px solid var(--color-border);border-radius:var(--radius-sm)}
+.sp-tumor-switch-label{display:inline-flex;align-items:baseline;gap:4px;padding:0 7px 0 5px;font-size:var(--fs-2xs);color:var(--color-text-muted);white-space:nowrap;border-right:1px solid var(--color-border);margin-right:2px;height:22px;line-height:22px}
+.sp-tumor-switch-label em{font-style:normal;font-family:var(--font-num);font-weight:700;color:var(--color-text-body)}
+.sp-tumor-tab{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border:0;border-radius:var(--radius-xs);background:transparent;color:var(--color-text-body);font-family:inherit;font-size:var(--fs-2xs);line-height:1;cursor:pointer;transition:all var(--dur-fast);max-width:220px}
+.sp-tumor-tab:hover{background:var(--color-primary-50);color:var(--color-primary)}
+.sp-tumor-tab.active{background:var(--surface);color:var(--color-primary);font-weight:700;box-shadow:var(--shadow-xs),inset 0 0 0 1px var(--color-primary-300)}
+.sp-tumor-tab-no{flex:0 0 auto;font-family:var(--font-num);font-weight:700;font-size:10px;padding:1px 4px;border-radius:3px;background:var(--color-gray-200);color:var(--color-text-muted)}
+.sp-tumor-tab.active .sp-tumor-tab-no{background:var(--color-primary);color:#fff}
+.sp-tumor-tab-txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp-tumor-tab-tag{flex:0 0 auto;font-size:10px;font-weight:500;padding:1px 4px;border-radius:3px;background:var(--color-primary-50);color:var(--color-primary);border:1px solid var(--color-primary-300)}
+.sp-tumor-tab:focus-visible{outline:2px solid var(--color-primary);outline-offset:1px}
+@media(max-width:900px){.sp-tumor-switch{margin-left:0;width:100%}.sp-tumor-tab{max-width:none;flex:1 1 auto;justify-content:center}}
 /* 画像块内键值网格：两列定宽，避免 3 列时长值折行；长文本用 .sp-span 通栏 */
 .sp-kv-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 18px}
 .sp-kv-grid.sp-cols-1{grid-template-columns:1fr}
@@ -217,10 +221,16 @@ var SP_HOSPITALS=(function(){
 
 var tumorEvents=[
 {id:'TE001',patient:'陈建国',sex:'男',age:63,idNo:'360102196305121234',region:'南昌市东湖区',city:'南昌市',insurance:'职工医保',firstHosp:'东湖区董家窑街道社区卫生服务中心',firstDate:'2026-01-18',hospital:'南昌市第一医院',
- site:'肺',laterality:'右肺上叶',path:'腺癌',grade:'中分化',tNm:'cT2aN2M0',stage:'III期',stageDate:'2026-01-28',multiPrimary:false,
+ site:'肺',laterality:'右肺上叶',path:'腺癌',grade:'中分化',tNm:'cT2aN2M0',stage:'III期',stageDate:'2026-01-28',multiPrimary:true,tumorSeq:1,
  treatMode:['手术','化疗'],mdt:true,
  symptom:'偶有干咳',pain:'轻度疼痛',nutrition:'中度营养风险',physical:'ECOG 1',complication:'无严重并发症',ae:'I度骨髓抑制',rehab:'康复中',supportive:'营养支持',
  lastFu:'2026-08-25',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'高血压 8 年、2 型糖尿病 5 年',smoke:'吸烟 30 年，20 支/日（未戒）',drink:'偶饮酒',family:'父亲患肺癌',diagBasis:'胸部 CT 增强 + 经皮肺穿刺病理 + 免疫组化',diagDate:'2026-02-02',tConfirm:'2026-02-02',metastasis:'区域淋巴结转移',treatMode:['手术','化疗'],referral:true,curPhase:'辅助化疗中',phaseTimeline:'手术(2026-02-05)→辅助化疗中(第3/6周期)',tFirst:'2026-01-18',tTreat:'2026-02-05',admCount:5,admDays:26,marker:'EGFR 19del 阳性；TTF-1(+)；PD-L1 TPS 35%',recurrence:false,recist:'SD',screenType:"低剂量螺旋 CT 肺癌筛查",screenDate:"2025-11-20",screenResult:"右肺上叶结节 8mm",screenAdvice:"建议年度复查 CT，必要时穿刺活检",treatments:[{"mode":"手术","date":"2026-02-05","end":"2026-02-12","plan":"右肺上叶切除术 + 系统性淋巴结清扫","note":"术后病理 pT2aN2M0"},{"mode":"化疗","start":"2026-03-01","end":"2026-06-20","plan":"培美曲塞 + 顺铂（辅助化疗 4 周期）","note":"末次给药 2026-06-20，第 3/6 周期随访中"}],markerDate:'2026-02-02',recistDate:'2026-08-20',ecogDate:'2026-08-20',metaProgress:'无',diseaseProgress:false},
+/* 同一患者（陈建国）第二原发：异时性多原发，由「肿瘤特征」块内切换键切换查看 */
+{id:'TE001B',patient:'陈建国',sex:'男',age:64,idNo:'360102196305121234',region:'南昌市东湖区',city:'南昌市',insurance:'职工医保',firstHosp:'东湖区董家窑街道社区卫生服务中心',firstDate:'2026-09-10',hospital:'江西省肿瘤医院',
+ site:'结直肠',laterality:'升结肠',path:'腺癌',grade:'中分化',tNm:'pT2N0M0',stage:'I期',stageDate:'2026-09-18',multiPrimary:true,tumorSeq:2,tumorPattern:'异时性',
+ treatMode:['手术'],mdt:true,
+ symptom:'便潜血阳性，偶有腹胀',pain:'无痛',nutrition:'轻度营养风险',physical:'ECOG 0',complication:'无严重并发症',ae:'无',rehab:'康复良好',supportive:'无',
+ lastFu:'2026-10-20',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'高血压 8 年、2 型糖尿病 5 年、原发性肺癌（2026 年）',smoke:'吸烟 30 年，20 支/日（未戒）',drink:'偶饮酒',family:'父亲患肺癌、哥哥患结肠癌',diagBasis:'结肠镜 + 活检病理 + 术后病理',diagDate:'2026-09-15',tConfirm:'2026-09-15',metastasis:'无远处转移',referral:false,curPhase:'术后随访中',phaseTimeline:'肠镜发现(2026-09-10)→手术(2026-09-22)→术后随访中',tFirst:'2026-09-10',tTreat:'2026-09-22',admCount:2,admDays:11,marker:'MSI-H（dMMR）；RAS/BRAF 野生型；MLH1/PMS2 缺失',recurrence:false,recist:'CR',screenType:"结肠镜（肺癌随访期间机会性筛查）",screenDate:"2026-09-10",screenResult:"升结肠 3.0cm 隆起型占位",screenAdvice:"建议活检明确病理并手术切除",treatments:[{"mode":"手术","date":"2026-09-22","end":"2026-09-29","plan":"腹腔镜右半结肠切除术 + D3 淋巴结清扫","note":"术后病理 pT2N0M0，MSI-H"}],markerDate:'2026-09-15',recistDate:'2026-10-20',ecogDate:'2026-10-20',metaProgress:'无',diseaseProgress:false},
 {id:'TE002',patient:'刘雅琴',sex:'女',age:47,idNo:'360702197808152345',region:'赣州市章贡区',city:'赣州市',insurance:'职工医保',firstHosp:'章贡区南外街道社区卫生服务中心',firstDate:'2026-03-20',hospital:'江西省肿瘤医院',
  site:'乳腺',laterality:'左乳',path:'浸润性导管癌',grade:'II级',tNm:'cT2N1M0',stage:'II期',stageDate:'2026-03-27',multiPrimary:false,
  treatMode:['手术','化疗','内分泌'],mdt:true,
@@ -304,6 +314,19 @@ TE001:[
  {d:'2026-08-20',k:'检验',n:'血常规+生化（化疗第3周期前）',org:'南昌市第一医院',r:'WBC 3.2↓，PLT 98↓，ALT 56↑，Ⅰ度骨髓抑制',rid:'IN-20260820',dept:'肿瘤科',dr:'刘志远',recog:'1',tech:'张海燕',sno:'JY20260820',review:'王军',remark:'结果无危急值',abn:true,
   items:[['白细胞','3.2','×10⁹/L','3.5~9.5','↓'],['中性粒细胞绝对值','1.6','×10⁹/L','1.8~6.3','↓'],['血红蛋白','118','g/L','130~175','↓'],['血小板','98','×10⁹/L','125~350','↓'],['丙氨酸氨基转移酶','56','U/L','9~50','↑'],['肌酐','68','μmol/L','57~97','']],
   y:'Ⅰ度骨髓抑制伴轻度肝功能损害，予保肝升白治疗后按期进入第3周期辅助化疗。'}],
+ TE001B:[
+  {d:'2026-09-10',k:'检查',n:'肠镜+活检',org:'东湖区董家窑街道社区卫生服务中心',r:'升结肠隆起型占位 3.0cm；病理：中分化腺癌',rid:'EX-CX20260910',dept:'全科医学科',dr:'社区全科医生',recog:'1',tech:'张海燕',review:'王军',purpose:'肺癌随访期间便潜血阳性，明确病变性质',body:'升结肠',method:'结肠镜检查并活检',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,hot:true,
+   j:'进镜至回盲部，升结肠见约3.0cm×2.6cm隆起型占位，表面不平、质脆易出血，肠腔无明显狭窄；活检6块；余结肠未见第二病灶。',
+   y:'升结肠占位，活检：中分化腺癌。'},
+  {d:'2026-09-15',k:'检验',n:'病理会诊+免疫组化',org:'江西省肿瘤医院',r:'腺癌（中分化）；MLH1/PMS2 缺失，MSI-H',rid:'IN-20260915',dept:'胃肠外科',dr:'黄丽萍',recog:'1',tech:'张海燕',sno:'JY20260915',review:'王军',remark:'结果无危急值',abn:true,hot:true,
+   j:'镜下：腺癌组织，中分化，腺体排列紊乱。免疫组化：MLH1(-)，PMS2(-)，MSH2(+)，MSH6(+)，CDX-2(+)。',
+   y:'（升结肠）中分化腺癌，MSI-H（dMMR）。结合既往原发性肺癌，符合多原发肿瘤（异时性）。'},
+  {d:'2026-09-18',k:'检查',n:'胸腹盆CT增强（分期）',org:'江西省肿瘤医院',r:'升结肠壁增厚，未见远处转移；右肺术后改变',rid:'EX-20260918',dept:'胃肠外科',dr:'黄丽萍',recog:'1',tech:'张海燕',review:'王军',purpose:'结肠癌术前分期，排除远处转移',body:'升结肠,肝,肺',method:'平扫+增强扫描',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:false,hot:true,
+   j:'升结肠壁局限性增厚约2.8cm，浆膜面光整；系膜区未见明确肿大淋巴结；肝、双肺未见转移灶，右肺术区未见复发征象。',
+   y:'升结肠癌 cT2N0M0（I期），未见远处转移；右肺术后改变，无复发证据。'},
+  {d:'2026-10-20',k:'检验',n:'血常规+肿瘤标志物（术后复查）',org:'江西省肿瘤医院',r:'血象正常，CEA 3.1、CA19-9 15.2 均在参考范围',rid:'IN-20261020',dept:'胃肠外科',dr:'黄丽萍',recog:'1',tech:'张海燕',sno:'JY20261020',review:'王军',remark:'结果无危急值',abn:false,
+   items:[['白细胞','5.2','×10⁹/L','3.5~9.5',''],['血红蛋白','132','g/L','130~175',''],['CEA','3.1','ng/mL','0~5.0',''],['CA19-9','15.2','U/mL','0~27.0','']],
+   y:'术后恢复良好，血象与肿瘤标志物正常，按 I 期结肠癌随访计划管理。'}],
 TE002:[
  {d:'2026-03-20',k:'检查',n:'乳腺钼靶（双侧）',org:'章贡区南外街道社区卫生服务中心',r:'左乳结节伴簇状钙化，BI-RADS 5',rid:'EX-CX20260320',dept:'全科医学科',dr:'社区全科医生',recog:'1',tech:'张海燕',review:'王军',purpose:'两癌筛查发现左乳结节，明确性质',body:'双侧乳腺',method:'全数字化乳腺X线摄影',rmk:'影像资料按省影像云规范上传，报告经审核签发',abn:true,
   j:'左乳外上象限见约2.5cm×2.0cm高密度结节影，边缘毛刺，伴簇状细小钙化；双乳背景腺体c型。',
@@ -507,11 +530,143 @@ var SP_MODE_COST=[
 /* ===================== 二、工具与聚合引擎 ===================== */
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function badge(text,cls){return '<span class="badge '+(cls||'badge-neutral')+'">'+esc(text)+'</span>'}
-function spHasMode(e,m){return (e.treatMode||[]).indexOf(m)>=0}
-function spEarly(e){return e.stage==='I期'||e.stage==='II期'}
-function spLate(e){return e.stage==='IV期'}
-function spOutCity(e){var hc=SP_HOSP_CITY[e.hospital];return !!hc&&hc!==e.city}
-function spDistant(e){return /(骨|肝|肺|脑|腹膜)转移/.test(e.metastasis||'')}
+function spToday(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function spDate(v){
+  var s=String(v||'').trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return null;
+  var n=Date.parse(s+'T00:00:00Z');
+  return Number.isFinite(n)&&new Date(n).toISOString().slice(0,10)===s?s:null;
+}
+function spKnown(v){return v!==null&&v!==undefined&&String(v).trim()!==''&&!/^(未填|不详|未知|未记录|unknown)$/i.test(String(v).trim())}
+function spBool(v){
+  if(v===true||v===1||v==='1'||v==='是'||v==='有'||v==='true')return true;
+  if(v===false||v===0||v==='0'||v==='否'||v==='无'||v==='false')return false;
+  return null;
+}
+function spCutoff(){return spDate(_spScope&&_spScope.cutoff)||spToday()}
+function spDiagnosisDate(e){return spDate(e.diagDate)||spDate(e.tConfirm)}
+var _spAnonymousKeys=new WeakMap(),_spAnonymousIndex=0;
+function spAnonymousKey(e){
+  if(!_spAnonymousKeys.has(e))_spAnonymousKeys.set(e,'anonymous:'+ ++_spAnonymousIndex);
+  return _spAnonymousKeys.get(e);
+}
+function spPatientKey(e){
+  return String([e.empi,e.patientId,e.idNo].find(spKnown)||('record:'+(spKnown(e.id)?e.id:spAnonymousKey(e))));
+}
+function spTumorKey(e){return spPatientKey(e)+'|'+String([e.tumorId,e.id].find(spKnown)||spAnonymousKey(e))}
+function spUpdatedDate(e){return spDate(String(e.updatedAt||'').slice(0,10))}
+function spRecordValue(e,key,dateFields){
+  var fields=(dateFields||[]).concat(['updatedAt']),dated=fields.find(function(f){return spKnown(e[f])});
+  var d=dated?(dated==='updatedAt'?spUpdatedDate(e):spDate(e[dated])):null;
+  if(dated&&(!d||d>spCutoff()))return null;
+  if(!dated&&spCutoff()<spToday())return null;
+  return e[key];
+}
+function spUnique(list,key){
+  var by=new Map();
+  (list||[]).forEach(function(e){
+    var k=key(e),prev=by.get(k);
+    var date=Date.parse(spUpdatedDate(e)?e.updatedAt:spDate(e.lastFu)||spDiagnosisDate(e)||'')||0;
+    var old=prev&&(Date.parse(spUpdatedDate(prev)?prev.updatedAt:spDate(prev.lastFu)||spDiagnosisDate(prev)||'')||0);
+    if(!prev||date>=old)by.set(k,e);
+  });
+  return Array.from(by.values());
+}
+function spPersons(list){return spUnique(list,spPatientKey)}
+function spStage(e){
+  var v=spRecordValue(e,spKnown(e.initialStage)?'initialStage':'stage',['initialStageDate','stageDate']);
+  if(v===null)return '不详';
+  if(spBool(e.stageApplicable)===false||v==='不适用')return '不适用';
+  var s=String(v||'').trim().replace(/Ⅳ/g,'IV').replace(/Ⅲ/g,'III').replace(/Ⅱ/g,'II').replace(/Ⅰ/g,'I');
+  var m=/^(IV|III|II|I)(?:[ABCabc123]*)期?$/.exec(s);
+  return m?m[1]+'期':'不详';
+}
+function spEarly(e){return spStage(e)==='I期'||spStage(e)==='II期'}
+function spLate(e){return spStage(e)==='IV期'}
+function spGeoClass(e){
+  var hc=SP_HOSP_CITY[spRecordValue(e,'hospital',['hospitalDate'])];
+  if(!spKnown(e.city)||!hc)return '不详';
+  return hc===e.city?'市域内':'跨市';
+}
+function spOutCity(e){return spGeoClass(e)==='跨市'}
+function spDistant(e){return spBool(e.distantAtDiagnosis)===true}
+function spVital(e){
+  var cut=spCutoff(),fu=spDate(e.lastFu),death=spDate(e.deathDate),diag=spDiagnosisDate(e);
+  if((death&&diag&&death<diag)||(fu&&diag&&fu<diag))return '不详';
+  if(death&&death<=cut)return '死亡';
+  if((death&&death>cut)||(fu&&fu>cut)||!fu)return '不详';
+  var v=String(e.vitalStatus||'').trim();
+  if(v==='死亡')return '不详';
+  if(v==='存活'||v==='存活（带瘤）')return v;
+  return '不详';
+}
+function spLost(e){
+  var d=spDate(e.lostConfirmedDate);
+  if(d&&d>spCutoff())return null;
+  if(spDate(e.lastFu)&&e.lastFu>spCutoff())return null;
+  var b=spBool(spRecordValue(e,'lostFollow',['lostConfirmedDate','lostStatusDate']));
+  if(b!==null)return b;
+  var status=spRecordValue(e,'followStatus',['lostConfirmedDate','followStatusDate']);
+  if(status==='失访')return true;
+  if(status==='随访中'||status==='死亡结案')return false;
+  return null;
+}
+function spBirthDate(e){
+  var d=spDate(e.birthDate);
+  if(d)return d;
+  var s=String(e.idNo||'');
+  return s.length===18?spDate(s.slice(6,10)+'-'+s.slice(10,12)+'-'+s.slice(12,14)):null;
+}
+function spAge(e){
+  var birth=spBirthDate(e),at=spDiagnosisDate(e);
+  if(birth&&at){
+    if(birth>at)return null;
+    var n=Number(at.slice(0,4))-Number(birth.slice(0,4))-(at.slice(5)<birth.slice(5)?1:0);
+    return n>=0&&n<=120?n:null;
+  }
+  return null;
+}
+function spMedian(values){
+  var a=values.filter(function(v){return typeof v==='number'&&Number.isFinite(v)}).sort(function(x,y){return x-y}),n=a.length;
+  return n?(n%2?a[(n-1)/2]:(a[n/2-1]+a[n/2])/2):null;
+}
+function spPercentile(values,p){
+  var a=values.slice().sort(function(x,y){return x-y});
+  if(!a.length)return null;
+  var i=(a.length-1)*p,lo=Math.floor(i),hi=Math.ceil(i);
+  return a[lo]+(a[hi]-a[lo])*(i-lo);
+}
+function spTreatmentEntries(e){
+  var diagnosis=spDiagnosisDate(e),death=spDate(e.deathDate),cut=spCutoff();
+  return (Array.isArray(e.treatments)?e.treatments:[]).filter(function(t){
+    var d=spDate(t.start)||spDate(t.date);
+    return d&&d<=cut&&(!diagnosis||d>=diagnosis)&&(!death||d<=death);
+  });
+}
+function spTreatmentModes(e){
+  var entries=spTreatmentEntries(e);
+  var modes=entries.map(function(t){return t.mode});
+  if(!Array.isArray(e.treatments)){
+    var d=spDate(e.tTreat),diagnosis=spDiagnosisDate(e),death=spDate(e.deathDate);
+    if(d&&d<=spCutoff()&&(!diagnosis||d>=diagnosis)&&(!death||d<=death))modes=Array.isArray(e.treatMode)?e.treatMode:[];
+  }
+  return Array.from(new Set(modes.filter(spKnown))).sort();
+}
+function spHasMode(e,m){return spTreatmentModes(e).indexOf(m)>=0}
+function spInterval(e,from,to){
+  var a=from==='diagDate'?spDiagnosisDate(e):spDate(e[from]);
+  var b=to==='tTreat'?spFirstTreat(e):(to==='diagDate'?spDiagnosisDate(e):spDate(e[to]));
+  if(!a||!b||a>spCutoff()||b>spCutoff())return {value:null,status:'缺失或未到时点'};
+  if(b<a)return {value:null,status:'日期冲突'};
+  var diag=spDiagnosisDate(e),death=spDate(e.deathDate);
+  if(to==='tTreat'&&((diag&&(b<diag||(from==='firstDate'&&a>diag)))||(death&&b>death)))return {value:null,status:'日期冲突'};
+  return {value:(Date.parse(b+'T00:00:00Z')-Date.parse(a+'T00:00:00Z'))/86400000,status:'可计算'};
+}
+function spIntervalStats(list,from,to){
+  var rows=list.map(function(e){return spInterval(e,from,to)}),values=rows.map(function(r){return r.value}).filter(function(v){return v!==null});
+  return {n:values.length,unknown:list.length-values.length,conflicts:rows.filter(function(r){return r.status==='日期冲突'}).length,
+    median:spMedian(values),p75:spPercentile(values,.75),p90:spPercentile(values,.9)};
+}
 function spMaskIdNo(v){var s=String(v||'');return s.length>=10?s.slice(0,6)+'********'+s.slice(-4):s}
 /* EMPI 患者主索引：与登记报告卡口径一致，由身份证号后 8 位推导（不额外采集） */
 function spEmpi(e){return 'MPI-'+String(e.idNo||'').slice(-8)}
@@ -540,29 +695,28 @@ function spMorphCode(e){
    区分「无」与「未记录」：无 = 已确认未开展；未记录 = 数据缺失，不计入分母 */
 var SP_MODES=['手术','放疗','化疗'];
 function spModeFlags(e){
-  var list=e.treatments||[];
-  var known=list.length>0||(e.treatMode&&e.treatMode.length>0)||!!e.curPhase;
-  var done={};
-  list.forEach(function(t){done[t.mode]=1});
-  (e.treatMode||[]).forEach(function(m){done[m]=1});
+  var modes=spTreatmentModes(e),known=modes.length>0;
   return SP_MODES.map(function(m){
-    var has=!!done[m];
+    var has=modes.indexOf(m)>=0;
     var cls=has?'badge-success':'badge-neutral';
     return '<div class="sp-kv-item sp-inline"><span class="k">'+esc(m)+'</span><span class="v">'+
-      (has?badge('有',cls):(known?badge('无','badge-neutral'):badge('未记录','badge-caution')))+'</span></div>';
+      (has?badge('有',cls):(known?badge('未见记录','badge-neutral'):badge('未记录','badge-caution')))+'</span></div>';
   }).join('');
 }
 /* 首次治疗日期：取全部治疗明细中最早的起始日 */
 function spFirstTreat(e){
-  var list=e.treatments||[];
-  var ds=list.map(function(t){return t.start||t.date}).filter(Boolean).sort();
-  return ds.length?ds[0]:(e.tTreat||'');
+  var list=Array.isArray(e.treatments)?e.treatments:null;
+  var ds=list?list.map(function(t){return spDate(t.start)||spDate(t.date)}).filter(Boolean).sort():[];
+  return list?(ds[0]||''):(spDate(e.tTreat)||'');
 }
 /* ICD-10：由 ICD-O-3 部位码截取主码（C34.9 → C34），与病案/影像口径一致 */
 function spIcd10(e){var c=spTopoCode(e);return c?c.split('.')[0]:''}
 /* 筛查参与状态：由筛查时间/方式推导；「未参与」与「不详」严格区分 */
 function spScreenStatus(e){
-  if(e.screenDate||e.screenType)return e.screenParticipated===false?'未参与':'已参与';
+  var participated=spRecordValue(e,'screenParticipated',['screenDate']);
+  var type=spRecordValue(e,'screenType',['screenDate']);
+  if(spBool(participated)===false)return '未参与';
+  if((spDate(e.screenDate)&&e.screenDate<=spCutoff())||spKnown(type))return '有筛查记录';
   return '不详';
 }
 /* 病理类型：去掉与病理名重复的分化描述（如「低分化腺癌（低分化）」→「低分化腺癌」） */
@@ -573,8 +727,16 @@ function spPathText(e){
   if(/^[中低高]分化$/.test(g))return p+(/分化/.test(p)?'':'（'+g+'）');
   return p+'（'+g+'）';
 }
-/* 诊断依据：病理学诊断 / 临床诊断（有形态学编码 → 病理学诊断）。对外展示、检查检验归集均用此口径 */
-function spDiagBasisType(e){return spMorphCode(e)?'病理学诊断':'临床诊断';}
+/* 诊断依据使用明确记录，不从肿瘤名称或推导编码反推病理证实。 */
+function spDiagBasisType(e){
+  var type=String(e.diagBasisType||'').trim(),text=String(e.diagBasis||'').trim();
+  if(/^(病理学诊断|组织学|细胞学)$/.test(type))return '病理学诊断';
+  if(type==='临床诊断')return '临床诊断';
+  if(!spKnown(text))return '不详';
+  if(/临床诊断/.test(text))return '临床诊断';
+  if(/未.*病理|无.*病理|待.*病理/.test(text))return '不详';
+  return /病理|活检/.test(text)?'病理学诊断':'临床诊断';
+}
 /* 分级：取 e.grade（如「中分化」「II级」），作为「临床分期」位置的展示项 */
 function spGradeText(e){
   return (e&&e.grade)||'—';
@@ -593,69 +755,174 @@ function spSurvival(e){
 }
 function spScopeEvents(sc){
   sc=sc||{};
-  return tumorEvents.filter(function(e){
+  var cut=spDate(sc.cutoff)||spCutoff();
+  var snapshots=tumorEvents.filter(function(e){var updated=spDate(String(e.updatedAt||'').slice(0,10));return !updated||updated<=cut});
+  return spUnique(snapshots,spTumorKey).filter(function(e){
+    var d=spDiagnosisDate(e);
+    if(d&&d>cut)return false;
+    if(sc.from&&(!d||d<sc.from))return false;
+    if(sc.to&&(!d||d>sc.to))return false;
     if(sc.city&&e.city!==sc.city)return false;
     if(sc.site&&e.site!==sc.site)return false;
+    if(sc.hospital&&e.hospital!==sc.hospital)return false;
     return true;
   });
 }
 function spAgg(list){
-  var n=list.length;
-  function rate(f){return n?+(list.filter(f).length/n*100).toFixed(1):0}
-  var alive=list.filter(function(e){return e.vitalStatus.indexOf('存活')>=0}).length;
-  var lost=list.filter(function(e){return e.lostFollow}).length;
-  return {
-    total:n,
-    male:list.filter(function(e){return e.sex==='男'}).length,
-    female:list.filter(function(e){return e.sex==='女'}).length,
-    newYear:list.filter(function(e){return (e.stageDate||'').indexOf('2026')===0}).length,
-    earlyRate:rate(spEarly),lateRate:rate(spLate),
-    crossCityRate:rate(spOutCity),crossProvRate:rate(function(e){return !!e.provOut}),
-    localTreatRate:rate(function(e){return !spOutCity(e)}),
-    surgeryRate:rate(function(e){return spHasMode(e,'手术')}),
-    radioRate:rate(function(e){return spHasMode(e,'放疗')}),
-    chemoRate:rate(function(e){return spHasMode(e,'化疗')}),
-    targetRate:rate(function(e){return spHasMode(e,'靶向')}),
-    immunoRate:rate(function(e){return spHasMode(e,'免疫')}),
-    endocrineRate:rate(function(e){return spHasMode(e,'内分泌')}),
-    interRate:rate(function(e){return spHasMode(e,'介入')}),
-    mdtRate:rate(function(e){return !!e.mdt}),
-    referralRate:rate(function(e){return !!e.referral}),
-    comboRate:rate(function(e){return (e.treatMode||[]).length>=2}),
-    pallRate:rate(function(e){return e.curPhase.indexOf('姑息')>=0||e.supportive.indexOf('安宁')>=0}),
-    fuRate:rate(function(e){return e.followStatus!=='失访'}),
-    lostRate:rate(function(e){return e.lostFollow}),
-    recurRate:rate(function(e){return !!e.recurrence}),
-    metaRate:rate(function(e){return !!e.metaProgress&&e.metaProgress!=='无'}),
-    progRate:rate(function(e){return !!e.diseaseProgress}),
-    distantRate:rate(spDistant),
-    deathRate:rate(function(e){return e.vitalStatus==='死亡'}),
-    alive:alive,lost:lost,dead:list.filter(function(e){return e.vitalStatus==='死亡'}).length,
-    effSurvival:(n-lost)?+(alive/(n-lost)*100).toFixed(1):0
-  };
+  list=spUnique(list||[],spTumorKey);
+  var persons=spPersons(list),n=list.length,pn=persons.length,metrics={};
+  function count(id,name,value,unit,definition,predicate,rows){
+    var m={id:id,name:name,value:value,numerator:value,denominator:null,unknown:0,notApplicable:0,unit:unit,
+      statisticalUnit:unit==='人'?'患者':'瘤例',definition:definition,status:value===null?'未接入':'可计算',
+      ids:predicate?(rows||persons).filter(predicate).map(function(e){return e.id}).filter(spKnown):[]};
+    metrics[id]=m;return m;
+  }
+  function ratio(id,name,rows,judge,definition,unit){
+    var yes=[],unknown=0,na=0,known=0;
+    rows.forEach(function(e){
+      var v=judge(e);
+      if(v==='不适用'){na++;return}
+      if(v===null||v===undefined){unknown++;return}
+      known++;if(v===true)yes.push(e);
+    });
+    var m={id:id,name:name,value:known?+(yes.length/known*100).toFixed(1):null,numerator:yes.length,denominator:known,
+      unknown:unknown,notApplicable:na,unit:'%',statisticalUnit:unit||'瘤例',definition:definition,
+      status:known?'可计算':'有效数据不足',ids:yes.map(function(e){return e.id}).filter(spKnown)};
+    metrics[id]=m;return m;
+  }
+  function recordedBool(key,dates){return function(e){return spBool(spRecordValue(e,key,dates))}}
+  var alive=persons.filter(function(e){return /^存活/.test(spVital(e))}).length;
+  var dead=persons.filter(function(e){return spVital(e)==='死亡'}).length;
+  var lost=persons.filter(function(e){return spLost(e)===true&&spVital(e)!=='死亡'}).length;
+  var active=function(e){return /^存活/.test(spVital(e))&&spLost(e)===false&&(e.managementStatus==='在管'||e.followStatus==='随访中')};
+  count('patients','纳入患者数',pn,'人','统一患者标识去重',function(){return true});
+  count('tumors','纳入瘤例数',n,'例','患者标识 + 原发肿瘤/记录标识去重',function(){return true},list);
+  var from=(_spScope&&_spScope.from)||spCutoff().slice(0,4)+'-01-01',to=(_spScope&&_spScope.to)||spCutoff();
+  var period=function(e){return list.some(function(t){var d=spDiagnosisDate(t);return spPatientKey(t)===spPatientKey(e)&&!!d&&d>=from&&d<=to})};
+  count('periodDiagnosed','期内确诊记录患者数',persons.filter(period).length,'人','当前记录确诊日期在 '+from+' 至 '+to,period);
+  var firstKnown=persons.filter(function(e){return !!spDate(e.firstCancerDiagnosisDate)}).length;
+  var first=function(e){var d=spDate(e.firstCancerDiagnosisDate);return !!d&&d>=from&&d<=to};
+  count('newPatients','首次新确诊患者数',firstKnown===pn&&pn?persons.filter(first).length:null,'人','需要历史首次恶性肿瘤确诊日期',first);
+  metrics.newPatients.unknown=pn-firstKnown;
+  count('active','随访在管存活患者',persons.filter(active).length,'人','已知存活、非失访且明确在管/随访中',active);
+  count('alive','已知存活患者',alive,'人','截止日前有效末次随访明确存活',function(e){return /^存活/.test(spVital(e))});
+  count('dead','已登记死亡患者',dead,'人','有效死亡日期不晚于截止日',function(e){return spVital(e)==='死亡'});
+  count('lost','失访记录患者',lost,'人','明确失访记录且未死亡结案',function(e){return spLost(e)===true&&spVital(e)!=='死亡'});
+  count('vitalUnknown','生存状态不详患者',pn-alive-dead,'人','无可用时点或生存状态不详',function(e){return spVital(e)==='不详'});
+  ratio('early','记录早期分期占比',list,function(e){var s=spStage(e);return s==='不适用'?s:s==='不详'?null:spEarly(e)},'I/II期 / 已知且适用的分期瘤例');
+  ratio('late','记录 IV 期占比',list,function(e){var s=spStage(e);return s==='不适用'?s:s==='不详'?null:spLate(e)},'IV期 / 已知且适用的分期瘤例');
+  ratio('distant','初诊远处转移记录占比',list,recordedBool('distantAtDiagnosis'),'明确初诊远处转移 / 初诊转移状态已知瘤例');
+  ratio('screen','队列筛查记录覆盖',persons,function(e){return spScreenStatus(e)==='有筛查记录'},'有筛查记录患者 / 纳入患者','患者');
+  ratio('basis','病理学诊断记录占比',list,function(e){var v=spDiagBasisType(e);return v==='不详'?null:v==='病理学诊断'},'有明确病理/活检依据 / 诊断依据已知瘤例');
+  ratio('mdt','MDT 记录占比',list,recordedBool('mdt',['mdtRecordedDate','mdtDate']),'截止日前MDT明确为是 / MDT字段已知瘤例');
+  ratio('referral','转诊记录占比',list,recordedBool('referral',['referralRecordedDate','referralDate']),'截止日前明确转诊 / 转诊状态已知瘤例');
+  ratio('started','治疗启动记录覆盖',list,function(e){return spTreatmentEntries(e).length>0||(!Array.isArray(e.treatments)&&spTreatmentModes(e).length>0)},'有有效且截止日前的治疗开始记录 / 纳入瘤例');
+  ratio('combo','多方式治疗记录占比',list,function(e){var a=spTreatmentModes(e);return a.length?a.length>=2:null},'至少两种不同治疗类别 / 有有效治疗方式的瘤例');
+  ['手术','放疗','化疗','靶向','免疫','内分泌','介入'].forEach(function(mode,i){
+    ratio('mode'+i,mode+'记录占比',list,function(e){return spTreatmentModes(e).length?spHasMode(e,mode):null},'含该方式 / 有有效治疗方式的瘤例');
+  });
+  ratio('palliative','姑息治疗记录占比',list,function(e){var v=spRecordValue(e,'curPhase',['phaseDate']);return spKnown(v)?String(v).indexOf('姑息')>=0:null},'明确姑息阶段 / 治疗阶段已知瘤例');
+  ratio('hospice','安宁疗护记录占比',list,function(e){var v=spRecordValue(e,'supportive',['supportiveDate']);return spKnown(v)?String(v).indexOf('安宁')>=0:null},'明确安宁疗护 / 支持治疗字段已知瘤例');
+  ratio('follow','随访日期记录覆盖',persons,function(e){var d=spDate(e.lastFu),diag=spDiagnosisDate(e);return !!d&&d<=spCutoff()&&(!diag||d>=diag)},'有有效末次随访日期 / 纳入患者','患者');
+  ratio('lostRatio','失访记录患者占比',persons,function(e){return spVital(e)==='死亡'?'不适用':spLost(e)},'明确失访 / 非死亡且失访状态已知患者','患者');
+  ratio('recurrence','复发记录占比',list,recordedBool('recurrence',['recurrenceRecordedDate','recurrenceDate']),'截止日前明确复发 / 复发状态已知瘤例');
+  ratio('progress','进展记录占比',list,recordedBool('diseaseProgress',['progressRecordedDate','progressDate']),'截止日前明确进展 / 进展状态已知瘤例');
+  ratio('metastasis','转移记录占比',list,function(e){var v=spRecordValue(e,'metaProgress',['metastasisRecordedDate','metastasisDate']);return spKnown(v)?spBool(v)===false?false:true:null},'有转移记录 / 转移字段已知瘤例；不代表随访新增转移');
+  ratio('local','市域内就诊记录占比',list,function(e){var s=spGeoClass(e);return s==='不详'?null:s==='市域内'},'现就诊医院与户籍地市相同 / 两地市均可判定瘤例');
+  ratio('cross','跨市就诊记录占比',list,function(e){var s=spGeoClass(e);return s==='不详'?null:s==='跨市'},'现就诊医院与户籍地市不同 / 两地市均可判定瘤例');
+  ratio('historicProvince','既往外省诊疗记录占比',persons,recordedBool('provOut'),'明确曾在外省诊疗 / 既往跨省字段已知患者','患者');
+  ratio('knownAlive','已知状态中存活占比',persons,function(e){var v=spVital(e);return v==='不详'?null:v!=='死亡'},'已知存活 / 生存状态已知患者；非生存率','患者');
+  ratio('complete','关键字段完整患者比例',persons,function(e){
+    return list.filter(function(t){return spPatientKey(t)===spPatientKey(e)}).every(function(t){return spCoreChecks(t).every(function(c){return c.ok})});
+  },'本人全部瘤例的适用关键字段均有效 / 纳入患者','患者');
+  var tasks=[],taskKeys=new Set(),taskSources=new Set();
+  list.forEach(function(e){
+    if(!Array.isArray(e.followupTasks))return;
+    taskSources.add(spPatientKey(e));
+    e.followupTasks.forEach(function(t){
+      var key=spPatientKey(e)+'|'+String(spKnown(t.id)?t.id:spAnonymousKey(t));
+      if(taskKeys.has(key))return;
+      taskKeys.add(key);
+      var end=spDate(t.windowEnd)||spDate(t.dueDate);
+      var created=spDate(t.createdDate),cancelled=spDate(t.cancelledDate);
+      var cancel=t.status==='已取消'&&(cancelled?cancelled<=spCutoff():spCutoff()===spToday());
+      if(end&&end<=spCutoff()&&(!created||created<=end)&&spBool(t.applicable)!==false&&!cancel)tasks.push({patient:e,task:t,end:end});
+    });
+  });
+  var timely=tasks.filter(function(r){
+    var t=r.task,d=spDate(t.completedDate),start=spDate(t.windowStart)||spDate(t.createdDate)||spDiagnosisDate(r.patient);
+    var evidence=spDate(t.evidenceDate);
+    return !!d&&!!start&&d>=start&&d<=r.end&&(!evidence||evidence<=spCutoff())&&!!(t.evidenceId||t.followupRecordId||t.hasEvidence===true);
+  });
+  metrics.timely={id:'timely',name:'按期随访完成率',value:tasks.length?+(timely.length/tasks.length*100).toFixed(1):null,
+    numerator:timely.length,denominator:tasks.length,unknown:pn-taskSources.size,notApplicable:0,unit:'%',statisticalUnit:'随访任务',
+    definition:'有有效证据且在任务窗口内完成 / 已到期适用任务；不详为任务源未接入患者数',status:taskSources.size?(tasks.length?'可计算':'无到期任务'):'未接入',
+    ids:Array.from(new Set(timely.map(function(r){return r.patient.id})))};
+  var ages=persons.map(spAge).filter(function(v){return v!==null});
+  var conflicts=list.filter(function(e){
+    var a=spInterval(e,'firstDate','diagDate'),b=spInterval(e,'diagDate','tTreat'),first=spFirstTreat(e),death=spDate(e.deathDate);
+    var diag=spDiagnosisDate(e);
+    var invalid=(Array.isArray(e.treatments)?e.treatments:[]).some(function(t){
+      var d=spDate(t.start)||spDate(t.date);
+      return d&&d<=spCutoff()&&((diag&&d<diag)||(death&&d>death));
+    });
+    return a.status==='日期冲突'||b.status==='日期冲突'||invalid||!!(death&&first&&first<=spCutoff()&&first>death);
+  });
+  count('dateConflicts','诊疗日期冲突瘤例',conflicts.length,'例','首诊、确诊、首治顺序倒挂或截止日前治疗发生于确诊前/死亡后',function(e){return conflicts.indexOf(e)>=0},list);
+  return {total:pn,tumorTotal:n,persons:persons,list:list,metrics:metrics,alive:alive,dead:dead,lost:lost,active:metrics.active.value,
+    male:persons.filter(function(e){return e.sex==='男'}).length,female:persons.filter(function(e){return e.sex==='女'}).length,
+    medianAge:spMedian(ages),ageUnknown:pn-ages.length,newYear:metrics.periodDiagnosed.value,
+    earlyRate:metrics.early.value,lateRate:metrics.late.value,mdtRate:metrics.mdt.value,comboRate:metrics.combo.value,
+    crossCityRate:metrics.cross.value,crossProvRate:metrics.historicProvince.value,localTreatRate:metrics.local.value,
+    surgeryRate:metrics.mode0.value,radioRate:metrics.mode1.value,chemoRate:metrics.mode2.value,targetRate:metrics.mode3.value,
+    immunoRate:metrics.mode4.value,endocrineRate:metrics.mode5.value,interRate:metrics.mode6.value,
+    referralRate:metrics.referral.value,pallRate:metrics.palliative.value,fuRate:metrics.follow.value,lostRate:metrics.lostRatio.value,
+    recurRate:metrics.recurrence.value,metaRate:metrics.metastasis.value,progRate:metrics.progress.value,
+    distantRate:metrics.distant.value,deathRate:pn?+(dead/pn*100).toFixed(1):null,effSurvival:metrics.knownAlive.value};
+}
+function spCoreChecks(e){
+  var vital=spVital(e),first=spFirstTreat(e);
+  return [
+    {name:'患者标识',ok:spKnown(e.empi||e.patientId||e.idNo)},
+    {name:'性别',ok:e.sex==='男'||e.sex==='女'},
+    {name:'出生日期',ok:spAge(e)!==null},
+    {name:'户籍地市',ok:spKnown(e.city)},
+    {name:'就诊医院',ok:spKnown(e.hospital)},
+    {name:'确诊日期',ok:!!spDiagnosisDate(e)},
+    {name:'瘤种',ok:spKnown(e.site)},
+    {name:'诊断依据',ok:spDiagBasisType(e)!=='不详'},
+    {name:'分期记录',ok:spStage(e)!=='不详'},
+    {name:'治疗状态',ok:!!(spTreatmentModes(e).length||spKnown(e.treatmentStatus))&&(!first||spInterval(e,'diagDate','tTreat').value!==null)},
+    {name:'随访日期',ok:!!spDate(e.lastFu)&&e.lastFu<=spCutoff()&&(!spDiagnosisDate(e)||e.lastFu>=spDiagnosisDate(e))},
+    {name:'生存状态',ok:vital!=='不详'},
+    {name:'死亡日期与死因',ok:vital!=='死亡'||!!(spDate(e.deathDate)&&spKnown(e.deathCause))}
+  ];
 }
 function spAgeDist(list){
-  var groups=[['0-39',0,39],['40-49',40,49],['50-59',50,59],['60-69',60,69],['70及以上',70,200]];
+  list=spPersons(list);
+  var groups=[['0-39',0,39],['40-49',40,49],['50-59',50,59],['60-69',60,69],['70及以上',70,120],['不详',null,null]];
   return groups.map(function(g){
-    var sub=list.filter(function(e){return e.age>=g[1]&&e.age<=g[2]});
-    return {k:g[0],m:sub.filter(function(e){return e.sex==='男'}).length,f:sub.filter(function(e){return e.sex==='女'}).length,n:sub.length};
+    var sub=list.filter(function(e){var a=spAge(e);return g[1]===null?a===null:a!==null&&a>=g[1]&&a<=g[2]});
+    return {k:g[0],m:sub.filter(function(e){return e.sex==='男'}).length,f:sub.filter(function(e){return e.sex==='女'}).length,u:sub.filter(function(e){return e.sex!=='男'&&e.sex!=='女'}).length,n:sub.length};
   });
 }
 function spSiteRows(list){
-  return SP_SITES.map(function(s){
-    var sub=list.filter(function(e){return e.site===s});
+  var sites=Array.from(new Set(list.map(function(e){return spKnown(e.site)?e.site:'不详'})));
+  return sites.map(function(s){
+    var sub=list.filter(function(e){return (spKnown(e.site)?e.site:'不详')===s});
     return {site:s,n:sub.length,agg:spAgg(sub),list:sub};
   }).filter(function(r){return r.n>0});
 }
 function spCityRows(list){
-  return SP_CITIES.map(function(c){
-    var sub=list.filter(function(e){return e.city===c});
+  var cities=Array.from(new Set(SP_CITIES.concat(list.map(function(e){return spKnown(e.city)?e.city:'不详'}))));
+  return cities.map(function(c){
+    var sub=list.filter(function(e){return (spKnown(e.city)?e.city:'不详')===c});
     return {city:c,n:sub.length,agg:spAgg(sub),list:sub};
   });
 }
 function spStageItems(list){
-  return SP_STAGE_GROUPS.map(function(s){
-    return {k:s,v:list.filter(function(e){return e.stage===s}).length,color:SP_STAGE_COLORS[s]};
+  return SP_STAGE_GROUPS.concat(['不详','不适用']).map(function(s){
+    return {k:s,v:list.filter(function(e){return spStage(e)===s}).length,color:SP_STAGE_COLORS[s]||'#94a3b8'};
   });
 }
 function spMini(label,value){
@@ -675,7 +942,7 @@ function spGpHead(no,title,sub){
 var SP_CHART_COLORS=['#2563eb','#0ea5e9','#10b981','#f59e0b','#8b5cf6','#ef4444','#14b8a6','#f97316'];
 function spChartEmpty(){return '<div style="height:170px;display:flex;align-items:center;justify-content:center;color:var(--color-text-muted);font-size:var(--fs-sm)">暂无数据</div>'}
 /* 环形饼图 items:[{k,v}] */
-function spPie(items){
+function spPie(items,unit){
   items=(items||[]).filter(function(x){return x.v>0});
   var total=items.reduce(function(s,x){return s+x.v},0);
   if(!total)return spChartEmpty();
@@ -689,16 +956,16 @@ function spPie(items){
     var c=x.color||SP_CHART_COLORS[i%SP_CHART_COLORS.length];
     return '<div class="sp-legend-item"><span class="sp-legend-dot" style="background:'+c+'"></span><span>'+esc(x.k)+'</span><span class="sp-legend-val">'+x.v+'</span><span class="sp-legend-pct">'+(x.v/total*100).toFixed(0)+'%</span></div>';
   }).join('');
-  return '<div class="sp-chart-body"><div class="sp-pie" style="background:conic-gradient('+stops.join(',')+')"><div class="sp-pie-center">'+total+'<small>例</small></div></div><div class="sp-legend">'+legend+'</div></div>';
+  return '<div class="sp-chart-body"><div class="sp-pie" style="background:conic-gradient('+stops.join(',')+')"><div class="sp-pie-center">'+total+'<small>'+esc(unit||'例')+'</small></div></div><div class="sp-legend">'+legend+'</div></div>';
 }
 /* 横向柱 items:[{k,v,suffix}] suffix 默认 ' 例'；pct=true 时值为百分比；labWide=true 时标签列加宽（放区县等长文本） */
 function spHBar(items,pct,labWide){
-  items=(items||[]).filter(function(x){return x.v>0});
+  items=(items||[]).filter(function(x){return x.v===null||(Number.isFinite(x.v)&&x.v>=0)});
   if(!items.length)return spChartEmpty();
-  var max=Math.max.apply(null,items.map(function(x){return x.v}));
+  var max=pct?100:(Math.max.apply(null,items.map(function(x){return x.v||0}))||1);
   return '<div class="sp-hbars'+(labWide?' wide-lab':'')+'">'+items.map(function(x){
-    var val=pct?x.v+'%':x.v;
-    return '<div class="sp-hbar-row"><div class="sp-hbar-lab" title="'+esc(x.k)+'">'+esc(x.k)+'</div><div class="sp-hbar-track"><div class="sp-hbar-fill" style="width:'+Math.max(4,Math.round(x.v/max*100))+'%"></div></div><div class="sp-hbar-num">'+val+'</div></div>';
+    var val=x.v===null?'不可计算':(pct?x.v+'%':x.v);
+    return '<div class="sp-hbar-row"><div class="sp-hbar-lab" title="'+esc(x.k)+'">'+esc(x.k)+'</div><div class="sp-hbar-track"><div class="sp-hbar-fill" style="width:'+(x.v===null?0:Math.round(x.v/max*100))+'%"></div></div><div class="sp-hbar-num">'+val+'</div></div>';
   }).join('')+'</div>';
 }
 /* 纵向柱 items:[{k,v}] */
@@ -747,47 +1014,18 @@ function spSteps(steps){
 /* 诊疗时效（群体口径）：首诊→确诊、确诊→首治 两段中位天数对比条。
    V11.4 改版：原逐例患者双段条（带姓名、点击直达个体画像）属个体视角，移出群体总览页 */
 function spJourney(list){
-  var rows=list.map(function(e){
-    var d0=new Date(e.firstDate),d1=new Date(e.diagDate||e.stageDate),d2=new Date(e.tTreat);
-    if(isNaN(d0)||isNaN(d1)||isNaN(d2))return null;
-    return {a:Math.max(0,(d1-d0)/86400000),b:Math.max(0,(d2-d1)/86400000)};
-  }).filter(Boolean);
-  if(!rows.length)return spChartEmpty();
-  function med(arr){
-    var s=arr.slice().sort(function(x,y){return x-y}),n=s.length;
-    return n%2?s[(n-1)/2]:(s[n/2-1]+s[n/2])/2;
-  }
-  var medA=med(rows.map(function(r){return r.a})),medB=med(rows.map(function(r){return r.b}));
-  var max=Math.max(medA,medB)||1;
-  /* 超阈值预警：总时长中位 >30 天（区域级管理阈值，非个体诊疗建议） */
-  var over=rows.filter(function(r){return r.a+r.b>30}).length;
-  var pctOver=rows.length?Math.round(over/rows.length*100):0;
-  var cap='<div class="sp-jour-cap">'+
-    '<div class="sp-legend">'+
-      '<div class="sp-legend-item"><span class="sp-legend-dot" style="background:#2563eb"></span><span>首诊 → 确诊（中位）</span></div>'+
-      '<div class="sp-legend-item"><span class="sp-legend-dot" style="background:#f59e0b"></span><span>确诊 → 首治（中位）</span></div>'+
-    '</div><span class="sp-jour-num">总时长中位 '+Math.round(medA+medB)+' 天 · '+over+' 例超 30 天（'+pctOver+'%）</span></div>';
-  var body=[medA,medB].map(function(v,i){
-    return '<div class="sp-jour-row">'+
-      '<div class="sp-jour-name" style="cursor:default">'+(i?'确诊 → 首治':'首诊 → 确诊')+'</div>'+
-      '<div class="sp-jour-track">'+
-        '<div class="sp-jour-'+(i?'b':'a')+'" style="width:'+(v/max*100).toFixed(2)+'%"></div>'+
-      '</div>'+
-      '<div class="sp-jour-num">'+Math.round(v)+' 天</div>'+
-    '</div>';
-  }).join('');
-  return cap+'<div class="sp-jour">'+body+'</div>';
+  var rows=[['首诊 → 确诊',spIntervalStats(list,'firstDate','diagDate')],
+    ['确诊 → 首治',spIntervalStats(list,'diagDate','tTreat')],
+    ['首诊 → 首治',spIntervalStats(list,'firstDate','tTreat')]];
+  return spSimpleTable(['时间段','有效瘤例','中位天数','P75','P90','不可用 / 冲突'],rows.map(function(r){
+    var s=r[1];
+    return [r[0],s.n,spNumber(s.median),spNumber(s.p75),spNumber(s.p90),s.unknown+' / '+s.conflicts];
+  }));
 }
 /* 中位天数（字段名对字段名） */
 function spMedDays(list,from,to){
-  var ds=list.map(function(e){
-    var a=new Date(e[from]),b=new Date(e[to]);
-    if(isNaN(a)||isNaN(b))return null;
-    return (b-a)/86400000;
-  }).filter(function(x){return x!=null&&x>=0}).sort(function(x,y){return x-y});
-  if(!ds.length)return '—';
-  var m=ds.length%2?ds[(ds.length-1)/2]:(ds[ds.length/2-1]+ds[ds.length/2])/2;
-  return Math.round(m)+'<em> 天</em>';
+  var s=spIntervalStats(list,from,to);
+  return s.median===null?'不可计算':spNumber(s.median)+'<em> 天</em>';
 }
 /* 热力矩阵：colLabels 列名，rows[{label,cells:[n]}]，baseColors 每列基色，色深=数值 */
 function spHeat(colLabels,rows,baseColors){
@@ -836,13 +1074,13 @@ function spCityCompare(cityRows,keys){
   if(!rows.length)return spChartEmpty();
   var maxN=Math.max.apply(null,rows.map(function(r){return r.n}));
   var allCols={
-    early:{k:'早期占比 Ⅰ+Ⅱ',color:'#10b981',get:function(r){return {v:r.agg.earlyRate,txt:r.agg.earlyRate+'%',pct:r.agg.earlyRate}}},
-    late:{k:'晚期占比 Ⅳ',color:'#ef4444',get:function(r){return {v:r.agg.lateRate,txt:r.agg.lateRate+'%',pct:r.agg.lateRate}}},
-    cross:{k:'跨市就医率',color:'#f59e0b',get:function(r){return {v:r.agg.crossCityRate,txt:r.agg.crossCityRate+'%',pct:r.agg.crossCityRate}}},
-    fu:{k:'随访覆盖率',color:'#0ea5e9',get:function(r){return {v:r.agg.fuRate,txt:r.agg.fuRate+'%',pct:r.agg.fuRate}}}
+    early:{k:'记录早期占比',color:'#10b981',get:function(r){return {txt:spMetricValue(r.agg.metrics.early)+' ('+r.agg.metrics.early.numerator+'/'+r.agg.metrics.early.denominator+')',pct:r.agg.earlyRate}}},
+    late:{k:'记录 IV 期占比',color:'#64748b',get:function(r){return {txt:spMetricValue(r.agg.metrics.late),pct:r.agg.lateRate}}},
+    cross:{k:'跨市就诊记录占比',color:'#f59e0b',get:function(r){return {txt:spMetricValue(r.agg.metrics.cross)+' ('+r.agg.metrics.cross.numerator+'/'+r.agg.metrics.cross.denominator+')',pct:r.agg.crossCityRate}}},
+    fu:{k:'随访日期记录覆盖',color:'#0ea5e9',get:function(r){return {txt:spMetricValue(r.agg.metrics.follow)+' ('+r.agg.metrics.follow.numerator+'/'+r.agg.metrics.follow.denominator+')',pct:r.agg.fuRate}}}
   };
   var order=keys&&keys.length?keys:['early','late','cross','fu'];
-  var cols=[{k:'患者数',color:'#2563eb',get:function(r){return {v:r.n,txt:r.n+' 例',pct:r.n/maxN*100}}}]
+  var cols=[{k:'患者 / 瘤例',color:'#2563eb',get:function(r){return {txt:r.agg.total+' 人 / '+r.n+' 例',pct:r.n/maxN*100}}}]
     .concat(order.map(function(k){return allCols[k]}).filter(Boolean));
   var head='<tr><th>地市</th>'+cols.map(function(c){return '<th>'+esc(c.k)+'</th>'}).join('')+'</tr>';
   var body=rows.map(function(r){
@@ -979,6 +1217,27 @@ var spChartStyle=document.createElement('style');spChartStyle.textContent=`
 .sp-mt-actions{display:flex;gap:8px;flex:0 0 auto}
 .sp-mt-table td.sp-mt-note{color:var(--color-text-muted);font-size:var(--fs-xs)}
 .sp-mt-table tr.sp-mt-grouprow td{background:var(--color-bg-subtle);font-weight:700;color:var(--color-text-title);font-size:var(--fs-sm);letter-spacing:.02em}
+.sp-overview-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.sp-overview-title h2{margin:0;font-size:18px}
+.sp-overview-title>span{font-size:12px;color:var(--color-text-muted)}
+.sp-kpi-k{white-space:normal;overflow:visible;min-height:34px;line-height:1.4;font-size:12px}
+.sp-kpi-v{min-height:28px}
+.sp-kpi-sub{white-space:normal;overflow:visible;line-height:1.5;min-height:18px}
+.sp-kpi-action{cursor:pointer}
+.sp-kpi-action:hover{background:var(--color-bg-subtle)}
+.sp-kpi-action:focus-visible{outline:2px solid var(--color-primary);outline-offset:-3px}
+.sp-overview-grid{margin:16px 0}
+.sp-overview-mini{margin:16px 0}
+.sp-metric-evidence{font-size:11px;color:var(--color-text-muted);margin-top:5px;line-height:1.5}
+.sp-overview-table{min-width:580px;width:100%}
+.sp-overview-table th,.sp-overview-table td{white-space:normal;word-break:normal;overflow-wrap:anywhere}
+.sp-table-empty{text-align:center;color:var(--color-text-muted);padding:22px}
+.sp-mt-table td.sp-mt-note{white-space:normal;min-width:240px;max-width:340px}
+.sp-filter-bar input[type=date]{width:100%;min-width:0;box-sizing:border-box}
+.sp-filter-bar .sp-filter-actions{flex-wrap:wrap}
+.sp-overview-context{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;font-size:12px;color:var(--color-text-muted)}
+@media(max-width:1100px){.sp-overview-mini{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.sp-overview-mini{grid-template-columns:1fr}.sp-kpi-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.sp-kpi{padding:10px}.sp-gp-summary{padding:10px}}
 `;
 document.head.appendChild(spChartStyle);
 
@@ -1016,16 +1275,18 @@ function spMapPaths(){
 var SP_MAP_NUDGE={'萍乡市':[-16,4],'新余市':[16,-2],'鹰潭市':[14,-4],'景德镇市':[10,-12],'南昌市':[-10,0]};
 var SP_MAP_RAMP=['#eff6ff','#dbeafe','#bfdbfe','#93c5fd','#60a5fa','#3b82f6','#1d4ed8'];
 function spMapRamp(vals,v){
+  vals=vals.filter(function(x){return x!==null&&Number.isFinite(x)});
+  if(v===null||!vals.length)return '#e2e8f0';
   var lo=Math.min.apply(null,vals),hi=Math.max.apply(null,vals);
   if(hi===lo)return SP_MAP_RAMP[3];
   var t=(v-lo)/(hi-lo);
   return SP_MAP_RAMP[Math.max(0,Math.min(6,Math.round(t*6)))];
 }
 /* 地图面板：scope 事件列表 + 指标(metric) + 回调 */
-var SP_MAP_METRICS={'患者规模':{get:function(r){return r.n},fmt:function(v){return v+' 例'},w:0},
- '晚期占比':{get:function(r){return r.agg.lateRate},fmt:function(v){return v+'%'},w:1},
- '随访覆盖率':{get:function(r){return r.agg.fuRate},fmt:function(v){return v+'%'},w:1},
- '跨市就医率':{get:function(r){return r.agg.crossCityRate},fmt:function(v){return v+'%'},w:1}};
+var SP_MAP_METRICS={'患者规模':{get:function(r){return r.agg.total},fmt:function(v){return v+' 人'},w:0},
+ '记录 IV 期占比':{get:function(r){return r.agg.lateRate},fmt:function(v){return v===null?'不可计算':v+'%'},w:1},
+ '随访日期记录覆盖':{get:function(r){return r.agg.fuRate},fmt:function(v){return v===null?'不可计算':v+'%'},w:1},
+ '跨市就诊记录占比':{get:function(r){return r.agg.crossCityRate},fmt:function(v){return v===null?'不可计算':v+'%'},w:1}};
 function spMapPanel(list,metric,scopeCity){
   var paths=spMapPaths(),p=spProject();
   if(!paths||!p)return '<div class="sp-chart-empty">地图组件未加载</div>';
@@ -1033,12 +1294,12 @@ function spMapPanel(list,metric,scopeCity){
   var vals=rows.map(function(r){return SP_MAP_METRICS[metric].get(r)});
   var g='',labels='';
   rows.forEach(function(r,i){
+    var geo=window.JX_GEO.cities.find(function(c){return c.full===r.city});
+    if(!paths[r.city]||!geo)return;
     var v=vals[i],col=spMapRamp(vals,v),on=r.city===scopeCity;
     g+='<path d="'+paths[r.city]+'" data-sp-city="'+esc(r.city)+'" fill="'+col+'" stroke="'+(on?'#1d4ed8':'#ffffff')+'" stroke-width="'+(on?2.2:1.2)+'" style="cursor:pointer"/>';
     var nud=SP_MAP_NUDGE[r.city]||[0,0];
-    var cx=p.x(window.JX_GEO.cities[i]&&0),cy=0;
-    var geo=window.JX_GEO.cities.filter(function(c){return c.full===r.city})[0];
-    if(geo){cx=p.x(geo.centroid[0])+nud[0];cy=p.y(geo.centroid[1])+nud[1];}
+    var cx=p.x(geo.centroid[0])+nud[0],cy=p.y(geo.centroid[1])+nud[1];
     labels+='<g style="pointer-events:none"><text x="'+cx.toFixed(1)+'" y="'+(cy-5).toFixed(1)+'" text-anchor="middle" font-size="11" fill="#334155" font-weight="600">'+r.city.replace('市','')+'</text>'+
       '<text x="'+cx.toFixed(1)+'" y="'+(cy+9).toFixed(1)+'" text-anchor="middle" font-size="10" fill="#1d4ed8" font-family="var(--font-num)">'+SP_MAP_METRICS[metric].fmt(v)+'</text></g>';
   });
@@ -1046,7 +1307,7 @@ function spMapPanel(list,metric,scopeCity){
     Object.keys(SP_MAP_METRICS).map(function(m){
       return '<button class="btn '+(m===metric?'btn-primary':'btn-ghost')+' btn-sm" onclick="window._spMapMetric(\''+m+'\')">'+m+'</button>';
     }).join('')+'</div>';
-  var legend='<div class="sp-map-legend"><span>低</span>'+SP_MAP_RAMP.map(function(c){return '<i style="background:'+c+'"></i>'}).join('')+'<span>高</span><span style="margin-left:auto">点击地市可下钻查看该地市画像指标</span></div>';
+  var legend='<div class="sp-map-legend"><span>低</span>'+SP_MAP_RAMP.map(function(c){return '<i style="background:'+c+'"></i>'}).join('')+'<span>高</span><span><i style="background:#e2e8f0"></i>不可计算</span></div>';
   return tip+'<svg class="sp-mapsvg" viewBox="0 0 '+p.w+' '+p.h+'" preserveAspectRatio="xMidYMid meet">'+g+labels+'</svg>'+legend;
 }
 /* 绑定地图点击（渲染后调用一次，全局委托） */
@@ -1063,131 +1324,69 @@ function spMapPanel(list,metric,scopeCity){
 
 
 /* ===================== 五、02 群体专科画像（板块01四维画像的总结归纳） ===================== */
-var _spScope={city:'',site:''};
+var _spScope={city:'',site:'',hospital:'',from:'',to:'',cutoff:spToday()};
 var _spMapMetricKey='患者规模';
 var _spDomain='burden';
-/* 五段 Tab：按肿瘤防治链条（cancer care continuum）组织群体视角
-   疾病负担 → 早期发现 → 规范诊疗 → 生存结局 → 资源与公平
-   个体读"值"，群体读"一条防治链上哪一环在掉人、掉多少"；
-   全部由个体画像字段实时聚合，不新增采集 */
+/* 保留五组分析结构，描述记录事实，不对无适用规则的全队列作达标评价。 */
 var SP_DOMAINS=[
- {key:'burden',label:'人群与病情构成'},{key:'early',label:'早期发现'},
- {key:'treat',label:'规范诊疗'},{key:'outcome',label:'生存结局'},
- {key:'equity',label:'资源与公平'},{key:'metrics',label:'指标明细表'}
+ {key:'burden',label:'人群与病情构成'},{key:'early',label:'发现与诊断'},
+ {key:'treat',label:'诊疗过程'},{key:'outcome',label:'随访与结局'},
+ {key:'equity',label:'就医与可及性'},{key:'metrics',label:'指标明细表'}
 ];
 
 function spScopeBar(){
-  var cityOpts='<option value="">全省</option>'+SP_CITIES.map(function(c){return '<option'+(c===_spScope.city?' selected':'')+'>'+c+'</option>'}).join('');
-  var siteOpts='<option value="">全部病种</option>'+SP_SITES.map(function(s){return '<option'+(s===_spScope.site?' selected':'')+'>'+s+'</option>'}).join('');
+  function options(values,current,all){return '<option value="">'+all+'</option>'+values.map(function(v){return '<option value="'+esc(v)+'"'+(v===current?' selected':'')+'>'+esc(v)+'</option>'}).join('')}
+  var cities=Array.from(new Set(SP_CITIES.concat(tumorEvents.map(function(e){return e.city}).filter(spKnown))));
+  var sites=Array.from(new Set(SP_SITES.concat(tumorEvents.map(function(e){return e.site}).filter(spKnown))));
+  var hospitals=Array.from(new Set(SP_HOSPITALS.concat(tumorEvents.map(function(e){return e.hospital}).filter(spKnown))));
   return '<div class="sp-filter-bar">'+
-    '<div class="form-group"><label>地市</label><select id="spScopeCity" onchange="window._spSetScope(this.value,\'\')">'+cityOpts+'</select></div>'+
-    '<div class="form-group"><label>瘤种</label><select onchange="window._spSetScope(\'\',this.value)">'+siteOpts+'</select></div>'+
-    '<div class="sp-filter-actions"><button class="btn btn-ghost btn-sm" onclick="window._spSetScope(\'\',\'\')">重置</button></div>'+
+    '<div class="form-group"><label>户籍地市</label><select id="spScopeCity" onchange="window._spScopeField(\'city\',this.value)">'+options(cities,_spScope.city,'全省')+'</select></div>'+
+    '<div class="form-group"><label>瘤种</label><select id="spScopeSite" onchange="window._spScopeField(\'site\',this.value)">'+options(sites,_spScope.site,'全部病种')+'</select></div>'+
+    '<div class="form-group"><label>就诊医院</label><select id="spScopeHospital" onchange="window._spScopeField(\'hospital\',this.value)">'+options(hospitals,_spScope.hospital,'全部医院')+'</select></div>'+
+    '<div class="form-group"><label>确诊开始日期</label><input type="date" id="spScopeFrom" value="'+esc(_spScope.from)+'" onchange="window._spScopeField(\'from\',this.value)"></div>'+
+    '<div class="form-group"><label>确诊结束日期</label><input type="date" id="spScopeTo" value="'+esc(_spScope.to)+'" onchange="window._spScopeField(\'to\',this.value)"></div>'+
+    '<div class="form-group"><label>统计截止日</label><input type="date" id="spScopeCutoff" value="'+esc(_spScope.cutoff)+'" max="'+spToday()+'" onchange="window._spScopeField(\'cutoff\',this.value)"></div>'+
+    '<div class="sp-filter-actions"><button class="btn btn-ghost btn-sm" onclick="window._spScopeReset()">重置</button>'+
+    '<button class="btn btn-outline btn-sm" onclick="window._spGpToPatients()">查看患者</button>'+
+    '<button class="btn btn-primary btn-sm" onclick="window._spExportMetricsCSV()">导出 CSV</button></div>'+
   '</div>';
 }
 function spScopeLabel(){
   var a=[];
   a.push(_spScope.city||'全省');
-  if(_spScope.site)a.push(_spScope.site+'癌');
+  if(_spScope.site)a.push(_spScope.site);
+  if(_spScope.hospital)a.push(_spScope.hospital);
+  a.push((_spScope.from||'全部历史')+' 至 '+(_spScope.to||'截止日'));
+  a.push('截止 '+spCutoff());
   return a.join(' · ');
 }
 
 /* ---- 一句话摘要：把当前范围的群体画像口语化归纳（页面开场，替代重复的四维卡） ---- */
 function spGroupSummary(list,agg,siteRows,cityRows){
-  var topAge=spAgeDist(list).slice().sort(function(a,b){return b.n-a.n})[0];
-  var sexName=agg.male>=agg.female?'男':'女';
-  var sexPct=Math.round(Math.max(agg.male,agg.female)/agg.total*100);
-  var topSite=siteRows.slice().sort(function(a,b){return b.n-a.n})[0];
-  var topSitePct=Math.round(topSite.n/agg.total*100);
-  var covered=cityRows.filter(function(r){return r.n>0}).length;
-  /* 收尾：按防治链条逐段体检，挑「偏离度最大」的一项作为最该说的短板；均达标才说平稳
-     判据全部为区域管理阈值（非个体诊疗建议），与重点问题扫描口径一致 */
-  var cands=[];
-  if(agg.lateRate>=40)cands.push({sev:agg.lateRate,txt:'晚期（Ⅳ期）占比 <em>'+agg.lateRate+'%</em>，早诊筛查是首要短板'});
-  if(agg.earlyRate<40&&agg.total>=3)cands.push({sev:60-agg.earlyRate,txt:'早诊率仅 <em>'+agg.earlyRate+'%</em>（早期 Ⅰ+Ⅱ），关口需前移'});
-  if(agg.mdtRate<60)cands.push({sev:60-agg.mdtRate,txt:'MDT 覆盖率 <em>'+agg.mdtRate+'%</em>，多学科协作待规范'});
-  if(agg.crossCityRate>=30)cands.push({sev:agg.crossCityRate,txt:'跨市就医率 <em>'+agg.crossCityRate+'%</em>，本地承接能力待提升'});
-  if(agg.lostRate>=8)cands.push({sev:agg.lostRate*4,txt:'失访率 <em>'+agg.lostRate+'%</em>，随访管理需加强'});
-  var flag;
-  if(cands.length){cands.sort(function(a,b){return b.sev-a.sev});flag=cands[0].txt;}
-  else flag='早诊率 <em>'+agg.earlyRate+'%</em>、随访覆盖 <em>'+agg.fuRate+'%</em>、观察生存率 <em>'+agg.effSurvival+'%</em>，各环节均达标';
-  var txt='当前范围 <b>'+esc(spScopeLabel())+'</b> 共 <em>'+agg.total+'</em> 例在管患者，覆盖 <em>'+covered+'</em> 个设区市；'+
-    '以 <b>'+sexName+'性</b>（<em>'+sexPct+'%</em>）、<b>'+esc(topAge.k)+'</b> 年龄段为主，'+
-    '首位瘤种 <b>'+esc(topSite.site)+'癌</b>（<em>'+topSitePct+'%</em>）。'+flag+'。';
-  return '<div class="sp-gp-summary"><div class="sp-gp-summary-ico">概</div><div class="sp-gp-summary-txt">'+txt+'</div></div>';
+  var covered=cityRows.filter(function(r){return r.n>0&&r.city!=='不详'}).length;
+  var txt='纳入 <em>'+agg.total+'</em> 人 / <em>'+agg.tumorTotal+'</em> 瘤例，户籍涉及 <em>'+covered+'</em> 个地市。'+
+    '已知存活 <b>'+agg.alive+'</b> 人，死亡结案 <b>'+agg.dead+'</b> 人，生存状态不详 <b>'+(agg.total-agg.alive-agg.dead)+'</b> 人；'+
+    '另有失访记录 <b>'+agg.lost+'</b> 人。';
+  return '<div class="sp-gp-summary"><div class="sp-gp-summary-txt">'+txt+'</div></div>';
 }
 /* ---- 链条节点指标带：一行 8 项，按防治链条（负担→发现→诊疗→结局→公平）取节点指标，
    值旁标与全省同瘤种基准的差值；已在全省时不显示差值 ---- */
 function spKpiStrip(list,agg){
-  var atProvince=!_spScope.city;
-  var base=atProvince?agg:spAgg(spScopeEvents({city:'',site:_spScope.site}));
-  /* cat 颜色对应防治链条段：负担=靛 发现=蓝 诊疗=青 结局=绿 公平=琥珀；good=true 越高越好 */
-  var defs=[
-    {k:'早诊率 Ⅰ+Ⅱ',cat:'#2563eb',v:agg.earlyRate,b:base.earlyRate,unit:'%',good:true},
-    {k:'首诊远处转移率',cat:'#2563eb',v:agg.distantRate,b:base.distantRate,unit:'%',good:false},
-    {k:'MDT 覆盖率',cat:'#0891b2',v:agg.mdtRate,b:base.mdtRate,unit:'%',good:true},
-    {k:'综合治疗率',cat:'#0891b2',v:agg.comboRate,b:base.comboRate,unit:'%',good:true},
-    {k:'随访覆盖率',cat:'#10b981',v:agg.fuRate,b:base.fuRate,unit:'%',good:true},
-    {k:'观察生存率',cat:'#10b981',v:agg.effSurvival,b:base.effSurvival,unit:'%',good:true},
-    {k:'县域内就诊率',cat:'#f59e0b',v:agg.localTreatRate,b:base.localTreatRate,unit:'%',good:true},
-    {k:'跨市就医率',cat:'#f59e0b',v:agg.crossCityRate,b:base.crossCityRate,unit:'%',good:false}
-  ];
-  return '<div class="sp-kpi-strip">'+defs.map(function(d){
-    var sub;
-    if(atProvince){sub='<span class="flat">全省基准</span>';}
-    else{
-      var diff=+(d.v-d.b).toFixed(1);
-      if(diff===0)sub='<span class="flat">持平全省</span>';
-      else{
-        var favorable=d.good?diff>0:diff<0;
-        var arrow=diff>0?'▲':'▼';
-        sub='<span class="'+(favorable?'down':'up')+'">'+arrow+' '+Math.abs(diff)+d.unit+' <b>vs 全省</b></span>';
-      }
-    }
-    return '<div class="sp-kpi"><div class="sp-kpi-k"><i style="background:'+d.cat+'"></i>'+esc(d.k)+'</div>'+
-      '<div class="sp-kpi-v">'+d.v+'<em>'+d.unit+'</em></div>'+
-      '<div class="sp-kpi-sub">'+sub+'</div></div>';
+  return '<div class="sp-kpi-strip">'+['patients','newPatients','active','early','started','timely','lostRatio','complete'].map(function(id){
+    var m=agg.metrics[id],sub=spMetricEvidence(m);
+    if(id==='patients')sub=agg.tumorTotal+' 瘤例';
+    if(id==='newPatients'&&m.value===null)sub='期内确诊记录 '+agg.metrics.periodDiagnosed.value+' 人';
+    var action=m.value!==null&&m.ids.length?' onclick="window._spMetricPatients(\''+id+'\')" tabindex="0" role="button" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();window._spMetricPatients(\''+id+'\')}"':'';
+    return '<div class="sp-kpi'+(action?' sp-kpi-action':'')+'"'+action+' title="'+esc(m.definition+'；'+spMetricEvidence(m))+'">'+
+      '<div class="sp-kpi-k">'+esc(m.name)+'</div><div class="sp-kpi-v">'+(m.value===null?'—':spNumber(m.value))+
+      (m.value===null?'':'<em>'+m.unit+'</em>')+'</div><div class="sp-kpi-sub">'+esc(sub)+'</div>'+
+      (m.value===null?'<div class="sp-kpi-sub">'+esc(id==='newPatients'?'历史首次确诊未接入':m.status==='未接入'?'随访任务未接入':m.status)+'</div>':'')+'</div>';
   }).join('')+'</div>';
 }
 
-/* ---- 防治链条级联漏斗：人群从「在管」逐环累积达标到「规范治疗且随访在管」，环间标流失 ----
-   群体视角的核心读法——每一环是「同时满足前面所有条件」的严格子集，故单调递减；
-   看整条链哪一环在掉人、掉多少。点击任一节点跳到对应链条段 Tab。 */
+/* 旧级联漏斗停用：MDT和多方式治疗不是人人必经的路径节点。 */
 function spCareCascade(list){
-  var N=list.length||1;
-  /* 累积嵌套条件：cond(e) 需在满足前序全部条件的前提下再判定，保证子集单调递减 */
-  var steps=[
-    {k:'在管患者',color:'#334155',dom:'burden',cond:function(e){return true;}},
-    {k:'病理确诊',color:'#2563eb',dom:'early',cond:function(e){return !!spMorphCode(e);}},
-    {k:'接受治疗',color:'#0891b2',dom:'treat',cond:function(e){return (e.treatMode||[]).length>0;}},
-    {k:'MDT 评估',color:'#0e7490',dom:'treat',cond:function(e){return !!e.mdt;}},
-    {k:'综合治疗',color:'#0d9488',dom:'treat',cond:function(e){return (e.treatMode||[]).length>=2;}},
-    {k:'随访在管',color:'#10b981',dom:'outcome',cond:function(e){return e.followStatus!=='失访'&&e.vitalStatus!=='死亡';}}
-  ];
-  /* 逐环累积：cur = 上一环通过者中再满足本环条件的子集 */
-  var cur=list.slice();
-  var nodes=steps.map(function(st,i){
-    cur=cur.filter(st.cond);
-    return {k:st.k,color:st.color,dom:st.dom,n:cur.length};
-  });
-  var flow='';
-  nodes.forEach(function(nd,i){
-    var rate=Math.round(nd.n/N*100);
-    flow+='<div class="sp-fn-node" onclick="window._spSetDomain(\''+nd.dom+'\')" style="cursor:pointer" title="点击查看「'+esc(SP_DOMAINS.filter(function(d){return d.key===nd.dom})[0].label)+'」段">'+
-      '<div class="sp-fn-bar" style="background:'+nd.color+'"><div class="sp-fn-n">'+nd.n+'<em>例</em></div><div class="sp-fn-k">'+esc(nd.k)+'</div></div>'+
-      '<div class="sp-fn-rate">占在管 <b>'+rate+'%</b></div></div>';
-    if(i<nodes.length-1){
-      var loss=nd.n-nodes[i+1].n;
-      var lossPct=nd.n?Math.round(loss/nd.n*100):0;
-      var warn=lossPct>=25;
-      flow+='<div class="sp-fn-gap"><div class="sp-fn-gap-arrow">→</div>'+
-        '<div class="sp-fn-gap-loss '+(warn?'warn':'ok')+'">'+(loss>0?'−'+loss+' ('+lossPct+'%)':'0')+'</div></div>';
-    }
-  });
-  return '<div class="sp-funnel"><div class="sp-funnel-head">'+
-    '<span class="sp-funnel-title">防治链条级联</span>'+
-    '<span class="sp-funnel-hint">在管人群沿「确诊 → 治疗 → MDT → 综合治疗 → 随访在管」逐环累积达标（每环为前环的子集），箭头下为环间流失；点击节点查看该段明细</span>'+
-    '</div><div class="sp-funnel-flow">'+flow+'</div></div>';
+  return '';
 }
 
 function renderOverview(){
@@ -1195,16 +1394,14 @@ function renderOverview(){
   var agg=spAgg(list);
   var siteRows=spSiteRows(list);
   var cityRows=spCityRows(list);
-  var h=spScopeBar();
+  var h='<div class="sp-overview-title"><h2>患者群体总览</h2><span>内置样例 · 统计口径 V13.0 · 截止 '+spCutoff()+'</span></div>'+spScopeBar();
   if(!list.length){
-    h+='<div class="sp-gp-empty">当前范围（'+esc(spScopeLabel())+'）无在管患者，无法聚合群体画像<br>'+
-      '<button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="window._spSetScope(\'\',\'\')">重置筛选条件</button></div>';
+    h+='<div class="sp-gp-empty">当前范围无纳入记录<br>'+
+      '<button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="window._spScopeReset()">重置筛选条件</button></div>';
     return h;
   }
   /* 开场：一句话摘要 → 链条节点指标带 → 防治链条级联漏斗（群体视角核心） */
-  h+=spGroupSummary(list,agg,siteRows,cityRows);
   h+=spKpiStrip(list,agg);
-  h+=spCareCascade(list);
   /* 五段 Tabs：疾病负担 → 早期发现 → 规范诊疗 → 生存结局 → 资源与公平 */
   h+='<div class="sp-domain-tabs">'+SP_DOMAINS.map(function(d){
     return '<button class="sp-domain-tab'+(_spDomain===d.key?' active':'')+'" onclick="window._spSetDomain(\''+d.key+'\')">'+d.label+'</button>';
@@ -1216,158 +1413,134 @@ function renderOverview(){
 
 /* ---- 五段面板：按肿瘤防治链条组织（疾病负担/早期发现/规范诊疗/生存结局/资源与公平） ----
    全部复用既有图表构件，按链条逻辑归位；数字由个体画像队列实时聚合，不新增采集 */
+function spNumber(v){return v===null||v===undefined?'不可计算':String(Math.round(v*10)/10)}
+function spMetricValue(m){return m.value===null?m.status:spNumber(m.value)+' '+m.unit}
+function spMetricEvidence(m){
+  if(m.value===null)return m.status+(m.unknown?' · 不详 '+m.unknown:'');
+  return (m.denominator!==null?m.numerator+' / '+m.denominator+' '+(m.statisticalUnit||'瘤例'):'')+
+    (m.unknown?' · 不详 '+m.unknown:'')+(m.notApplicable?' · 不适用 '+m.notApplicable:'');
+}
+function spMetricCards(agg,ids){
+  return '<div class="sp-mini-grid sp-overview-mini">'+ids.map(function(id){
+    var m=agg.metrics[id];
+    return '<div class="sp-mini" title="'+esc(m.definition)+'"><div class="k">'+esc(m.name)+'</div>'+
+      '<div class="v">'+esc(spMetricValue(m))+'</div><div class="sp-metric-evidence">'+esc(spMetricEvidence(m))+'</div></div>';
+  }).join('')+'</div>';
+}
+function spDistribution(list,fn){
+  var values=new Map();
+  list.forEach(function(e){var k=fn(e);k=spKnown(k)?String(k):'不详';values.set(k,(values.get(k)||0)+1)});
+  return Array.from(values,function(r){return {k:r[0],v:r[1]}}).sort(function(a,b){return b.v-a.v});
+}
+function spHistoryState(e){
+  if(!spKnown(e.pastHistory))return '不详';
+  return /^(无|无特殊既往史|无既往史|无基础疾病)$/.test(String(e.pastHistory).trim())?'明确无既往史':'有既往史记录';
+}
+function spSymptomState(e){return !spKnown(e.symptom)?'不详':e.symptom==='无'?'明确无症状记录':'有症状记录'}
+function spTreatmentLabel(e){var a=spTreatmentModes(e);return a.length?a.join(' + '):(spRecordValue(e,'treatmentStatus',['treatmentStatusDate'])||'未见有效启动记录')}
+function spPhysicalState(e){return spRecordValue(e,'physical',['ecogDate'])}
+function spNutritionState(e){return spRecordValue(e,'nutrition',['nutritionDate'])}
+function spRecistState(e){
+  var d=spDate(e.recistDate),diag=spDiagnosisDate(e);
+  return d&&d<=spCutoff()&&(!diag||d>=diag)&&['CR','PR','SD','PD','NE'].indexOf(e.recist)>=0?e.recist:'不详';
+}
+function spFollowGap(e){
+  var d=spDate(e.lastFu),diag=spDiagnosisDate(e);
+  if(!d||d>spCutoff()||(diag&&d<diag))return '日期不详或冲突';
+  if(spVital(e)==='死亡')return '死亡结案';
+  var days=(Date.parse(spCutoff()+'T00:00:00Z')-Date.parse(d+'T00:00:00Z'))/86400000;
+  return days<=30?'0–30 天':days<=90?'31–90 天':days<=180?'91–180 天':'超过 180 天';
+}
+function spSimpleTable(headers,rows){
+  return '<div class="sp-table-wrap"><table class="data-table sp-overview-table"><thead><tr>'+
+    headers.map(function(h){return '<th>'+esc(h)+'</th>'}).join('')+'</tr></thead><tbody>'+
+    (rows.length?rows.map(function(row){return '<tr>'+row.map(function(v){return '<td>'+esc(v)+'</td>'}).join('')+'</tr>'}).join(''):
+      '<tr><td colspan="'+headers.length+'" class="sp-table-empty">无纳入记录</td></tr>')+'</tbody></table></div>';
+}
 function spDomainPanel(list,agg,siteRows,cityRows){
 
   /* ========== 段① 人群与病情构成：在管一群什么样的人、什么瘤、什么期 ==========
      内部两块：A 人群特征（人口学/社会属性/共病）B 病情构成（瘤谱/分期）；
      发现途径（症状/筛查）归属段②。原称「疾病负担」，V12.4 改名以名副其实。 */
   if(_spDomain==='burden'){
-    var ages=spAgeDist(list);
-    var insDist={};list.forEach(function(e){insDist[e.insurance]=(insDist[e.insurance]||0)+1});
-    var insItems=Object.keys(insDist).map(function(k){return {k:k,v:insDist[k]}});
-    var maxAge=Math.max.apply(null,ages.map(function(a){return Math.max(a.m,a.f)}))||1;
-    var ageCap='<div class="sp-age-row sp-age-cap">'+
-      '<div class="sp-age-side"><span class="sp-age-legend"><i class="m"></i>男</span></div><div></div>'+
-      '<div class="sp-age-side"><span class="sp-age-legend"><i class="f"></i>女</span></div></div>';
-    var ageRows=ages.map(function(a){
-      return '<div class="sp-age-row">'+
-        '<div class="sp-age-side"><span class="sp-age-num">男'+a.m+'</span>'+
-          '<div class="sp-age-track m"><div class="sp-age-fill m" style="width:'+Math.round(a.m/maxAge*100)+'%"></div></div></div>'+
-        '<div class="sp-age-lab"><div class="k">'+esc(a.k)+'</div><div class="n">'+a.n+' 例</div></div>'+
-        '<div class="sp-age-side"><div class="sp-age-track f"><div class="sp-age-fill f" style="width:'+Math.round(a.f/maxAge*100)+'%"></div></div>'+
-          '<span class="sp-age-num">女'+a.f+'</span></div>'+
-      '</div>';
-    }).join('');
-    /* 医保构成（性别已由左侧年龄金字塔按男/女拆分表达，此处不再重复放性别堆叠条） */
-    /* ---- 人群特征补充：中位年龄 / 基础疾病 / 居住地 ----
-       全部由个体画像既有字段实时聚合，不新增采集字段；
-       「因症就诊（症状）」归属段②早期发现，与筛查途径配对，本段不再统计 */
-    /* 中位年龄 */
-    var ageVals=list.map(function(e){return e.age}).sort(function(a,b){return a-b});
-    var medAge=ageVals[Math.floor((ageVals.length-1)/2)];
-    /* 合并基础疾病：既往史（pastHistory）明确写「无特殊」记为无，其余为有 */
-    var baseDis=list.filter(function(e){return ((e.pastHistory||'').indexOf('无特殊')<0)}).length;
-    /* 居住地（区县）分布 */
-    var regDist={};list.forEach(function(e){var k=(e.region||'不详');regDist[k]=(regDist[k]||0)+1});
-    var regItems=Object.keys(regDist).map(function(k){return {k:k,v:regDist[k]}}).sort(function(a,b){return b.v-a.v});
-    function pctOf(n){return list.length?Math.round(n/list.length*100):0}
-    /* 各瘤种分期构成：100% 堆叠条（替代原色深热力矩阵，小样本下更可读） */
-    var ssStages=SP_STAGE_GROUPS;
-    var ssColors=SP_STAGE_GROUPS.map(function(s){return SP_STAGE_COLORS[s]});
-    var ssRows=siteRows.map(function(r){
-      var cells=SP_STAGE_GROUPS.map(function(s){return r.list.filter(function(e){return e.stage===s}).length});
-      return {label:r.site+'癌',n:r.n,cells:cells};
-    }).sort(function(a,b){return b.n-a.n});
-    /* 段①两块：人群特征（是谁）+ 病情构成（得什么病、什么程度）。
-       年龄性别以金字塔为主，顶部小指标不重复画同一信息。 */
-    return spGpHead('A','人群特征','在管患者的人口学与社会属性 · 共病情况')+
-      '<div class="sp-mini-grid" style="margin-bottom:16px">'+
-        spMini('在管患者',agg.total+'<em> 例</em>')+spMini('男 / 女',agg.male+' / '+agg.female)+
-        spMini('中位年龄',medAge+'<em> 岁</em>')+
-        spMini('有基础疾病（既往史）',baseDis+'<em> 例</em> · '+pctOf(baseDis)+'<em>%</em>')+
-      '</div><div class="sp-2col" style="margin-bottom:16px">'+
-        spPanel('年龄结构（男/女）','<div class="sp-hbars">'+ageCap+ageRows+'</div>')+
-        spPanel('居住地分布（区/县）',spHBar(regItems,false,true))+
-      '</div>'+
-      spGpHead('B','病情构成','医保 · 瘤谱 · 分期谱 · 各瘤种分期构成')+
-      '<div class="sp-3col" style="margin-bottom:16px">'+
-        spPanel('医保类型构成',spPie(insItems.slice().sort(function(a,b){return b.v-a.v}).map(function(x){return {k:x.k,v:x.v}})))+
-        spPanel('瘤谱构成（病种）',spPie(siteRows.map(function(r){return {k:r.site+'癌',v:r.n}})))+
-        spPanel('分期谱构成',spPie(spStageItems(list)))+
-      '</div>'+spPanel('各瘤种分期构成（条宽=例数，段=各分期占比）',spSiteStageStack(ssRows,ssStages,ssColors));
+    var people=agg.persons,ages=spAgeDist(people);
+    var history=spDistribution(people,spHistoryState);
+    var checks=spCoreChecks({}).map(function(c){
+      var good=list.filter(function(e){return spCoreChecks(e).find(function(x){return x.name===c.name}).ok}).length;
+      return [c.name,good+' / '+list.length,list.length-good];
+    });
+    return spGpHead('A','人口学与社会属性','患者口径')+
+      '<div class="sp-mini-grid sp-overview-mini">'+spMini('确诊时中位年龄',spNumber(agg.medianAge)+'<em> 岁</em>')+
+      spMini('年龄不详',agg.ageUnknown+'<em> 人</em>')+spMini('男 / 女',agg.male+' / '+agg.female+'<em> 人</em>')+
+      spMini('性别不详',(agg.total-agg.male-agg.female)+'<em> 人</em>')+'</div>'+
+      '<div class="sp-2col sp-overview-grid">'+
+        spPanel('确诊时年龄构成（人）',spHBar(ages.map(function(a){return {k:a.k,v:a.n}}),false,true))+
+        spPanel('年龄与性别',spSimpleTable(['年龄段','男','女','不详','合计'],ages.map(function(a){return [a.k,a.m,a.f,a.u,a.n]})))+
+        spPanel('医保类型构成',spPie(spDistribution(people,function(e){return e.insurance}),'人'))+
+        spPanel('户籍区县构成',spHBar(spDistribution(people,function(e){return e.region}),false,true))+
+        spPanel('既往史记录',spPie(history,'人'))+
+        spPanel('关键字段有效情况',spSimpleTable(['字段','有效瘤例 / 总瘤例','缺失或冲突'],checks))+
+      '</div>'+spGpHead('B','肿瘤与分期记录','瘤例口径')+
+      '<div class="sp-2col sp-overview-grid">'+
+        spPanel('瘤种构成',spPie(siteRows.map(function(r){return {k:r.site,v:r.n}})))+
+        spPanel('分期记录构成',spPie(spStageItems(list)))+
+      '</div>'+spPanel('分瘤种分期记录',spSimpleTable(['瘤种','瘤例数','I期','II期','III期','IV期','不详','不适用'],siteRows.map(function(r){
+        return [r.site,r.n].concat(SP_STAGE_GROUPS.concat(['不详','不适用']).map(function(s){return r.list.filter(function(e){return spStage(e)===s}).length}));
+      })));
   }
 
   /* ========== 段② 早期发现：发现得早不早（筛查 → 早诊 → 地区/病种差异） ==========
      注：分期构成（首诊分期）归属段①「疾病负担」，本段不再重复饼图，只用早诊率数值与差异表 */
   if(_spDomain==='early'){
-    var scrOn=list.filter(function(e){return (e.screenType||'').trim()}).length;
-    var scrItems=[{k:'已参与（有筛查记录）',v:scrOn,color:'#10b981'},{k:'不详（无记录）',v:list.length-scrOn,color:'#94a3b8'}];
-    /* 发现时症状状态：有症状（因症就诊）/ 无症状——与筛查途径配对，自段①迁入 */
-    var sympN=list.filter(function(e){return (e.symptom||'').trim()&&e.symptom!=='无'}).length;
-    var sympItems=[{k:'有症状（因症就诊）',v:sympN,color:'#f59e0b'},{k:'无症状',v:list.length-sympN,color:'#10b981'}];
-    /* 诊断依据构成：病理学 / 临床 */
-    var basisDist={};list.forEach(function(e){var b=spDiagBasisType(e);basisDist[b]=(basisDist[b]||0)+1});
-    var basisItems=Object.keys(basisDist).map(function(k){return {k:k,v:basisDist[k]}});
-    /* 地区早诊差异 */
-    var cityEarly=cityRows.filter(function(r){return r.n>0}).sort(function(a,b){return b.agg.lateRate-a.agg.lateRate}).map(function(r){
-      return '<tr><td class="txt">'+esc(r.city)+'</td><td class="num">'+r.n+'</td><td class="num">'+r.agg.earlyRate+'%</td><td'+(r.agg.lateRate>=50?' style="color:var(--color-danger-fg);font-weight:700"':'')+'>'+r.agg.lateRate+'%</td></tr>';
-    }).join('');
-    /* 病种早诊对照：各病种早期占比横向条 */
-    var siteEarly=siteRows.map(function(r){return {k:r.site+'癌',v:r.agg.earlyRate}}).sort(function(a,b){return b.v-a.v});
-    return '<div class="sp-mini-grid" style="margin-bottom:16px">'+
-      spMini('筛查参与率',(agg.total?Math.round(scrOn/agg.total*100):0)+'<em>%</em>')+
-      spMini('早诊率（Ⅰ+Ⅱ期）',agg.earlyRate+'<em>%</em>')+
-      spMini('晚期占比（Ⅳ期）',agg.lateRate+'<em>%</em>')+
-      spMini('首诊远处转移率',agg.distantRate+'<em>%</em>')+
-    '</div><div class="sp-2col" style="margin-bottom:16px">'+
-      spPanel('筛查、发现途径与确诊依据','<div class="sp-sec">筛查记录覆盖</div>'+spStack(scrItems)+
-        '<div class="sp-sec">发现时症状状态（因症就诊 / 无症状）</div>'+spStack(sympItems)+
-        '<div class="sp-sec">确诊依据构成（病理学 / 临床）</div>'+spHBar(basisItems.slice().sort(function(a,b){return b.v-a.v})))+
-      spPanel('各病种早诊率（早期 Ⅰ+Ⅱ 占比）',spHBar(siteEarly,true))+
-    '</div>'+
-      spPanel('地区早诊差异（晚期占比降序，城市名可下钻）','<div class="sp-table-wrap"><table class="data-table" style="min-width:520px"><thead><tr><th class="txt">地市</th><th class="num">患者数</th><th class="num">早期占比</th><th class="num">晚期占比</th></tr></thead><tbody>'+cityEarly+'</tbody></table></div>');
+    return spMetricCards(agg,['screen','early','late','distant'])+
+      '<div class="sp-2col sp-overview-grid">'+
+        spPanel('筛查记录状态',spPie(spDistribution(agg.persons,spScreenStatus),'人'))+
+        spPanel('诊断依据记录',spPie(spDistribution(list,spDiagBasisType)))+
+        spPanel('发现途径记录',spPie(spDistribution(list,function(e){return e.discoveryMode})))+
+        spPanel('症状记录状态',spPie(spDistribution(agg.persons,spSymptomState),'人'))+
+      '</div>'+spPanel('分瘤种分期对照',spSimpleTable(['瘤种','瘤例数','早期占比','分子 / 有效分母','IV期占比','分期不详'],siteRows.map(function(r){
+        var m=r.agg.metrics.early;
+        return [r.site,r.n,spMetricValue(m),m.numerator+' / '+m.denominator,spMetricValue(r.agg.metrics.late),m.unknown];
+      })))+'<div class="sp-overview-grid">'+spPanel('诊断时效（天）',spJourney(list))+'</div>';
   }
 
   /* ========== 段③ 规范诊疗：治得规不规范、卡在哪一环（时效 + 模式） ========== */
   if(_spDomain==='treat'){
-    var hospDist={};list.forEach(function(e){hospDist[e.hospital]=(hospDist[e.hospital]||0)+1});
-    var modeRates=[['手术治疗率',agg.surgeryRate],['放疗率',agg.radioRate],['化疗率',agg.chemoRate],['靶向治疗率',agg.targetRate],['免疫治疗率',agg.immunoRate],['内分泌治疗率',agg.endocrineRate],['介入治疗率',agg.interRate]];
-    var comboDist={};list.forEach(function(e){comboDist[e.treatMode.join('+')||'未治疗']=(comboDist[e.treatMode.join('+')||'未治疗']||0)+1});
-    var comboRows=Object.keys(comboDist).map(function(k){return {k:k,v:comboDist[k]}}).sort(function(a,b){return b.v-a.v});
-    return '<div class="sp-mini-grid" style="margin-bottom:16px">'+
-      spMini('病理确诊率',(agg.total?Math.round(list.filter(function(e){return !!spMorphCode(e)}).length/agg.total*100):0)+'<em>%</em>')+
-      spMini('MDT 覆盖率',agg.mdtRate+'<em>%</em>')+
-      spMini('综合治疗率（≥2种）',agg.comboRate+'<em>%</em>')+
-      spMini('转诊率',agg.referralRate+'<em>%</em>')+
-      spMini('姑息/安宁占比',agg.pallRate+'<em>%</em>')+
-      spMini('手术治疗率',agg.surgeryRate+'<em>%</em>')+
-      spMini('首诊→确诊（中位）',spMedDays(list,'firstDate','diagDate'))+
-      spMini('确诊→首治（中位）',spMedDays(list,'diagDate','tTreat'))+
-    '</div>'+
-    spPanel('诊疗时效（中位）：首诊 → 确诊 → 首治',spJourney(list))+
-    '<div style="height:16px"></div><div class="sp-2col">'+
-      spPanel('治疗方式应用率',spHBar(modeRates.map(function(x){return {k:x[0],v:x[1]}}),true))+
-      spPanel('治疗模式组合','<div class="sp-table-wrap"><table class="data-table" style="min-width:520px"><thead><tr><th class="txt">治疗组合</th><th class="num">例数</th><th class="num">占比</th></tr></thead><tbody>'+comboRows.map(function(x){return '<tr><td class="txt">'+esc(x.k)+'</td><td class="num">'+x.v+'</td><td class="num">'+Math.round(x.v/list.length*100)+'%</td></tr>'}).join('')+'</tbody></table></div>')+
-    '</div><div style="height:16px"></div>'+
-      spPanel('主要治疗医院',spHBar(Object.keys(hospDist).map(function(k){return {k:k,v:hospDist[k]}}).sort(function(a,b){return b.v-a.v})));
+    var modes=['mode0','mode1','mode2','mode3','mode4','mode5','mode6'].map(function(id){return agg.metrics[id]});
+    var combos=spDistribution(list,spTreatmentLabel);
+    return spMetricCards(agg,['mdt','combo','referral','dateConflicts'])+
+      spPanel('诊疗时效（天）',spJourney(list))+
+      '<div class="sp-2col sp-overview-grid">'+
+        spPanel('治疗方式记录占比',spSimpleTable(['治疗方式','占比','分子 / 有效分母','不详'],modes.map(function(m){
+          return [m.name,spMetricValue(m),m.numerator+' / '+m.denominator,m.unknown];
+        })))+
+        spPanel('治疗模式组合',spSimpleTable(['治疗组合/状态','瘤例数','占纳入瘤例'],combos.map(function(r){
+          return [r.k,r.v,spNumber(r.v/agg.tumorTotal*100)+'%'];
+        })))+
+        spPanel('就诊医院构成（瘤例）',spHBar(spDistribution(list,function(e){return e.hospital}),false,true))+
+        spPanel('体能与营养记录',spSimpleTable(['记录类别','状态','瘤例数'],
+          spDistribution(list,spPhysicalState).map(function(r){return ['ECOG记录',r.k,r.v]})
+            .concat(spDistribution(list,spNutritionState).map(function(r){return ['营养记录',r.k,r.v]}))))+
+      '</div>'+spMetricCards(agg,['palliative','hospice']);
   }
 
   /* ========== 段④ 生存结局：结局好不好（生存 + 复发进展死亡） ========== */
   if(_spDomain==='outcome'){
-    var siteFuRows=siteRows.map(function(r){
-      var alive=r.list.filter(function(e){return e.vitalStatus.indexOf('存活')>=0}).length;
-      var dead=r.list.filter(function(e){return e.vitalStatus==='死亡'}).length;
-      var lost=r.list.filter(function(e){return e.lostFollow}).length;
-      return '<tr><td class="txt">'+esc(r.site+'癌')+'</td><td class="num">'+r.n+'</td><td class="num" style="color:var(--color-success-fg)">'+alive+'</td><td'+(dead?' style="color:var(--color-danger-fg);font-weight:600"':'')+'>'+dead+'</td><td'+(lost?' style="color:var(--color-caution-fg);font-weight:600"':'')+'>'+lost+'</td><td class="num">'+(r.n-lost?Math.round(alive/(r.n-lost)*100):0)+'%</td></tr>';
-    }).join('');
-    var aliveN=list.filter(function(e){return e.vitalStatus==='存活'}).length;
-    var withTumorN=list.filter(function(e){return e.vitalStatus==='存活（带瘤）'}).length;
-    var outcomeItems=[
-      {k:'存活',v:aliveN,color:'#10b981'},
-      {k:'存活（带瘤）',v:withTumorN,color:'#f59e0b'},
-      {k:'死亡',v:agg.dead,color:'#64748b'},
-      {k:'失访',v:agg.lost,color:'#ef4444'}
-    ];
-    var outCols=['存活','带瘤','死亡','失访'];
-    var outColors=['#10b981','#f59e0b','#64748b','#ef4444'];
-    var stageOutcomeRows=SP_STAGE_GROUPS.map(function(s){
-      var sub=list.filter(function(e){return e.stage===s});
-      return {label:s,cells:[
-        sub.filter(function(e){return e.vitalStatus==='存活'}).length,
-        sub.filter(function(e){return e.vitalStatus==='存活（带瘤）'}).length,
-        sub.filter(function(e){return e.vitalStatus==='死亡'}).length,
-        sub.filter(function(e){return e.lostFollow}).length
-      ]};
-    });
-    return '<div class="sp-mini-grid" style="margin-bottom:16px">'+
-      spMini('随访覆盖率',agg.fuRate+'<em>%</em>')+spMini('失访率',agg.lostRate+'<em>%</em>')+
-      spMini('复发率',agg.recurRate+'<em>%</em>')+spMini('远处转移率',agg.metaRate+'<em>%</em>')+
-      spMini('疾病进展率',agg.progRate+'<em>%</em>')+spMini('死亡率',agg.deathRate+'<em>%</em>')+
-      spMini('观察生存率',agg.effSurvival+'<em>%</em>')+spMini('在管存活',agg.alive+'<em> 例</em>')+
-    '</div><div class="sp-2col" style="margin-bottom:16px">'+
-      spPanel('当前结局状态构成',spPie(outcomeItems))+
-      spPanel('分期 × 结局热力矩阵（色深=例数，–为 0 例）',spHeat(outCols,stageOutcomeRows,outColors))+
-    '</div><div class="panel"><div class="panel-header"><span>不同病种结局差异</span></div><div class="panel-body"><div class="sp-table-wrap"><table class="data-table" style="min-width:672px"><thead><tr><th class="txt">病种</th><th class="num">患者数</th><th class="num">存活</th><th class="num">死亡</th><th class="num">失访</th><th class="num">观察生存率</th></tr></thead><tbody>'+siteFuRows+'</tbody></table></div></div></div>';
+    var gaps=spDistribution(agg.persons,spFollowGap);
+    return spMetricCards(agg,['follow','timely','lost','vitalUnknown'])+
+      '<div class="sp-2col sp-overview-grid">'+
+        spPanel('生存状态记录',spPie(spDistribution(agg.persons,spVital),'人'))+
+        spPanel('末次随访距截止日',spHBar(gaps,false,true))+
+        spPanel('疾病评价记录',spPie(spDistribution(list,spRecistState)))+
+        spPanel('分瘤种结局记录',spSimpleTable(['瘤种','患者数','已知存活','已登记死亡','生存不详','失访记录'],siteRows.map(function(r){
+          return [r.site,r.agg.total,r.agg.alive,r.agg.dead,r.agg.total-r.agg.alive-r.agg.dead,r.agg.lost];
+        })))+
+      '</div>'+spMetricCards(agg,['recurrence','progress','metastasis'])+
+      spPanel('专业结局指标数据状态',spSimpleTable(['指标','状态'],[
+        ['1 / 3 / 5 年总体生存率','尚未建立时间到事件分析队列'],
+        ['随访新增转移 / 复发风险','起点与事件日期未接入'],
+        ['治疗完成与不良反应发生率','治疗周期、分级与适用分母未接入']
+      ]));
   }
 
   /* ========== 段⑤ 资源与公平：资源与可及性均不均衡（地图 + 流向 + 费用） ========== */
@@ -1375,48 +1548,37 @@ function spDomainPanel(list,agg,siteRows,cityRows){
     /* 地图 + 地市排行 */
     var mapBlock='<div class="sp-ov-grid" style="margin-bottom:16px">'+
       '<div class="panel"><div class="panel-header"><span>全省分布 · '+esc(_spMapMetricKey)+'</span></div><div class="panel-body">'+spMapPanel(list,_spMapMetricKey,_spScope.city)+'</div></div>'+
-      '<div class="sp-ov-side"><div class="panel"><div class="panel-header"><span>地市排行'+(_spScope.city?'<span class="spr-count">当前：'+esc(_spScope.city)+'</span>':'')+'</span></div><div class="panel-body">'+
+      '<div class="sp-ov-side"><div class="panel"><div class="panel-header"><span>地市数据'+(_spScope.city?'<span class="spr-count">当前：'+esc(_spScope.city)+'</span>':'')+'</span></div><div class="panel-body">'+
         '<div class="sp-map-rank">'+cityRows.filter(function(r){return r.n>0}).sort(function(a,b){return SP_MAP_METRICS[_spMapMetricKey].get(b)-SP_MAP_METRICS[_spMapMetricKey].get(a)}).slice(0,6).map(function(r,i){
           var v=SP_MAP_METRICS[_spMapMetricKey].get(r);
           return '<div class="sp-map-rank-item'+(r.city===_spScope.city?' sel':'')+'" onclick="window._spDrillCity(\''+esc(r.city)+'\')">'+
             '<span class="sp-map-rank-idx">'+(i+1)+'</span><span class="sp-map-rank-name">'+esc(r.city)+'</span>'+
-            '<span class="sp-map-rank-sub">'+r.n+' 例</span><span class="sp-map-rank-val">'+SP_MAP_METRICS[_spMapMetricKey].fmt(v)+'</span></div>';
+            '<span class="sp-map-rank-sub">'+r.agg.total+' 人</span><span class="sp-map-rank-val">'+SP_MAP_METRICS[_spMapMetricKey].fmt(v)+'</span></div>';
         }).join('')+'</div></div></div>'+
       '<div class="panel"><div class="panel-header"><span>当前范围</span></div><div class="panel-body"><div class="sp-kv-grid">'+
         '<div class="sp-kv-item"><span class="k">统计范围</span><span class="v">'+esc(spScopeLabel())+'</span></div>'+
-        '<div class="sp-kv-item"><span class="k">在管患者</span><span class="v">'+agg.total+' 例</span></div>'+
-        '<div class="sp-kv-item"><span class="k">县域内就诊率</span><span class="v">'+agg.localTreatRate+'%</span></div>'+
-        '<div class="sp-kv-item"><span class="k">跨市 / 跨省就医率</span><span class="v">'+agg.crossCityRate+'% / '+agg.crossProvRate+'%</span></div>'+
+        '<div class="sp-kv-item"><span class="k">纳入患者 / 瘤例</span><span class="v">'+agg.total+' 人 / '+agg.tumorTotal+' 例</span></div>'+
+        '<div class="sp-kv-item"><span class="k">市域内就诊记录占比</span><span class="v">'+esc(spMetricValue(agg.metrics.local))+'</span></div>'+
+        '<div class="sp-kv-item"><span class="k">地址不详瘤例</span><span class="v">'+agg.metrics.local.unknown+' 例</span></div>'+
       '</div></div></div></div>'+
     '</div>';
     /* 流出病种 */
-    var outSites={};list.filter(spOutCity).forEach(function(e){outSites[e.site]=(outSites[e.site]||0)+1});
-    var outRows=Object.keys(outSites).map(function(s){
-      var siteRow=siteRows.filter(function(r){return r.site===s})[0]||{n:1};
-      var tos={};list.filter(function(e){return e.site===s&&spOutCity(e)}).forEach(function(e){tos[e.hospital]=(tos[e.hospital]||0)+1});
-      return '<tr><td>'+esc(s+'癌')+'</td><td>'+siteRow.n+'</td><td style="color:var(--color-danger-fg);font-weight:600">'+Math.round(outSites[s]/siteRow.n*100)+'%</td><td>'+esc(Object.keys(tos).join('、')||'—')+'</td></tr>';
-    }).join('');
-    /* 费用 */
-    var siteCost=siteRows.map(function(r){var c=SP_SITE_COST[r.site];return {k:r.site+'癌',v:Math.round(c.ip/1000)}}).sort(function(a,b){return b.v-a.v});
-    var avg={drug:0,ins:0,op:0};
-    siteRows.forEach(function(r){avg.drug+=SP_SITE_COST[r.site].drug*r.n;avg.ins+=SP_SITE_COST[r.site].ins*r.n});
-    if(list.length){avg.drug=Math.round(avg.drug/list.length);avg.ins=Math.round(avg.ins/list.length);avg.op=100-avg.ins;}
-    var localAvg=Math.round(list.filter(function(e){return !spOutCity(e)}).reduce(function(s,e){return s+SP_SITE_COST[e.site].ip},0)/Math.max(1,list.filter(function(e){return !spOutCity(e)}).length));
-    var outAvg=Math.round(localAvg*1.28/1000);
-    var modeCostRows=SP_MODE_COST.map(function(m){
-      var used=list.filter(function(e){return spHasMode(e,m.mode)}).length;
-      return '<tr><td class="code">'+esc(m.mode)+'</td><td class="num" style="font-family:var(--font-num);font-weight:600">¥'+m.cost.toLocaleString()+'</td><td class="txt">'+esc(m.unit)+'</td><td class="num">'+(used?used+' 例':'—')+'</td></tr>';
+    var outRows=siteRows.filter(function(r){return r.list.some(spOutCity)}).map(function(siteRow){
+      var s=siteRow.site;
+      var tos={};siteRow.list.filter(spOutCity).forEach(function(e){tos[e.hospital]=(tos[e.hospital]||0)+1});
+      return '<tr><td>'+esc(s)+'</td><td>'+siteRow.n+'</td><td>'+esc(spMetricValue(siteRow.agg.metrics.cross))+'</td><td>'+esc(Object.keys(tos).join('、')||'—')+'</td></tr>';
     }).join('');
     return mapBlock+
-    spPanel('地市综合对照（跨市就医率 / 随访覆盖率，城市名可下钻）',spCityCompare(cityRows,['cross','fu']))+
-    '<div style="height:16px"></div><div class="sp-2col">'+
-      spPanel('主要流出病种','<div class="sp-table-wrap"><table class="data-table" style="min-width:520px"><thead><tr><th class="txt">病种</th><th class="num">患者数</th><th class="num">跨市占比</th><th class="txt">主要流向医院</th></tr></thead><tbody>'+(outRows||'<tr><td colspan="4" style="text-align:center;color:var(--color-text-muted)">无跨市就医患者</td></tr>')+'</tbody></table></div>')+
-      spPanel('跨区域就医费用差异（千元）',spVBar([{k:'本地就诊',v:Math.round(localAvg/1000)},{k:'跨市就诊',v:outAvg}]))+
-    '</div><div class="sp-2col" style="margin-top:16px">'+
-      spPanel('病种次均住院费用（千元）',spHBar(siteCost))+
-      spPanel('费用结构（加权平均）',spStack([{k:'药品费用占比',v:avg.drug,color:'#2563eb'},{k:'医保支付比例',v:avg.ins,color:'#10b981'},{k:'患者自付比例',v:avg.op,color:'#f59e0b'}]))+
-    '</div><div style="height:16px"></div>'+
-      spPanel('不同治疗模式费用','<div class="sp-table-wrap"><table class="data-table" style="min-width:520px"><thead><tr><th class="code">治疗方式</th><th class="num">次/年均费用</th><th class="txt">口径</th><th class="num">应用患者</th></tr></thead><tbody>'+modeCostRows+'</tbody></table></div>');
+    spPanel('地市同口径对照',spCityCompare(cityRows,['cross','fu']))+
+    '<div class="sp-overview-grid">'+spMetricCards(agg,['cross','historicProvince'])+
+      spPanel('跨市就诊瘤种与医院','<div class="sp-table-wrap"><table class="data-table sp-overview-table"><thead><tr><th>瘤种</th><th>纳入瘤例</th><th>跨市记录占比</th><th>就诊医院</th></tr></thead><tbody>'+
+        (outRows||'<tr><td colspan="4" class="sp-table-empty">无跨市就诊记录</td></tr>')+'</tbody></table></div>')+
+      spPanel('费用与三级流向数据状态',spSimpleTable(['数据项','状态'],[
+        ['次均住院费用 / 跨区域费用差异','实际住院结算记录未接入'],
+        ['药品等费用项目构成','费用项目明细未接入'],
+        ['医保、个人及其他支付方构成','实际支付金额未接入'],
+        ['县域内诊疗 / 首次治疗跨省流向','机构县区码与诊疗事件所在地未接入']
+      ]))+'</div>';
   }
 
   /* ========== 段⑥ 指标明细表：全部聚合指标按维度列成可读、可复制、可导出的表 ==========
@@ -1431,70 +1593,63 @@ function spDomainPanel(list,agg,siteRows,cityRows){
 /* ---- 指标明细表：把总览/五段的全部聚合指标汇成分组表格，支持整表 CSV 导出 ----
    数据与各图形页同源（spAgg/spSiteRows/spCityRows），一处口径，确保图表与导出一致 ---- */
 function spMetricsGroups(list,agg,siteRows,cityRows){
-  function pct(v){return v+'%';}
-  function medDaysNum(from,to){
-    var ds=list.map(function(e){var a=new Date(e[from]),b=new Date(e[to]);if(isNaN(a)||isNaN(b))return null;return (b-a)/86400000;}).filter(function(x){return x!=null&&x>=0}).sort(function(x,y){return x-y});
-    if(!ds.length)return '—';
-    var m=ds.length%2?ds[(ds.length-1)/2]:(ds[ds.length/2-1]+ds[ds.length/2])/2;
-    return Math.round(m)+' 天';
+  function metricRow(m){return [m.name,spMetricValue(m),m.definition,m.numerator===null?'':m.numerator,
+    m.denominator===null?'':m.denominator,m.unknown,m.status,m.unit,m.statisticalUnit||m.unit,m.notApplicable]}
+  function group(name,ids){return {group:name,rows:ids.map(function(id){return metricRow(agg.metrics[id])})}}
+  function scalar(name,value,unit,definition,n,unknown){
+    return [name,value===null?'不可计算':spNumber(value)+' '+unit,definition,'',n===undefined?'':n,unknown||0,
+      value===null?'有效数据不足':'可计算',unit,unit==='人'?'患者':'瘤例',0];
   }
-  var pathN=list.filter(function(e){return !!spMorphCode(e)}).length;
-  var scrN=list.filter(function(e){return (e.screenType||'').trim()}).length;
-  /* 概览型指标分组：{group, rows:[[指标, 数值, 口径/说明]]} */
+  function distribution(group,records,label,fn,unit){
+    spDistribution(records,fn).forEach(function(r){group.rows.push(scalar(label+' · '+r.k,r.v,unit||'例','当前纳入范围构成',records.length,0))});
+  }
   var groups=[
-    {group:'一、人群与病情构成',rows:[
-      ['在管患者数',agg.total+' 例','当前范围在管全部患者'],
-      ['男 / 女',agg.male+' / '+agg.female+' 例','性别构成'],
-      ['病种数',siteRows.length+' 种','覆盖瘤种数'],
-      ['覆盖设区市',cityRows.filter(function(r){return r.n>0}).length+' 个','有在管患者的地市数']
-    ]},
-    {group:'二、早期发现',rows:[
-      ['筛查参与率',pct(agg.total?Math.round(scrN/agg.total*100):0),'有筛查记录 / 在管'],
-      ['早诊率（Ⅰ+Ⅱ期）',pct(agg.earlyRate),'早期例数 / 在管'],
-      ['晚期占比（Ⅳ期）',pct(agg.lateRate),'Ⅳ期例数 / 在管'],
-      ['首诊远处转移率',pct(agg.distantRate),'首诊即远处转移 / 在管']
-    ]},
-    {group:'三、规范诊疗',rows:[
-      ['病理确诊率',pct(agg.total?Math.round(pathN/agg.total*100):0),'有形态学编码 / 在管'],
-      ['MDT 覆盖率',pct(agg.mdtRate),'经 MDT 评估 / 在管'],
-      ['综合治疗率（≥2 种）',pct(agg.comboRate),'治疗方式≥2 种 / 在管'],
-      ['转诊率',pct(agg.referralRate),'有转诊轨迹 / 在管'],
-      ['姑息 / 安宁占比',pct(agg.pallRate),'姑息或安宁疗护 / 在管'],
-      ['手术治疗率',pct(agg.surgeryRate),'含手术 / 在管'],
-      ['放疗率',pct(agg.radioRate),'含放疗 / 在管'],
-      ['化疗率',pct(agg.chemoRate),'含化疗 / 在管'],
-      ['靶向治疗率',pct(agg.targetRate),'含靶向 / 在管'],
-      ['免疫治疗率',pct(agg.immunoRate),'含免疫 / 在管'],
-      ['内分泌治疗率',pct(agg.endocrineRate),'含内分泌 / 在管'],
-      ['介入治疗率',pct(agg.interRate),'含介入 / 在管'],
-      ['首诊 → 确诊（中位）',medDaysNum('firstDate','diagDate'),'中位天数'],
-      ['确诊 → 首治（中位）',medDaysNum('diagDate','tTreat'),'中位天数']
-    ]},
-    {group:'四、生存结局',rows:[
-      ['随访覆盖率',pct(agg.fuRate),'非失访 / 在管'],
-      ['失访率',pct(agg.lostRate),'失访 / 在管'],
-      ['复发率',pct(agg.recurRate),'有复发记录 / 在管'],
-      ['远处转移率',pct(agg.metaRate),'随访期远处转移 / 在管'],
-      ['疾病进展率',pct(agg.progRate),'疾病进展 / 在管'],
-      ['死亡率',pct(agg.deathRate),'死亡 / 在管'],
-      ['观察生存率',pct(agg.effSurvival),'存活 /（在管−失访）'],
-      ['在管存活',agg.alive+' 例','当前存活在管']
-    ]},
-    {group:'五、资源与公平',rows:[
-      ['县域内就诊率',pct(agg.localTreatRate),'本地就诊 / 在管'],
-      ['跨市就医率',pct(agg.crossCityRate),'跨市就诊 / 在管'],
-      ['跨省就医率',pct(agg.crossProvRate),'跨省就诊 / 在管']
-    ]}
+    group('一、队列与数据完整度',['patients','tumors','periodDiagnosed','newPatients','active','complete','dateConflicts']),
+    group('二、发现与诊断',['screen','early','late','distant','basis']),
+    group('三、诊疗过程',['started','mdt','combo','referral','palliative','hospice','mode0','mode1','mode2','mode3','mode4','mode5','mode6']),
+    group('四、随访与结局',['alive','dead','vitalUnknown','lost','follow','timely','lostRatio','recurrence','progress','metastasis']),
+    group('五、就医与可及性',['local','cross','historicProvince'])
   ];
-  /* 分病种明细 */
-  var siteDetail={group:'六、分病种指标（例数 / 早诊率 / 晚期占比 / 随访覆盖率 / 观察生存率）',cols:['病种','患者数','早诊率','晚期占比','随访覆盖率','观察生存率'],matrix:
+  groups[0].rows.push(scalar('确诊时中位年龄',agg.medianAge,'岁','由出生日期与确诊日期推导；取有效患者中位数',agg.total-agg.ageUnknown,agg.ageUnknown));
+  distribution(groups[0],agg.persons,'性别',function(e){return e.sex},'人');
+  distribution(groups[0],agg.persons,'医保类型',function(e){return e.insurance},'人');
+  distribution(groups[0],agg.persons,'户籍区县',function(e){return e.region},'人');
+  distribution(groups[0],agg.persons,'既往史记录',spHistoryState,'人');
+  spAgeDist(agg.persons).forEach(function(a){
+    [['合计',a.n],['男',a.m],['女',a.f],['性别不详',a.u]].forEach(function(r){groups[0].rows.push(scalar('年龄 '+a.k+' · '+r[0],r[1],'人','确诊时年龄，患者去重',agg.total,0))});
+  });
+  spCoreChecks({}).forEach(function(c){
+    var good=list.filter(function(e){return spCoreChecks(e).find(function(x){return x.name===c.name}).ok}).length;
+    groups[0].rows.push(['关键字段 · '+c.name,good+' / '+list.length,'有效瘤例 / 全部瘤例',good,list.length,list.length-good,'可计算','例','瘤例',0]);
+  });
+  distribution(groups[1],list,'分期',spStage);
+  distribution(groups[1],list,'诊断依据',spDiagBasisType);
+  distribution(groups[1],agg.persons,'筛查状态',spScreenStatus,'人');
+  distribution(groups[1],list,'发现途径',function(e){return e.discoveryMode});
+  distribution(groups[1],agg.persons,'症状记录',spSymptomState,'人');
+  [['首诊 → 确诊','firstDate','diagDate'],['确诊 → 首治','diagDate','tTreat'],['首诊 → 首治','firstDate','tTreat']].forEach(function(r){
+    var s=spIntervalStats(list,r[1],r[2]);
+    [['中位',s.median],['P75',s.p75],['P90',s.p90]].forEach(function(v){groups[2].rows.push(scalar(r[0]+' · '+v[0],v[1],'天','同一瘤例的有效日期差；日期冲突不计入',s.n,s.unknown))});
+  });
+  distribution(groups[2],list,'治疗组合/状态',spTreatmentLabel);
+  distribution(groups[2],list,'ECOG记录',spPhysicalState);
+  distribution(groups[2],list,'营养记录',spNutritionState);
+  distribution(groups[3],agg.persons,'生存状态',spVital,'人');
+  distribution(groups[3],agg.persons,'随访日期间隔',spFollowGap,'人');
+  distribution(groups[3],list,'疾病评价记录',spRecistState);
+  distribution(groups[4],list,'就诊医院',function(e){return e.hospital});
+  [['实际住院与费用','结算记录未接入'],['县域与首次治疗跨省流向','机构县区码与事件所在地未接入']].forEach(function(r){
+    groups[4].rows.push([r[0],'未接入',r[1],'','','','未接入','','',0]);
+  });
+  var siteDetail={group:'六、分瘤种指标',cols:['瘤种','患者数','瘤例数','记录早期占比','早期分子 / 分母','分期不详','记录 IV 期占比','随访日期记录覆盖'],matrix:
     siteRows.slice().sort(function(a,b){return b.n-a.n}).map(function(r){
-      return [r.site+'癌',r.n,r.agg.earlyRate+'%',r.agg.lateRate+'%',r.agg.fuRate+'%',r.agg.effSurvival+'%'];
+      var m=r.agg.metrics.early;
+      return [r.site,r.agg.total,r.n,spMetricValue(m),m.numerator+' / '+m.denominator,m.unknown,spMetricValue(r.agg.metrics.late),spMetricValue(r.agg.metrics.follow)];
     })};
-  /* 分地市明细 */
-  var cityDetail={group:'七、分地市指标（例数 / 早诊率 / 晚期占比 / 跨市就医率 / 随访覆盖率）',cols:['地市','患者数','早诊率','晚期占比','跨市就医率','随访覆盖率'],matrix:
+  var cityDetail={group:'七、分地市指标',cols:['户籍地市','患者数','瘤例数','记录早期占比','分期不详','跨市记录占比','地址不详','随访日期记录覆盖'],matrix:
     cityRows.filter(function(r){return r.n>0}).sort(function(a,b){return b.n-a.n}).map(function(r){
-      return [r.city,r.n,r.agg.earlyRate+'%',r.agg.lateRate+'%',r.agg.crossCityRate+'%',r.agg.fuRate+'%'];
+      return [r.city,r.agg.total,r.n,spMetricValue(r.agg.metrics.early),r.agg.metrics.early.unknown,spMetricValue(r.agg.metrics.cross),
+        r.agg.metrics.cross.unknown,spMetricValue(r.agg.metrics.follow)];
     })};
   return {groups:groups,siteDetail:siteDetail,cityDetail:cityDetail};
 }
@@ -1502,13 +1657,13 @@ function spMetricsTable(list,agg,siteRows,cityRows){
   var m=spMetricsGroups(list,agg,siteRows,cityRows);
   /* 概览型分组：三列（指标 / 数值 / 口径） */
   var ovBody=m.groups.map(function(g){
-    var head='<tr class="sp-mt-grouprow"><td colspan="3">'+esc(g.group)+'</td></tr>';
+    var head='<tr class="sp-mt-grouprow"><td colspan="7">'+esc(g.group)+'</td></tr>';
     var rows=g.rows.map(function(r){
-      return '<tr><td class="txt">'+esc(r[0])+'</td><td class="num">'+esc(String(r[1]))+'</td><td class="txt sp-mt-note">'+esc(r[2])+'</td></tr>';
+      return '<tr>'+[r[0],r[1],r[3],r[4],r[5],r[6],r[2]].map(function(v,i){return '<td class="'+(i===6?'sp-mt-note':'')+'">'+esc(v)+'</td>'}).join('')+'</tr>';
     }).join('');
     return head+rows;
   }).join('');
-  var ovTable='<div class="sp-table-wrap"><table class="data-table sp-mt-table" style="min-width:560px"><thead><tr><th class="txt">指标</th><th class="num">数值</th><th class="txt">口径 / 说明</th></tr></thead><tbody>'+ovBody+'</tbody></table></div>';
+  var ovTable='<div class="sp-table-wrap"><table class="data-table sp-mt-table" style="min-width:980px"><thead><tr><th>指标</th><th>数值</th><th>分子</th><th>有效分母 / 样本</th><th>不详 / 不可用</th><th>状态</th><th>口径</th></tr></thead><tbody>'+ovBody+'</tbody></table></div>';
   /* 明细矩阵表 */
   function matrixTable(d){
     var head='<tr>'+d.cols.map(function(c,i){return '<th class="'+(i===0?'txt':'num')+'">'+esc(c)+'</th>'}).join('')+'</tr>';
@@ -1519,7 +1674,7 @@ function spMetricsTable(list,agg,siteRows,cityRows){
   }
   var scopeTxt=esc(spScopeLabel());
   var head='<div class="sp-mt-head"><div><div class="sp-mt-title">画像指标明细表</div>'+
-    '<div class="sp-mt-sub">当前范围：<b>'+scopeTxt+'</b> · 共 '+agg.total+' 例在管 · 与各图形页同源实时聚合，口径一致</div></div>'+
+    '<div class="sp-mt-sub">当前范围：<b>'+scopeTxt+'</b> · '+agg.total+' 人 / '+agg.tumorTotal+' 瘤例 · 内置样例 · 口径 V13.0</div></div>'+
     '<div class="sp-mt-actions"><button class="btn btn-primary btn-sm" onclick="window._spExportMetricsCSV()">导出 CSV</button>'+
     '<button class="btn btn-outline btn-sm" onclick="window._spCopyMetrics()">复制全部</button></div></div>';
   return head+
@@ -1531,16 +1686,23 @@ function spMetricsTable(list,agg,siteRows,cityRows){
 function spMetricsFlatRows(){
   var list=spScopeEvents(_spScope);
   var m=spMetricsGroups(list,spAgg(list),spSiteRows(list),spCityRows(list));
-  var out=[['分组','指标','数值','口径/说明']];
+  var out=[['分组','指标','数值','单位','统计对象','分子','有效分母/样本','不详/不可用','不适用','状态','口径','范围','统计截止日','口径版本','数据来源']];
+  function row(group,name,value,unit,obj,num,den,unknown,na,status,definition){
+    out.push([group,name,String(value),unit,obj,String(num===undefined?'':num),String(den===undefined?'':den),
+      String(unknown===undefined?'':unknown),String(na||0),status,definition,spScopeLabel(),spCutoff(),'V13.0','内置样例']);
+  }
   m.groups.forEach(function(g){
-    g.rows.forEach(function(r){out.push([g.group,r[0],String(r[1]),r[2]]);});
+    g.rows.forEach(function(r){row(g.group,r[0],r[1],r[7],r[8],r[3],r[4],r[5],r[9],r[6],r[2])});
   });
-  /* 明细矩阵：分组名 + 列头 + 每行拼成「列=值」描述，保留结构又能单元格化 */
-  [m.siteDetail,m.cityDetail].forEach(function(d){
-    out.push([d.group,'','','']);
-    out.push(['','','', d.cols.join(' / ')]);
-    d.matrix.forEach(function(row){
-      out.push([d.group,String(row[0]),row.slice(1).join(' / '),d.cols.slice(1).join(' / ')]);
+  /* 分组明细也保留原指标的有效分母与缺失数。 */
+  [[m.siteDetail.group,spSiteRows(list),'site',['patients','tumors','early','late','follow']],
+    [m.cityDetail.group,spCityRows(list).filter(function(r){return r.n>0}),'city',['patients','tumors','early','cross','follow']]].forEach(function(d){
+    d[1].forEach(function(r){
+      d[3].forEach(function(id){
+        var metric=r.agg.metrics[id];
+        row(d[0],r[d[2]]+' · '+metric.name,spMetricValue(metric),metric.unit,metric.statisticalUnit||metric.unit,
+          metric.numerator,metric.denominator===null?'':metric.denominator,metric.unknown,metric.notApplicable,metric.status,metric.definition);
+      });
     });
   });
   return out;
@@ -1576,21 +1738,26 @@ function spIssuesPanel(list,siteRows,cityRows){
 
 
 /* ===================== 六、01 患者专科画像 ===================== */
-var _wbFilters={q:'',site:'',stage:'',city:'',hospital:'',fu:''};
+var _wbFilters={q:'',site:'',stage:'',city:'',hospital:'',fu:'',mp:''};
 var _wbDetail=null;
+var _wbOverviewSelection=null;
 
 function spWbFiltered(){
-  return tumorEvents.filter(function(e){
+  var source=_wbOverviewSelection?spScopeEvents(_wbOverviewSelection.scope).filter(function(e){return _wbOverviewSelection.ids.indexOf(e.id)>=0}):spUnique(tumorEvents,spTumorKey);
+  return source.filter(function(e){
     var q=_wbFilters.q;
     if(q){
       var hit=[e.patient,e.region,e.site,e.path,e.hospital].some(function(x){return String(x||'').indexOf(q)>=0});
       if(!hit)return false;
     }
     if(_wbFilters.site&&e.site!==_wbFilters.site)return false;
-    if(_wbFilters.stage&&e.stage!==_wbFilters.stage)return false;
+    if(_wbFilters.stage&&spStage(e)!==_wbFilters.stage)return false;
     if(_wbFilters.city&&e.city!==_wbFilters.city)return false;
     if(_wbFilters.hospital&&e.hospital!==_wbFilters.hospital)return false;
     if(_wbFilters.fu&&e.followStatus!==_wbFilters.fu)return false;
+    var mp=spIsMultiPrimary(e);
+    if(_wbFilters.mp==='是'&&!mp)return false;
+    if(_wbFilters.mp==='否'&&mp)return false;
     return true;
   });
 }
@@ -1601,51 +1768,58 @@ function spFuCls(e){
 }
 /* 列表页「随访状态」列：单标签，取生存状态值（存活 / 存活（带瘤）/ 失访 / 死亡） */
 function spFuVitalCell(e){
-  var v=e.vitalStatus||'';
+  var v=spLost(e)===true&&spVital(e)!=='死亡'?'失访':spVital(e);
   var cls=v==='死亡'?'badge-neutral':(v==='失访'?'badge-danger':(v.indexOf('带瘤')>=0?'badge-caution':'badge-success'));
   return badge(v,cls);
 }
+/* 列表页「是否多原发」列：该患者在本队列内≥2 个独立瘤例，或瘤例本身标记为多原发 → 是 */
+function spIsMultiPrimary(e){
+  if(!e)return false;
+  return e.multiPrimary===true||spPatientTumors(e).length>1;
+}
+function spMultiCell(e){
+  var yes=spIsMultiPrimary(e);
+  return '<span class="badge '+(yes?'badge-caution':'badge-neutral')+'">'+(yes?'是':'否')+'</span>';
+}
 function renderWorkbench(){
   if(_wbDetail){
-    var ev=tumorEvents.filter(function(e){return e.id===_wbDetail})[0];
+    var source=_wbOverviewSelection?spScopeEvents(_wbOverviewSelection.scope):spUnique(tumorEvents,spTumorKey);
+    var ev=source.filter(function(e){return e.id===_wbDetail})[0];
     if(ev)return spDetailPage(ev);
   }
   var list=spWbFiltered();
+  var sites=Array.from(new Set(SP_SITES.concat(tumorEvents.map(function(e){return e.site}).filter(spKnown))));
   var bar='<div class="sp-filter-bar">'+
     '<div class="form-group wide"><label>关键字</label><input id="spWbQ" placeholder="姓名 / 地区 / 瘤种 / 医院" value="'+esc(_wbFilters.q)+'"></div>'+
-    '<div class="form-group"><label>瘤种</label><select id="spWbSite"><option value="">全部</option>'+SP_SITES.map(function(s){return '<option'+(s===_wbFilters.site?' selected':'')+'>'+s+'</option>'}).join('')+'</select></div>'+
+    '<div class="form-group"><label>瘤种</label><select id="spWbSite"><option value="">全部</option>'+sites.map(function(s){return '<option'+(s===_wbFilters.site?' selected':'')+'>'+esc(s)+'</option>'}).join('')+'</select></div>'+
     '<div class="form-group"><label>分期</label><select id="spWbStage"><option value="">全部</option>'+SP_STAGE_GROUPS.map(function(s){return '<option'+(s===_wbFilters.stage?' selected':'')+'>'+s+'</option>'}).join('')+'</select></div>'+
     '<div class="form-group"><label>地市</label><select id="spWbCity"><option value="">全部</option>'+SP_CITIES.map(function(c){return '<option'+(c===_wbFilters.city?' selected':'')+'>'+c+'</option>'}).join('')+'</select></div>'+
     '<div class="form-group"><label>医院</label><select id="spWbHospital"><option value="">全部</option>'+SP_HOSPITALS.map(function(h){return '<option'+(h===_wbFilters.hospital?' selected':'')+'>'+esc(h)+'</option>'}).join('')+'</select></div>'+
     '<div class="form-group"><label>随访状态</label><select id="spWbFu"><option value="">全部</option>'+['随访中','失访','死亡结案'].map(function(s){return '<option'+(s===_wbFilters.fu?' selected':'')+'>'+s+'</option>'}).join('')+'</select></div>'+
+    '<div class="form-group"><label>是否多原发</label><select id="spWbMp"><option value="">全部</option>'+['是','否'].map(function(s){return '<option'+(s===_wbFilters.mp?' selected':'')+'>'+s+'</option>'}).join('')+'</select></div>'+
     '<div class="sp-filter-actions"><button class="btn btn-ghost btn-sm" onclick="window._spWbReset()">重置</button><button class="btn btn-primary btn-sm" onclick="window._spWbQuery()">查询</button></div>'+
   '</div>';
   var rows=list.map(function(e){
     return '<tr style="cursor:pointer" onclick="window._spOpenDetail(\''+e.id+'\')">'+
-      '<td style="font-weight:600">'+esc(e.patient)+'</td><td>'+esc(e.sex)+'</td><td>'+e.age+'</td>'+
+      '<td style="font-weight:600">'+esc(e.patient)+'</td><td>'+esc(e.sex)+'</td><td>'+spNumber(spAge(e))+'</td>'+
       '<td>'+esc(e.city)+'</td><td>'+esc(e.hospital||'—')+'</td>'+
       '<td>'+esc(e.site)+'</td><td>'+esc(e.laterality)+'</td><td>'+esc(e.path)+'</td>'+
-      '<td>'+esc(e.stage)+'</td><td>'+e.treatMode.map(function(m){return badge(m,'badge-info')}).join(' ')+'</td>'+
+      '<td>'+esc(spStage(e))+'</td>'+'<td>'+spMultiCell(e)+'</td>'+
       '<td>'+spFuVitalCell(e)+'</td>'+    '</tr>';
   }).join('');
   var table='<div class="panel"><div class="panel-header"><span>患者列表<span class="spr-count">共 '+list.length+' 例 · 全部 '+tumorEvents.length+' 例</span></span></div>'+
-    '<div class="sp-table-wrap"><table class="data-table" style="min-width:1232px"><thead><tr><th class="txt">患者</th><th class="code">性别</th><th class="num">年龄</th><th class="txt">户籍地市</th><th class="txt">就诊医院</th><th class="txt">瘤种</th><th class="txt">部位</th><th>病理</th><th class="code">分期</th><th class="code">治疗方式</th><th class="code">随访状态</th></tr></thead><tbody>'+
+    '<div class="sp-table-wrap"><table class="data-table" style="min-width:1120px"><thead><tr><th class="txt">患者</th><th class="code">性别</th><th class="num">确诊时年龄</th><th class="txt">户籍地市</th><th class="txt">就诊医院</th><th class="txt">瘤种</th><th class="txt">部位</th><th>病理</th><th class="code">分期</th><th class="code">是否多原发</th><th class="code">随访状态</th></tr></thead><tbody>'+
     (rows||'<tr><td colspan="11" style="text-align:center;color:var(--color-text-muted);padding:30px 0">无符合条件的患者</td></tr>')+
     '</tbody></table></div></div>';
-  return bar+table;
+  var context=_wbOverviewSelection?'<div class="sp-overview-context"><span>总览队列 · '+esc(_wbOverviewSelection.label)+'</span>'+
+    '<button class="btn btn-ghost btn-sm" onclick="navigateTo(\'sp-overview\')">返回总览</button></div>':'';
+  return context+bar+table;
 }
 
 /* ---- 详情：摘要条 + 四块画像 + 时间线 ---- */
 function spProfileCompleteness(e){
-  /* 按四类画像要素的实际纳入口径统计（与画像块展示项一一对应） */
-  var req=[e.sex,e.age,e.region,e.hospital,e.insurance,(e.screenDate||e.screenType),
-    e.laterality,e.path,e.stage,e.tNm,e.diagDate,e.stageDate,
-    e.treatments&&e.treatments.length,e.mdt,spFirstTreat(e),
-    e.referral!==undefined,e.vitalStatus,e.lastFu,
-    spSurvival(e).n!==null,
-    (e.vitalStatus!=='死亡'||!!e.deathCause)];
-  var ok=req.filter(function(v){return v&&v!=='未填'}).length;
-  return {ok:ok,n:req.length,rate:Math.round(ok/req.length*100)};
+  var checks=spCoreChecks(e),ok=checks.filter(function(c){return c.ok}).length;
+  return {ok:ok,n:checks.length,rate:Math.round(ok/checks.length*100)};
 }
 
 function spKv(label,value,raw){
@@ -2106,19 +2280,59 @@ window._spRefView=function(pid,i){
 function spBlock(idx,title,bodyHtml){
   return '<div class="sp-profile-block"><div class="sp-block-head"><span class="sp-block-idx">'+idx+'</span><span class="sp-block-title">'+esc(title)+'</span></div><div class="sp-block-body">'+bodyHtml+'</div></div>';
 }
+/* 带块头追加区的画像块：extra 渲染在标题右侧（如多原发瘤例切换键） */
+function spBlockWith(idx,title,bodyHtml,extra){
+  if(!extra)return spBlock(idx,title,bodyHtml);
+  return '<div class="sp-profile-block"><div class="sp-block-head"><span class="sp-block-idx">'+idx+'</span><span class="sp-block-title">'+esc(title)+'</span>'+extra+'</div><div class="sp-block-body">'+bodyHtml+'</div></div>';
+}
+/* 同一患者的全部瘤例（多原发）：按确诊日期升序、同日期按原发序号，首例为「原发」，其余为「第 N 原发」 */
+function spPatientTumors(e){
+  if(!e)return [];
+  var pk=spPatientKey(e);
+  var list=spUnique(tumorEvents.filter(function(x){return spPatientKey(x)===pk}),spTumorKey);
+  list.forEach(function(x){x.__ord=spDate(spDiagnosisDate(x))||spDate(x.stageDate)||spDate(x.firstDate)||''});
+  list.sort(function(a,b){
+    if(a.__ord!==b.__ord)return a.__ord<b.__ord?-1:1;
+    return (Number(a.tumorSeq)||0)-(Number(b.tumorSeq)||0);
+  });
+  return list;
+}
+function spTumorLabel(e,i){
+  var seq=Number(e.tumorSeq);
+  var n=seq>0?seq:(i+1);
+  return n<=1?'原发':'第 '+n+' 原发';
+}
+/* 瘤例编号（与报告卡瘤序一致）：首例 T，其余 T2、T3… */
+function spTumorNo(i){return i<=0?'T':'T'+(i+1)}
+function spTumorSwitch(e){
+  var list=spPatientTumors(e);
+  if(list.length<2)return '';
+  var multi=list.some(function(x){return x.multiPrimary===true});
+  return '<div class="sp-tumor-switch" role="tablist" aria-label="多原发瘤例切换">'+
+    '<span class="sp-tumor-switch-label">'+(multi?'多原发':'瘤例')+'<em>'+list.length+' 个瘤例</em></span>'+
+    list.map(function(x,i){
+      var on=x.id===e.id;
+      return '<button type="button" role="tab" class="sp-tumor-tab'+(on?' active':'')+'" aria-selected="'+(on?'true':'false')+'" '+
+        'title="'+esc('切换至 '+spTumorLabel(x,i)+'：'+spTumorName(x)+'（'+spStage(x)+'）')+'" '+
+        'onclick="window._spSwitchTumor(\''+esc(x.id)+'\')">'+
+        '<span class="sp-tumor-tab-no">'+esc(spTumorNo(i))+'</span>'+
+        '<span class="sp-tumor-tab-txt">'+esc(x.laterality||x.site||'未填部位')+
+        (on?'<span class="sp-tumor-tab-tag">'+esc(spTumorLabel(x,i))+'</span>':'')+'</span>'+
+        '</button>';
+    }).join('')+
+    '</div>';
+}
 function spDetailPage(e){
-  var cmp=spProfileCompleteness(e);
+  var tumors=spPatientTumors(e);
   var head='<div class="sp-detail-back"><button class="btn btn-ghost btn-sm" onclick="window._spBackList()">← 返回患者列表</button></div>'+
     '<div class="sp-patient-strip">'+
     '<div class="sp-patient-avatar">'+esc(e.patient.charAt(0))+'</div>'+
-    '<div style="min-width:0"><div class="sp-patient-name">'+esc(e.patient)+'<span class="sp-patient-meta">'+esc(e.sex)+' · '+e.age+'岁 · '+esc(spMaskIdNo(e.idNo))+' · '+esc(spEmpi(e))+'</span></div>'+
-    '<div class="sp-patient-sub">'+esc(e.region)+' · '+esc(e.insurance)+' · 确诊 '+esc(e.diagDate||e.stageDate||'—')+'</div></div>'+
-    '<div class="sp-patient-score"><div class="k">画像完整度</div><div class="v">'+cmp.rate+'%</div></div>'+
+    '<div style="min-width:0"><div class="sp-patient-name">'+esc(e.patient)+'<span class="sp-patient-meta">'+esc(spMaskIdNo(e.idNo))+' · '+esc(spEmpi(e))+'</span></div></div>'+
     '</div>';
   /* 1 患者基础：一眼认清"这是谁"——性别年龄、户籍地、医保、就诊机构；筛查参与属预防端信息 */
   var b1='<div class="sp-kv-grid">'+
     spKvI('性别',e.sex)+
-    spKvI('年龄',e.age+' 岁')+
+    spKvI('确诊时年龄',spNumber(spAge(e))+' 岁')+
     spKvI('户籍地',e.region)+
     spKvI('就诊机构',e.hospital||'—')+
     spKvI('医保类型',e.insurance)+
@@ -2131,7 +2345,9 @@ function spDetailPage(e){
     spKvI('筛查结果',e.screenResult||'—')+
     spKvI('筛查建议',e.screenAdvice||'—')+
     '</div>';
-  /* 2 肿瘤特征：瘤种身份（原发部位+病理类型）+ 编码（ICD-10、ICD-O-3）+ 分级/TNM + 确诊日期 + 诊断依据 */
+  /* 2 肿瘤特征：瘤种身份（原发部位+病理类型）+ 编码（ICD-10、ICD-O-3）+ 分级/TNM + 确诊日期 + 诊断依据
+     多原发：同一患者多个瘤例时，块头出现瘤例切换键，切换后本块（及全页瘤例级信息）随之切换 */
+  var curIdx=Math.max(0,tumors.map(function(x){return x.id}).indexOf(e.id));
   var b2=spSub('瘤种与分期')+'<div class="sp-kv-grid">'+
     spKvI('原发部位',e.laterality)+
     spKvI('病理类型',spPathText(e))+
@@ -2142,12 +2358,15 @@ function spDetailPage(e){
     spKvI('TNM',e.tNm||'—')+
     spKvI('确诊日期',e.diagDate||'—')+
     spKvI('诊断依据',spDiagBasisType(e))+
+    (tumors.length>1?spKvI('瘤例序号',spTumorNo(curIdx)+' · '+spTumorLabel(e,curIdx)+' / 共 '+tumors.length+' 例'):'')+
     '</div>';
   /* 3 诊疗过程：治疗与转诊（治疗方式三项同行；转诊仅记是否） */
+  var referral=spBool(spRecordValue(e,'referral',['referralRecordedDate','referralDate']));
+  var mdt=spBool(spRecordValue(e,'mdt',['mdtRecordedDate','mdtDate']));
   var b3=spSub('治疗与转诊')+'<div class="sp-kv-grid">'+
     spKvI('首次治疗日期',spFirstTreat(e)||'—')+
-    spKvI('是否发生转诊',e.referral?'是':'否')+
-    spKvI('MDT',e.mdt?'已开展':'未开展')+
+    spKvI('是否发生转诊',referral===null?'不详':referral?'是':'否')+
+    spKvI('MDT',mdt===null?'不详':mdt?'已开展':'未开展')+
     '</div>'+
     spSub('治疗方式')+
     '<div class="sp-kv-grid sp-cols-3">'+spModeFlags(e)+'</div>';
@@ -2161,7 +2380,7 @@ function spDetailPage(e){
     '</div>';
   var blocks='<div class="sp-profile-blocks">'+
     spBlock(1,'患者基础',b1)+
-    spBlock(2,'肿瘤特征',b2)+
+    spBlockWith(2,'肿瘤特征',b2,spTumorSwitch(e))+
     spBlock(3,'诊疗过程',b3)+
     spBlock(4,'随访与结局',b5)+
     '</div>';
@@ -2285,7 +2504,13 @@ var SP_ELEM_CHECK={stage:'R001',site_path:'R002',diag_basis:'R004',modes:'R006',
 function spCheck(id){return SP_CHECKS.filter(function(c){return c.id===id})[0];}
 /* 画像版本：含变更明细 */
 var SP_VERSIONS=[
-  {v:'V12.9',time:'2026-10-22 15:00',by:'管理员',desc:'块2 肿瘤特征字段调整：临床分期位改显示「分级」，诊断依据单列，删除分期类型与分期时间',cur:true,changes:[
+  {v:'V13.0',time:'2026-10-25',by:'管理员',desc:'患者群体总览统计口径修订与原型同步优化',cur:true,changes:[
+   '统一患者/瘤例去重、确诊区间和截止日，区分存活、死亡、失访与在管记录',
+   '各指标标明有效分母、不详与不适用；年龄和诊疗时效直接按有效日期计算',
+   '取消无依据达标结论、累计漏斗和固定费用估算，正式生存与费用明确显示数据缺口',
+   '保留五组分析；总览、明细与CSV共享统计口径，支持独立筛选和患者下钻',
+   '历史统计缺少日期或快照证据的状态归为不详，截止日后事件不纳入统计']},
+  {v:'V12.9',time:'2026-10-22 15:00',by:'管理员',desc:'块2 肿瘤特征字段调整：临床分期位改显示「分级」，诊断依据单列，删除分期类型与分期时间',cur:false,changes:[
    '「临床分期」位置改为展示「分级」（取 e.grade，如「中分化」「II级」），标签与取值同步替换',
    '「分期依据」改名为「诊断依据」，口径不变：有病灶形态学编码（ICD-O-3）即判为病理学诊断，否则为临床诊断；随位置调整移至该行末列，保留单列一项、不跨行',
    '删除「分期类型」（初诊分期/治疗后重新分期）与「分期时间」两项，块 2 由 11 项减为 9 项',
@@ -2645,9 +2870,23 @@ function spRefresh(){
   if(main)main.innerHTML=render();
 }
 window._spSetScope=function(city,site){
-  if(city!==''&&city!==null&&city!==undefined)_spScope.city=city;
-  if(site!==''&&site!==null&&site!==undefined)_spScope.site=site;
-  if(city===''&&site===''){_spScope={city:'',site:''}}
+  if(city!==null&&city!==undefined)_spScope.city=city;
+  if(site!==null&&site!==undefined)_spScope.site=site;
+  spRefresh();
+};
+window._spScopeField=function(field,value){
+  if(['city','site','hospital','from','to','cutoff'].indexOf(field)<0)return;
+  var next=Object.assign({},_spScope);
+  next[field]=field==='cutoff'?(value||spToday()):value;
+  if((next.from&&!spDate(next.from))||(next.to&&!spDate(next.to))||!spDate(next.cutoff)||
+    next.cutoff>spToday()||(next.from&&next.to&&next.from>next.to)||(next.from&&next.from>next.cutoff)||(next.to&&next.to>next.cutoff)){
+    if(typeof toast==='function')toast('确诊日期区间须按时间顺序，且不晚于统计截止日','error');
+    spRefresh();return;
+  }
+  _spScope=next;spRefresh();
+};
+window._spScopeReset=function(){
+  _spScope={city:'',site:'',hospital:'',from:'',to:'',cutoff:spToday()};
   spRefresh();
 };
 window._spDrillCity=function(city){
@@ -2684,16 +2923,29 @@ window._spGoIssue=function(domain,city,site){
 window._spGpToPatients=function(){
   _wbDetail=null;
   _wbFilters={q:'',site:_spScope.site,stage:'',city:_spScope.city,hospital:'',fu:''};
+  _wbOverviewSelection={scope:Object.assign({},_spScope),ids:spScopeEvents(_spScope).map(function(e){return e.id}),label:spScopeLabel()};
   if(typeof navigateTo==='function')navigateTo('sp-patients');
-  else spRefresh();
+  else{_spSub='workbench';spRefresh();}
+};
+window._spMetricPatients=function(id){
+  var list=spScopeEvents(_spScope),agg=spAgg(list),m=agg.metrics[id];
+  if(!m||m.value===null)return;
+  var matches=list.filter(function(e){return m.ids.indexOf(e.id)>=0});
+  var rows=spPersons(matches);
+  var body='<div class="sp-overview-context"><span>'+esc(m.name)+' · '+esc(spMetricEvidence(m))+'</span><span>对应 '+rows.length+' 人</span></div>'+
+    '<div class="sp-table-wrap"><table class="data-table sp-overview-table"><thead><tr><th>患者</th><th>瘤种</th><th>确诊日期</th><th>生存状态</th><th>画像</th></tr></thead><tbody>'+
+    (rows.length?rows.map(function(e){return '<tr><td>'+esc(e.patient)+'</td><td>'+esc(e.site)+'</td><td>'+esc(spDiagnosisDate(e)||'不详')+'</td><td>'+esc(spVital(e))+
+      '</td><td><button class="btn btn-ghost btn-xs" onclick="window._spGoPatient(\''+esc(e.id)+'\')">查看</button></td></tr>'}).join(''):
+      '<tr><td colspan="5" class="sp-table-empty">无对应患者</td></tr>')+'</tbody></table></div>';
+  spModal(m.name,body,'<button class="btn btn-ghost" data-sp-close>关闭</button>');
 };
 window._spWbQuery=function(){
   var g=function(id){var el=document.getElementById(id);return el?String(el.value||'').trim():''};
-  _wbFilters={q:g('spWbQ'),site:g('spWbSite'),stage:g('spWbStage'),city:g('spWbCity'),hospital:g('spWbHospital'),fu:g('spWbFu')};
+  _wbFilters={q:g('spWbQ'),site:g('spWbSite'),stage:g('spWbStage'),city:g('spWbCity'),hospital:g('spWbHospital'),fu:g('spWbFu'),mp:g('spWbMp')};
   spRefresh();
 };
 window._spWbReset=function(){
-  _wbFilters={q:'',site:'',stage:'',city:'',hospital:'',fu:''};spRefresh();
+  _wbOverviewSelection=null;_wbFilters={q:'',site:'',stage:'',city:'',hospital:'',fu:'',mp:''};spRefresh();
 };
 window._spOpenDetail=function(id){
   _wbDetail=id;spRefresh();
@@ -2702,6 +2954,17 @@ window._spOpenDetail=function(id){
 };
 window._spBackList=function(){
   _wbDetail=null;spRefresh();
+};
+/* 多原发瘤例切换：只换当前查看的瘤例 id，页内上下文（总览队列/筛选）保持不变 */
+window._spSwitchTumor=function(id){
+  if(!id||id===_wbDetail)return;
+  var src=_wbOverviewSelection?spScopeEvents(_wbOverviewSelection.scope):spUnique(tumorEvents,spTumorKey);
+  var cur=src.filter(function(x){return x.id===_wbDetail})[0];
+  var next=tumorEvents.filter(function(x){return x.id===id})[0];
+  if(!cur||!next||spPatientKey(cur)!==spPatientKey(next))return;
+  _wbDetail=id;spRefresh();
+  var sc=document.getElementById('spMainContent');
+  if(sc&&sc.scrollIntoView)sc.scrollIntoView({block:'start'});
 };
 function spModal(title,bodyHtml,foot){
   var mask=document.createElement('div');
@@ -2860,8 +3123,19 @@ window._spCheckView=function(id){
 window._spGoPatient=function(pid){
   document.querySelectorAll('[data-sp-close]').forEach(function(b){b.click()});
   _wbDetail=pid;
+  if(_spSub==='overview'){
+    var selected=spScopeEvents(_spScope);
+    _wbOverviewSelection={scope:Object.assign({},_spScope),ids:selected.map(function(e){return e.id}),label:spScopeLabel()};
+  }else if(_spSub==='config')_wbOverviewSelection=null;
   if(typeof navigateTo==='function')navigateTo('sp-patients');
   else{_spSub='workbench';spRefresh();}
+};
+window.SpecialtyRiskSource={
+  list:function(){return tumorEvents.map(function(e){return {
+    id:e.id,patient:e.patient,site:e.site,hospital:e.hospital,region:e.region||e.city,
+    screenResult:e.screenResult,followStatus:e.followStatus,lastFu:e.lastFu,dead:e.vitalStatus==='死亡'
+  }})},
+  open:function(id){if(!tumorEvents.some(function(e){return e.id===id}))return false;window._spGoPatient(id);return true}
 };
 function spDownload(name,text){
   var blob=new Blob(['\ufeff'+text],{type:'text/plain;charset=utf-8'});

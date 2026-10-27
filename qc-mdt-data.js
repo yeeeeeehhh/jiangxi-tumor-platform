@@ -1,7 +1,15 @@
 /* ============================================================================
- * qc-mdt-data.js — MDT 多学科诊疗质控 · 数据脊柱（2026-10-21）
+ * qc-mdt-data.js — MDT 多学科诊疗质控 · 数据脊柱（2026-10-26 精简）
  *
- * 定位：只做 MDT 一个模块，三个质控点，两个指标。不做过程指标的堆砌。
+ * 定位：只做 MDT 一个模块，两个对外指标（页面见 qc-mdt.js），三个质控点。
+ *      不做过程指标的堆砌，不建第二套交互范式。
+ *
+ * 两个对外指标（与「六大绩效质控」一指标一页对齐）：
+ *   指标一 MDT 讨论率     = 有效讨论病例 / 应讨论病例          （质控点 P1）
+ *   指标二 MDT 结论执行率 = 治疗符合结论病例 / 已讨论且结论明确且已治疗
+ *                                                              （质控点 P3）
+ *      其中「结论是否落到具体方案」（质控点 P2）是指标二的前置判定，
+ *      不单独占页面，其分子分母随指标二同屏给出。
  *
  * 三个质控点（全部来自可核实文件，见每条 rule 的 basis / grade）：
  *   P1 该讨论的讨论了没   —— 命中入组规则的病例须有有效 MDT 记录
@@ -11,9 +19,9 @@
  *   P3 结论执行了没       —— 实际治疗须与结论一致，不一致须有变更说明
  *       依据：A 档 T/CHAS 10-3-6—2023《多学科联合诊疗(MDT)》5.3「方案实施与随访」
  *
- * 两个指标：
- *   MDT 讨论率   = 有效讨论病例 / 应讨论病例        （B 档）
- *   MDT 结论执行率 = 治疗符合结论病例 / 已讨论病例   （A 档）
+ *   · 两个指标：
+ *       MDT 讨论率   = 有效讨论病例 / 应讨论病例        （B 档）
+ *       MDT 结论执行率 = 治疗符合结论病例 / 已讨论病例   （A 档）
  *
  * 重要声明（不回避）：
  *   · 国家层面尚未发布肿瘤 MDT 专项质控指标（国家癌症中心 2026 年工作要点第八条
@@ -54,8 +62,8 @@
   ];
 
   /* ==================== 2. 质控点定义 ==================== */
-  /* 三个质控点，一一对应三个页面标签与规则判定。
-     id 用于 detail 页规则块展示，short 用于表格列头。 */
+  /* 三个质控点。P1 = 指标一（MDT 讨论率）；P2 是指标二的前置判定；
+     P3 = 指标二（MDT 结论执行率）。id 用于详情页规则块展示，short 用于表格列头。 */
   var POINTS = [
     {
       id: 'P1', key: 'entered', short: '讨论率', name: '该讨论的讨论了没',
@@ -89,6 +97,23 @@
     }
   ];
 
+  /* 对外指标 = 质控点的子集，页面一指标一页只认这两项 */
+  var IND = [
+    { id: 'MDT-01', point: 'P1', name: 'MDT 讨论率', short: '讨论率', dir: 'up', ref: 80 },
+    { id: 'MDT-02', point: 'P3', name: 'MDT 结论执行率', short: '结论执行率', dir: 'up', ref: 85 }
+  ];
+  /* 按指标 id 或质控点 id 查（渲染层两种都会传：P.ind 是指标 id，
+     详情页按质控点查）。传入 'P1'/'P3' 时按 point 匹配，'MDT-0x' 时按 id 匹配。 */
+  function indOf(x) {
+    if (!x) return null;
+    for (var i = 0; i < IND.length; i++) if (IND[i].id === x || IND[i].point === x) return IND[i];
+    return null;
+  }
+  function pointOf(indId) {
+    for (var i = 0; i < IND.length; i++) if (IND[i].id === indId) return IND[i].point;
+    return 'P1';
+  }
+
   /* ==================== 3. 判定四态（沿用全站口径，不新增第五态） ==================== */
   var V = { OK: 'ok', BAD: 'bad', MISS: 'miss', ABN: 'abn' };
   var V_LABEL = { ok: '符合', bad: '不符合', miss: '数据缺失', abn: '数据异常' };
@@ -104,6 +129,31 @@
   function rndInt(s, a, b) { return a + (hash(s) % (b - a + 1)); }
   function pick(list, s) { return list[hash(s) % list.length]; }
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  /* ==================== 4b. 报告期（统计年度）绑定 ====================
+     与 qcSpine.setPeriod 同一套语义：所有种子键都带报告期，换年度数字确实变化；
+     病例诊断日期落在报告期年内。渲染层每次渲染前调用 setPeriod(P.year)。 */
+  var PERIOD = '2026';
+  function setPeriod(y) {
+    y = String(y == null ? '' : y);
+    if (!/^\d{4}$/.test(y)) return false;
+    if (y === PERIOD) return true;
+    PERIOD = y;
+    POOL = null; POOL_KEY = '';      /* 池子含年度种子，必须整体作废 */
+    return true;
+  }
+  function getPeriod() { return PERIOD; }
+  /* 以指定年度口径求一次结果，返回后还原（纯函数用法，供同比调用） */
+  function forYear(year, fn) {
+    var old = PERIOD; PERIOD = String(year);
+    try { return fn(); } finally { PERIOD = old; }
+  }
+  /* 种子键统一入口：所有生成种子都从这里过，保证年度一定进键 */
+  function sk() {
+    var parts = [PERIOD];
+    for (var i = 0; i < arguments.length; i++) parts.push(arguments[i]);
+    return parts.join('|');
+  }
 
   /* ==================== 5. MDT 记录构造 ==================== */
   var SURNAMES = ['赵', '钱', '孙', '李', '周', '吴', '郑', '王', '陈', '林', '黄', '徐', '邓', '罗'];
@@ -150,10 +200,10 @@
       /* 全癌种规则（再次手术/死亡）命中率约 8% / 5% */
       if (r.cancer === '*') {
         var p = r.id === 'EN-ALL-1' ? 0.08 : 0.05;
-        return rnd01('allrule|' + r.id + '|' + seq) < p;
+        return rnd01(sk('allrule', r.id, seq)) < p;
       }
       /* 癌种规则：约 62% 的病例命中至少一条（局部晚期占比的粗略近似） */
-      return rnd01('ent|' + r.id + '|' + seq) < 0.62;
+      return rnd01(sk('ent', r.id, seq)) < 0.62;
     });
   }
 
@@ -227,61 +277,63 @@
         var hasRules = ENTER_RULES.some(function (r) { return r.cancer === c.id || r.cancer === '*'; });
         if (!hasRules) return;
         for (var s = 0; s < PER_CELL; s++) {
+          /* key 只标识「机构×癌种×序号」这个病例位，不带年度；
+             所有随机种子一律走 sk()，年度进键，换年度数字确实变化。 */
           var key = 'MDT|' + o.id + '|' + c.id + '|' + s;
           var hits = enterRulesOf(c.id, key);
           var hit = hits.length > 0;
           /* 命中入组规则的病例，约 86% 真的开了 MDT（剩下的是"应讨论未讨论"） */
-          var hasRecord = hit ? rnd01('has|' + key) < 0.86 : rnd01('has|' + key) < 0.05;
+          var hasRecord = hit ? rnd01(sk('has', key)) < 0.86 : rnd01(sk('has', key)) < 0.05;
           if (!hasRecord && !hit) continue;   /* 既不该讨论也没讨论：不进池 */
 
-          var diagDate = dateStr(key + '|dg', 2025, 2026);
-          var applyDate = addDays(diagDate, rndInt(key + '|ap', 2, 9));
-          var sessionDate = addDays(applyDate, rndInt(key + '|ss', 0, 9));
-          var treatDate = addDays(sessionDate, rndInt(key + '|td', 3, 20));
+          var diagDate = dateStr(sk('dg', key), +PERIOD, +PERIOD);
+          var applyDate = addDays(diagDate, rndInt(sk('ap', key), 2, 9));
+          var sessionDate = addDays(applyDate, rndInt(sk('ss', key), 0, 9));
+          var treatDate = addDays(sessionDate, rndInt(sk('td', key), 3, 20));
 
           /* 记录是否真有 —— 各质控点的不合格比例 */
-          var hasSummary = hasRecord ? rnd01('sum|' + key) >= 0.10 : false;
-          var vague = hasRecord ? rnd01('vg|' + key) < 0.17 : false;
-          var conclIdx = rndInt(key + '|ci', 0, TREAT_MODES.length - 1);
+          var hasSummary = hasRecord ? rnd01(sk('sum', key)) >= 0.10 : false;
+          var vague = hasRecord ? rnd01(sk('vg', key)) < 0.17 : false;
+          var conclIdx = rndInt(sk('ci', key), 0, TREAT_MODES.length - 1);
           var conclusion = hasRecord
-            ? (vague ? pick(VAGUE_CONCLUSIONS, key) : TREAT_MODES[conclIdx])
+            ? (vague ? pick(VAGUE_CONCLUSIONS, sk('vg', key)) : TREAT_MODES[conclIdx])
             : '';
           /* 已到治疗阶段的比例（约 78%），决定 P3 是否进分母 */
-          var treated = hasRecord && rnd01('tr|' + key) < 0.78;
-          var execMismatch = treated && rnd01('em|' + key) < 0.14;
-          var hasChangeNote = execMismatch && rnd01('cn|' + key) < 0.40;
+          var treated = hasRecord && rnd01(sk('tr', key)) < 0.78;
+          var execMismatch = treated && rnd01(sk('em', key)) < 0.14;
+          var hasChangeNote = execMismatch && rnd01(sk('cn', key)) < 0.40;
 
           var depts = DEPT_OF_CANCER[c.id] || ['肿瘤内科', '影像科', '病理科'];
-          var attendN = rndInt(key + '|an', 3, depts.length);
+          var attendN = rndInt(sk('an', key), 3, depts.length);
 
           var rec = {
             key: key,
-            id: 'JX' + rndInt(key + '|no', 100000, 999999),
-            mrn: 'MRN' + rndInt(key + '|mr', 1000000, 9999999),
-            ipNo: 'ZY' + rndInt(key + '|ip', 200000, 299999),
-            name: pick(SURNAMES, key + '|sn') + pick(GIVEN, key + '|gn'),
+            id: 'JX' + rndInt(sk('no', key), 100000, 999999),
+            mrn: 'MRN' + rndInt(sk('mr', key), 1000000, 9999999),
+            ipNo: 'ZY' + rndInt(sk('ip', key), 200000, 299999),
+            name: pick(SURNAMES, sk('sn', key)) + pick(GIVEN, sk('gn', key)),
             sex: ['C50', 'C53'].indexOf(c.id) >= 0 ? '女' : '男',
-            age: rndInt(key + '|age', 36, 80),
+            age: rndInt(sk('age', key), 36, 80),
             org: o.id, orgName: o.name, city: o.city, cityName: S.cityName(o.city),
             cancer: c.id, cancerName: c.name,
             diagDate: diagDate,
-            stage: pick(['IA', 'IB', 'IIA', 'IIB', 'IIIA', 'IIIB', 'IIIC', 'IV'], key + '|st'),
+            stage: pick(['IA', 'IB', 'IIA', 'IIB', 'IIIA', 'IIIB', 'IIIC', 'IV'], sk('st', key)),
             /* 入组相关 */
             enteredRuleHit: hit,
             enteredRules: hits.map(function (r) { return r.name; }),
             enteredRuleIds: hits.map(function (r) { return r.id; }),
             /* MDT 记录 */
             hasRecord: hasRecord,
-            mdtNo: hasRecord ? ('MDT' + rndInt(key + '|mn', 20260000, 20269999)) : '',
+            mdtNo: hasRecord ? ('MDT' + rndInt(sk('mn', key), 20260000, 20269999)) : '',
             applyDate: hasRecord ? applyDate : '',
-            applyDept: pick(depts, key + '|ad'),
+            applyDept: pick(depts, sk('ad', key)),
             applyReason: hasRecord ? pick([
               '明确 IIIA 期肺癌新辅助方案选择', '直肠癌局部进展期是否需要术前放化疗',
               '乳腺癌新辅助方案与手术时机', '胃癌腹膜转移综合治疗策略',
               '肝癌不可切除需在 TACE 与靶向间决策', '食管癌新辅助与手术范围'
-            ], key + '|ar') : '',
+            ], sk('ar', key)) : '',
             sessionDate: hasRecord ? sessionDate : '',
-            host: hasRecord ? pick(EXPERTS, key + '|hs') + '（' + pick(['主任医师', '副主任医师'], key + '|ht') + '）' : '',
+            host: hasRecord ? pick(EXPERTS, sk('hs', key)) + '（' + pick(['主任医师', '副主任医师'], sk('ht', key)) + '）' : '',
             attendDepts: hasRecord ? depts.slice(0, attendN) : [],
             hasSummary: hasSummary,
             summary: hasSummary ? '主持人意见：经各学科讨论，结合患者分期与体能状态，形成上述一致意见' : '',
@@ -290,7 +342,7 @@
             /* 执行 */
             treated: treated,
             treatDate: treated ? treatDate : '',
-            actualTreat: treated ? (execMismatch ? pick(TREAT_MODES.filter(function (m) { return m !== conclusion; }), key + '|at') : conclusion) : '',
+            actualTreat: treated ? (execMismatch ? pick(TREAT_MODES.filter(function (m) { return m !== conclusion; }), sk('at', key)) : conclusion) : '',
             execMismatch: execMismatch,
             hasChangeNote: hasChangeNote,
             changeNote: hasChangeNote ? '患者拒绝原方案，经再次讨论调整为现方案' : ''
@@ -307,7 +359,8 @@
   }
 
   function pool() {
-    var k = (S.ORGS.length + 'x' + S.CANCERS.length);
+    /* 缓存键必须带报告期：setPeriod 已作废 POOL，这里是第二道保险 */
+    var k = PERIOD + '|' + S.ORGS.length + 'x' + S.CANCERS.length;
     if (!POOL || POOL_KEY !== k) { POOL = buildPool(); POOL_KEY = k; }
     return POOL;
   }
@@ -331,6 +384,20 @@
     if (opt.orgIds && opt.orgIds.length && opt.orgIds.indexOf(r.org) < 0) return false;
     if (opt.cancerIds && opt.cancerIds.length && opt.cancerIds.indexOf(r.cancer) < 0) return false;
     return true;
+  }
+
+  /* 单指标（对外两个）：value + 分子分母 + 达标判定。
+     pass 走参考线 ref（本模块无国家专项指标，ref 是院内参考值，
+     界面只给「达标 / 未达标」结论，不展示参考线来源）。 */
+  function indAgg(indId, orgIds, cancerIds) {
+    var m = metrics({ orgIds: orgIds || null, cancerIds: cancerIds || null });
+    var d = m[pointOf(indId)];
+    var meta = indOf(pointOf(indId));
+    return {
+      ind: indId, num: d.num, den: d.den, value: d.value,
+      period: PERIOD,
+      pass: d.value != null && !!meta && d.value >= meta.ref
+    };
   }
 
   /* 指标计算：按质控点分别算分子分母。分母归属见 6b。 */
@@ -538,7 +605,7 @@
     };
   }
 
-  /* 入组规则按癌种分组（配置页展示） */
+  /* 入组规则按癌种分组（规则配置页展示用） */
   function enterRulesByCancer() {
     var m = {};
     ENTER_RULES.forEach(function (r) {
@@ -549,15 +616,90 @@
     return m;
   }
 
+  /* 同比：上一报告期同口径。无基期返回 null（不编数）。 */
+  function yoy(indId, orgIds, cancerIds) {
+    var cur = indAgg(indId, orgIds, cancerIds).value;
+    var prev = forYear((+PERIOD) - 1, function () { return indAgg(indId, orgIds, cancerIds).value; });
+    if (cur == null || prev == null) return null;
+    return Math.round((cur - prev) * 10) / 10;
+  }
+
+  /* 病例级整改：与六大绩效同一台账（qcSpine.problems / addCaseProblems）。
+     本模块病例不在 qcSpine 的病例池里，因此不复用 addCaseProblems（它按
+     指标+病例键查 qcSpine），改走通用的 addProblemItem —— 同一存储、
+     同一幂等键、同一状态流转，「整改问题」页无需区分来源。 */
+  var FIX_STORE = [];
+  function addProblemItem(item) {
+    var idem = item.idemKey;
+    for (var i = 0; i < FIX_STORE.length; i++) {
+      if (FIX_STORE[i].idemKey === idem) {
+        return { created: 0, existed: 1, code: FIX_STORE[i].code, total: FIX_STORE.length };
+      }
+    }
+    var now = new Date();
+    var at = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) + ' ' +
+      pad(now.getHours()) + ':' + pad(now.getMinutes());
+    var it = {
+      idemKey: idem,
+      code: 'RMD' + (900000 + FIX_STORE.length + 1),
+      layer: 'L1', module: 'MDT质控 · 病例整改',
+      type: item.type, obj: item.obj, objId: item.objId,
+      org: item.org, orgName: item.orgName, city: item.city, cityName: item.cityName,
+      cancer: item.cancer, cancerName: item.cancerName,
+      desc: item.desc, rule: item.rule,
+      count: 1, foundDate: at.slice(0, 10), dueDate: addDays(at.slice(0, 10), 14),
+      status: '待处理',
+      statusLog: [{ at: at, actor: '质控人员（演示账号）', action: '纳入整改：由 MDT 病例明细创建病例级问题' }],
+      severity: '预警', source: 'case',
+      caseKey: item.caseKey, patient: item.patient, mrn: item.mrn, ipNo: item.ipNo
+    };
+    FIX_STORE.push(it);
+    if (window.qcSpine && window.qcSpine.registerExternalProblems) {
+      window.qcSpine.registerExternalProblems(FIX_STORE);
+    }
+    return { created: 1, existed: 0, code: it.code, total: FIX_STORE.length };
+  }
+  /* 「纳入整改」：判定为非 ok 的病例才入账；同一病例只建一条（幂等）。 */
+  function remediate(caseKey) {
+    var r = byKey(caseKey);
+    if (!r) return { created: 0, existed: 0, total: FIX_STORE.length, error: '未找到该病例' };
+    if (r.v === 'ok') return { created: 0, existed: 0, total: FIX_STORE.length, error: '该病例判定为符合，无需整改' };
+    var top = judgeTop(r);
+    return addProblemItem({
+      idemKey: 'FIX|' + r.key,
+      type: r.verdictText,
+      obj: top.metric, objId: top.id,
+      org: r.org, orgName: r.orgName, city: r.city, cityName: r.cityName,
+      cancer: r.cancer, cancerName: r.cancerName,
+      desc: r.reason || '质控判定不符合',
+      rule: top.rule,
+      caseKey: r.key, patient: r.name, mrn: r.mrn, ipNo: r.ipNo
+    });
+  }
+  /* 该病例最严重的那个质控点（整改条目挂到它名下） */
+  function judgeTop(r) {
+    var j = r.judge || {};
+    var order = [POINTS[0], POINTS[1], POINTS[2]].filter(function (pt) {
+      var v = j[pt.key];
+      return v && (v.v === V.MISS || v.v === V.BAD || v.v === V.ABN);
+    });
+    return order.length ? order[0] : POINTS[0];
+  }
+
   window.qcMdt = {
+    IND: IND, indOf: indOf, pointOf: pointOf,
     ENTER_RULES: ENTER_RULES,
     enterRulesByCancer: enterRulesByCancer,
     POINTS: POINTS,
     V: V, V_LABEL: V_LABEL,
-    metrics: metrics, cases: cases, verdictCounts: verdictCounts,
+    metrics: metrics, indAgg: indAgg, yoy: yoy,
+    cases: cases, verdictCounts: verdictCounts,
     byDim: byDim, byKey: byKey,
     crossTable: crossTable, crossCell: crossCell, axisOf: axisOf,
     pool: pool,
-    _reset: function () { POOL = null; POOL_KEY = ''; }
+    /* 整改闭环：病例级幂等入「整改问题」台账（与六大绩效同一存储） */
+    remediate: remediate, remediationCount: function () { return FIX_STORE.length; },
+    setPeriod: setPeriod, getPeriod: getPeriod,
+    _reset: function () { POOL = null; POOL_KEY = ''; FIX_STORE.length = 0; }
   };
 })();

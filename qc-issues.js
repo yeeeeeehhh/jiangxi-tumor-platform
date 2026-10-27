@@ -31,9 +31,27 @@
     return ps.filter(function (p) { return p.status === J.tab; });
   }
 
+  /* 返回目标：台账里最近一条病例级整改来自哪个模块，就返回哪个模块。
+     MDT 病例整改与六大绩效病例整改同池（qcSpine.problems），
+     不区分会让用户点「返回」后跳到无关页面。 */
+  function backTarget() {
+    var all = S.problems();
+    for (var i = all.length - 1; i >= 0; i--) {
+      if (all[i].source !== 'case') continue;
+      if (String(all[i].module || '').indexOf('MDT') === 0) return 'qc-mdt-ind01';
+      return 'qc-pf-nq01';
+    }
+    return 'qc-pf-nq01';
+  }
+  function backLabel() {
+    return backTarget() === 'qc-mdt-ind01' ? 'MDT质控' : '六大绩效质控';
+  }
+
   function problemModal(p) {
     var rule = p.rule || {};
-    var logs = (p.logs || []).map(function (l) {
+    var logs = (p.logs && p.logs.length ? p.logs : (p.statusLog || []).map(function (x) {
+      return { t: x.at, who: x.actor, what: x.action };
+    })).map(function (l) {
       return '<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed #eef2f7">' +
         '<div style="flex:none;color:#94a3b8;font-size:12px">' + S.esc(l.t) + '</div>' +
         '<div style="flex:1"><b style="font-size:12.5px">' + S.esc(l.who) + '</b>' +
@@ -106,12 +124,39 @@
     ], 6);
 
     return '<div class="qc-page">' +
-      /* 页头只留标题 + 返回按钮（副标题与右上标签按全模块统一规范移除） */
+      /* 页头只留标题 + 返回按钮（副标题与右上标签按全模块统一规范移除）。
+         来源可能是六大绩效，也可能是 MDT 质控（病例整改入同一台账）——
+         按当前台账里最近一条病例级问题的 module 决定返回目标。 */
       U.head('整改问题', '', '', false,
-        '<button class="btn btn-ghost btn-sm" data-qc="qi:toPerf">← 返回六大绩效质控</button>') +
+        '<button class="btn btn-ghost btn-sm" data-qc="qi:toPerf">← 返回' + S.esc(backLabel()) + '</button>') +
       kpiHtml +
       card +
       '</div>';
+  }
+
+  /* 处置弹窗：按当前状态给出合法流转动作 + 意见输入 + 处置留痕列表 */
+  function workModal(p) {
+    var acts = [];
+    if (p.status === '待处理' || p.status === '已逾期') acts.push(['发起整改', '整改中']);
+    if (p.status === '整改中') acts.push(['提交复核', '待复核']);
+    if (p.status === '待复核') { acts.push(['复核通过', '已关闭']); acts.push(['退回重整', '退回']); }
+    if (!acts.length) acts.push(['重新打开', '整改中']);
+    var logHtml = (p.statusLog || []).map(function (l) {
+      return '<div style="font-size:12px;color:#475569;padding:3px 0;border-bottom:1px dashed #eef2f7">' +
+        S.esc(l.at) + ' · ' + S.esc(l.actor) + '：' + S.esc(l.action) + '</div>';
+    }).join('') || '<div style="font-size:12px;color:#94a3b8">（暂无处置记录）</div>';
+    U.modal('处置 · ' + S.esc(p.code),
+      '<div style="font-size:12.5px;color:#475569;line-height:2">' +
+      '当前状态：' + U.statusBadge(p.status) +
+      (p.caseKey ? '<br>来源病例：' + S.esc(p.caseKey) + '（' + S.esc(p.mrn || '') + '）' : '') +
+      '<div style="margin-top:8px">' + logHtml + '</div>' +
+      '<div style="margin-top:10px"><label style="font-size:12px;color:#94a3b8">处置意见</label>' +
+      '<textarea id="qi-note" style="width:100%;min-height:54px" placeholder="填写整改措施/复核意见（可空）"></textarea></div>' +
+      '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">' +
+      acts.map(function (x) {
+        return '<button class="btn btn-primary btn-sm" data-qc="qi:trans:' + S.esc(p.code) + ':' + x[1] + '">' + x[0] + '</button>';
+      }).join('') + '</div>' +
+      '<br><span style="color:#94a3b8">（状态流转已在本原型内生效；正式环境落库、账号与权限审计见《口径与计算规则》文档 §6）</span></div>');
   }
 
   document.addEventListener('click', function (ev) {
@@ -133,25 +178,39 @@
     if (a.indexOf('qi:work:') === 0) {
       var code2 = a.slice('qi:work:'.length);
       var p2 = list().filter(function (x) { return x.code === code2; })[0];
-      if (p2) {
-        U.modal('处置 · ' + S.esc(p2.code),
-          '<div style="font-size:12.5px;color:#475569;line-height:2">' +
-          '当前状态：' + U.statusBadge(p2.status) + '<br>' +
-          '演示流转：' +
-          '<button class="btn btn-ghost btn-sm" style="margin:0 6px">发起整改</button>' +
-          '<button class="btn btn-ghost btn-sm" style="margin:0 6px">复核通过</button>' +
-          '<button class="btn btn-ghost btn-sm" style="margin:0 6px">退回重整</button>' +
-          '<br><span style="color:#94a3b8">（原型演示，状态更新将在正式数据接入后落库）</span></div>');
-      }
+      if (p2) workModal(p2);
       return;
     }
-    /* 六维三级菜单化后无总览页，「返回六大绩效质控」回到第一维 */
-    if (a === 'qi:toPerf') { window.navigateTo('qc-pf-nq01'); return; }
+    /* 审核修复 B02：处置按钮真正落状态——待处理→整改中→待复核→已关闭，
+       退回则回到整改中；每次流转记录处置人/时间/意见（statusLog）。 */
+    if (a.indexOf('qi:trans:') === 0) {
+      var seg = a.split(':');
+      var st = seg.pop();
+      var code = seg.slice(2).join(':');
+      var noteEl = document.getElementById('qi-note');
+      var note = noteEl && noteEl.value ? String(noteEl.value).trim() : '';
+      if (st === '退回' || st === '重整') { st = '整改中'; note = ('退回重整：' + (note || '复核不通过')); }
+      var okTr = S.setProblemStatus(code, st, '质控管理员（演示账号）', note);
+      if (U.closeModal) U.closeModal();
+      window.renderPage('qc-issues');
+      U.toast(okTr ? '状态已更新：' + st + '（处置记录已留痕）' : '流转失败：状态或问题编号无效');
+      return;
+    }
+    /* 六维三级菜单化后无总览页，「返回」回到来源模块（六大绩效 / MDT） */
+    if (a === 'qi:toPerf') { window.navigateTo(backTarget()); return; }
   });
 
   window.qcIssues = {
     pageIds: ['qc-issues'],
     render: render,
-    state: J
+    state: J,
+    openProblem: function (code, mode) {
+      var ps = list(), index = ps.findIndex(function (p) { return p.code === code; });
+      if (index < 0) return false;
+      J.tab = '全部'; J.page = Math.floor(index / 20) + 1;
+      window.navigateTo('qc-issues');
+      if (mode === 'work') workModal(ps[index]); else problemModal(ps[index]);
+      return true;
+    }
   };
 })();

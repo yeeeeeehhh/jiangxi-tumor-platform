@@ -53,3 +53,14 @@ node_modules/
 /*.csv
 /*.pdf
 /质控问卷2026/
+
+# ==== QA 产物与审查快照（截图、日志、结果表、审查文档，非运行时资源）====
+/annual-center-qa/
+/report-studio-qa/
+/audit/
+/specs/
+/缺什么总清单*.html
+/*_阅读版.html
+/*.doc
+# 零字节误触文件
+/⚠

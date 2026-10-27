@@ -8,7 +8,11 @@
   'use strict';
 
   const OWNED_IDS = ['warning-records', 'warning-tickets', 'warning-rules', 'mon-analysis-stats', 'mon-analysis-quality'];
-  const CURRENT_USER = '省级登记中心 · 陈敏';
+  function currentOperator() {
+    const name = document.getElementById('currentUserName')?.textContent.trim() || '原型经办人';
+    const org = typeof window.wbRoleDef === 'function' ? window.wbRoleDef().org : '';
+    return org && !name.includes(org) ? org + ' · ' + name : name;
+  }
   const PERIOD_MONTH = '202608';
   const PERIOD_YEAR = '2025';
 
@@ -208,6 +212,68 @@
   const warnings = [];
   const tickets = [];
   const operationLogs = [];
+  const warningRuns = [];
+  let currentRun = null;
+  const AUTO_SEVERITY_RULES = new Set([
+    'A-ZERO-REPORT', 'A-TIMELINESS', 'A-VOLUME-DROP', 'A-VOLUME-MOM', 'A-XIECHA-OVERDUE',
+    'A-AUDIT-BACKLOG', 'A-NCCR-SUBMIT', 'A-FOLLOWUP-LOST', 'B-MV-LOW', 'B-MV-CANCER',
+    'B-DCO-HIGH', 'B-UB-HIGH', 'B-OU-HIGH', 'B-AGE-UNKNOWN', 'B-DCN-OPEN', 'B-COMPLETENESS',
+    'B-DCN-CANCER', 'C-ASR-TREND', 'C-CLUSTER', 'C-MORT-TREND', 'C-DENOMINATOR',
+    'C-INC-RATE-DEV', 'C-MOR-RATE-DEV', 'C-QUARTER-PREVIEW', 'ASSIGN-STALE', 'A-DCN-MONTH'
+  ]);
+  function todayISO() { return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' }); }
+  function applyDueRuleVersions() {
+    rules.forEach(rule => {
+      if (!rule.pendingVersion || rule.pendingVersion.effectiveDate > todayISO()) return;
+      Object.assign(rule, rule.pendingVersion);
+      delete rule.pendingVersion;
+    });
+  }
+  function executionDescription(rule) {
+    const value = rule.thresholdValue + rule.unit;
+    const sample = '；最小样本 ' + rule.minSampleSize;
+    const conditions = {
+      'A-ZERO-REPORT': '连续零报 ≥ ' + value + '；≥3个月紧急',
+      'A-TIMELINESS': '及时率 < ' + value + '；<75%紧急',
+      'A-VOLUME-DROP': '低于近12月基线 ≥ ' + value + '；低于60%紧急',
+      'A-VOLUME-MOM': '上报量环比上升 ≥ ' + value + '；≥100%紧急',
+      'A-AUDIT-BACKLOG': '待审 ≥ ' + value + ' 或最长停留 ≥15日；≥80张关注',
+      'B-MV-LOW': 'MV% < ' + value + '；<55%紧急',
+      'B-MV-CANCER': '分癌种 MV% < ' + value + '；<55%紧急；同业务问题合并命中',
+      'B-DCO-HIGH': 'DCO% > ' + value + '；>25%紧急',
+      'B-UB-HIGH': 'UB% > ' + value + '；>8%紧急',
+      'B-OU-HIGH': 'O&U% > ' + value + '；>8%紧急',
+      'B-AGE-UNKNOWN': '年龄不明率 > ' + value + '；>2%紧急',
+      'B-COMPLETENESS': '全癌种粗发病率低于参考 ≥ ' + value + '；低于40%紧急',
+      'B-MI-RATIO': '分癌种 M/I 超出参考区间的 ' + (rule.thresholdValue * 100).toFixed(1) + '% 容差',
+      'B-MI-TOTAL': '全癌种 M/I 超出参考区间的 ' + (rule.thresholdValue * 100).toFixed(1) + '% 容差',
+      'B-DCN-OPEN': 'DCN 未闭环率 > ' + value + '；>40%紧急',
+      'B-DCN-CANCER': '分癌种 DCN 未闭环率 > ' + value + '；>40%紧急',
+      'C-ASR-TREND': '连续三年同向且累计偏离 ≥ ' + value + '；累计≥35%紧急',
+      'C-MORT-TREND': '连续三年上升且累计升幅 ≥ ' + value,
+      'C-CLUSTER': 'SIR ≥ ' + value + ' 且95%CI下限>1，逐年验证连续三年；示例序列不足只作观察线索',
+      'C-INC-RATE-DEV': '粗发病率偏离前三年均值 ≥ ' + value + '；≥35%紧急',
+      'C-MOR-RATE-DEV': '粗死亡率偏离前三年均值 ≥ ' + value + '；≥35%紧急',
+      'C-AGE-PROFILE': '早发病例占比与全省差值绝对值 ≥ ' + value,
+      'C-DENOMINATOR': '人口同比变动绝对值 > ' + value + ' 且缺少依据',
+      'C-QUARTER-PREVIEW': '累计率偏离同期基线 ≥ ' + value + '；仅作待年度核查线索',
+      'ASSIGN-STALE': '关注及以上记录生成后 ≥ ' + value + ' 未接收；≥15日紧急',
+      'A-DCN-MONTH': '超30日未回填占比 > ' + value + '；>30%紧急'
+    };
+    return (conditions[rule.id] || rule.params) + sample;
+  }
+  function closurePass(warning, value) {
+    const threshold = warning.parameterSnapshot?.threshold ?? findRule(warning.ruleId)?.thresholdValue;
+    if (!Number.isFinite(value) || !Number.isFinite(threshold)) return false;
+    if (/^B-MV-/.test(warning.ruleId)) return value >= threshold && value <= 100;
+    if (/^B-(DCO|UB|OU|AGE|DCN)-/.test(warning.ruleId)) return value >= 0 && value <= threshold;
+    if (warning.ruleId === 'B-COMPLETENESS') return value > -threshold;
+    if (/^B-MI-/.test(warning.ruleId)) {
+      const ref = MI_REFERENCE[warning.snapshot['癌种'] || '全癌种合计'];
+      return !!ref && value >= ref.low * (1 - threshold) && value <= ref.high * (1 + threshold);
+    }
+    return true;
+  }
 
   function uid(prefix) { return prefix + '-' + (++seq).toString().padStart(5, '0'); }
   function esc(value) {
@@ -262,7 +328,7 @@
     operationLogs.unshift({
       id: uid('LOG'),
       time: data.time || new Date(),
-      operator: data.operator || CURRENT_USER,
+      operator: data.operator || currentOperator(),
       layer: data.layer || '-',
       ticketId: data.ticketId || '-',
       warningId: data.warningId || '-',
@@ -410,9 +476,9 @@
         dimensionScope: def.scope, compareMethod: def.method,
         thresholdValue: def.threshold, unit: def.unit, minSampleSize: def.minSample,
         defaultSeverity: def.severity, observeWindow: def.window, basis: def.basis,
-        isEnabled: true, effectiveDate: '2026-01-01',
+        isEnabled: true, effectiveDate: '2026-01-01', activeVersion: 2, requiresSample: def.minSample > 0,
         updatedBy: '业务配置员', updatedAt: dateAt(-9, 10, 20),
-        params: def.params, confirmation: def.confirm,
+        params: def.params, confirmation: '原型示例，尚未关联业务确认文件',
         falsePositiveCount: 0, reviewedCount: 0,
         history: [
           { version: 1, time: dateAt(-45, 9, 0), operator: '产品负责人', detail: '按三层预警框架创建（依据：' + def.basis + '）' },
@@ -547,7 +613,7 @@
       warningId: warning.id, type: warning.type, severity: warning.severity,
       status: 'PENDING', ownerOrg: warning.responsibleEntity || String(warning.targetId).split('|')[0], ownerRole: meta.firstOwner,
       assigneeUser: '', createdAt: created,
-      slaDeadline: slaDeadline(warning.type, warning.severity, created),
+      slaDeadline: warning.observationOnly ? null : slaDeadline(warning.type, warning.severity, created),
       verificationResult: '', handlingNote: '', expertReviewNote: '', escalatedFrom: '', returnCount: 0,
       history: [{ time: created, action: '生成工单', detail: '按 ' + meta.code + ' 层责任矩阵自动派单至 ' + meta.firstOwner + '（' + meta.window + '口径）' }]
     };
@@ -560,8 +626,14 @@
     if (!rule) return null;
     const created = payload.triggerTime || new Date();
     const dedupeKey = [rule.id, payload.targetId, payload.period || ''].join('|');
-    /* 同一规则 × 对象 × 周期只建一次单：命中去重时返回 null，便于引擎准确统计新增数 */
-    if (warnings.some(item => item.dedupeKey === dedupeKey)) return null;
+    const businessKey = /^B-MV-/.test(rule.id)
+      ? ['MV', payload.targetId.replace(/\|MV分癌种$/, ''), payload.period || ''].join('|') : dedupeKey;
+    const existing = warnings.find(item => item.businessKey === businessKey || item.dedupeKey === dedupeKey);
+    if (existing) {
+      existing.matchedRuleIds = Array.from(new Set((existing.matchedRuleIds || [existing.ruleId]).concat(rule.id)));
+      if (currentRun) currentRun.duplicateCount++;
+      return null;
+    }
     const warning = {
       id: 'WRN-' + (++warningSeq).toString().padStart(5, '0'),
       ruleId: rule.id, ruleName: rule.ruleName, type: rule.warningType,
@@ -575,7 +647,16 @@
       contextFlag: payload.contextFlag || '',
       denominatorFlag: !!payload.denominatorFlag,
       relatedWarningId: payload.relatedWarningId || '',
-      dedupeKey, snapshot: payload.snapshot || {}, evidence: payload.evidence || [],
+      observationOnly: !!payload.observationOnly || rule.id === 'C-QUARTER-PREVIEW',
+      ruleVersion: rule.activeVersion || rule.history.length,
+      parameterSnapshot: {
+        threshold: rule.thresholdValue, unit: rule.unit, minSample: rule.minSampleSize,
+        defaultSeverity: rule.defaultSeverity, effectiveDate: rule.effectiveDate,
+        method: rule.compareMethod, scope: rule.dimensionScope
+      },
+      dataSource: TYPE_META[rule.warningType].source, dataMode: '示例数据',
+      dataBatch: 'DEMO-' + (payload.period || '演示批次'),
+      dedupeKey, businessKey, matchedRuleIds: [rule.id], snapshot: payload.snapshot || {}, evidence: payload.evidence || [],
       history: [{ time: created, action: '触发预警', detail: rule.ruleName + '命中，阈值快照：' + (payload.thresholdSnapshot || rule.thresholdDisplay()) + '；判定依据：' + rule.basis }]
     };
     if (payload.contextFlag) warning.history.push({ time: created, action: '情景标注', detail: payload.contextFlag + '（级别已自动下调一级）' });
@@ -667,7 +748,7 @@
     if (staleRule && staleRule.isEnabled) {
       const now = Date.now();
       warnings.forEach(function (w) {
-        if (w.severity === 'INFO' || w.status === 'CLOSED') return;
+        if (w.observationOnly || w.ruleId === 'ASSIGN-STALE' || w.severity === 'INFO' || w.status === 'CLOSED') return;
         const tk = tickets.find(function (t) { return t.warningId === w.id; });
         if (!tk || tk.status !== 'PENDING') return;
         const delayDays = (now - new Date(w.triggerTime).getTime()) / 86400000;
@@ -811,20 +892,6 @@
         }
       }
 
-      const compRule = findRule('B-COMPLETENESS');
-      if (compRule.isEnabled && s.inc >= compRule.minSampleSize && s.refIncRate > 0) {
-        const gap = (s.incRate - s.refIncRate) / s.refIncRate * 100;
-        if (gap <= -compRule.thresholdValue) {
-          const severity = gap <= -40 ? 'URGENT' : 'ATTENTION';
-          if (createWarning(compRule, {
-            targetType: 'REGISTRY_CANCER', targetId: target + '|完整性', targetLabel: period + '年 ' + s.registry + ' 粗发病率低于参考水平 ' + n1(Math.abs(gap)) + '%', period,
-            metricValue: gap, metricLabel: '低于参考 ' + n1(Math.abs(gap)) + '%', severity,
-            snapshot: { 登记处: s.registry, 本地粗发病率: n1(s.incRate) + '/10万', 同类地区参考: n1(s.refIncRate) + '/10万', 差距: percent(gap), 触发线: '-' + compRule.thresholdDisplay() },
-            evidence: makeEvidence([['指标依据', compRule.basis], ['率值对比', n1(s.incRate) + ' vs ' + n1(s.refIncRate) + ' /10万'], ['联合研判', '需同时核查 M/I 比与 DCO%，排除人口分母错误']])
-          })) created++;
-        }
-      }
-
       /* B 层：分癌种 MV%（单癌种视角，用于定位具体病种的诊断依据问题） */
       const mvCancerRule = findRule('B-MV-CANCER');
       if (mvCancerRule && mvCancerRule.isEnabled && s.inc >= mvCancerRule.minSampleSize && mvRate < mvCancerRule.thresholdValue) {
@@ -843,6 +910,21 @@
       const ouRate = s.total ? s.ou / s.total * 100 : 0;
       const ageRate = s.total ? s.ageUnknown / s.total * 100 : 0;
       const dcnRate = s.dcnTotal ? s.dcnOpen / s.dcnTotal * 100 : 0;
+      const compRule = findRule('B-COMPLETENESS');
+      if (compRule.isEnabled && s.total >= compRule.minSampleSize && s.pop > 0 && s.refIncRate > 0) {
+        const actualRate = s.total / s.pop * 100000;
+        const gap = (actualRate - s.refIncRate) / s.refIncRate * 100;
+        if (gap <= -compRule.thresholdValue && createWarning(compRule, {
+          targetType: 'REGISTRY', targetId: s.registry + '|完整性', period,
+          targetLabel: period + '年 ' + s.registry + ' 全癌种粗发病率低于参考水平 ' + n1(Math.abs(gap)) + '%',
+          metricValue: gap, metricLabel: '低于参考 ' + n1(Math.abs(gap)) + '%',
+          severity: gap <= -40 ? 'URGENT' : 'ATTENTION',
+          snapshot: { 登记处: s.registry, 癌种: '全癌种合计', 发病例数: s.total + '例', 人口分母: s.pop + '人',
+            本地粗发病率: n1(actualRate) + '/10万', 同类地区参考: n1(s.refIncRate) + '/10万', 差距: percent(gap) },
+          evidence: makeEvidence([['计算口径', '全癌种发病例数 ÷ 同年度人口 × 100000'],
+            ['指标依据', compRule.basis], ['联合研判', '结合 M/I、DCO% 和人口分母核查结果']])
+        })) created++;
+      }
 
       const ubRule = findRule('B-UB-HIGH');
       if (ubRule.isEnabled && s.total >= ubRule.minSampleSize && ubRate > ubRule.thresholdValue) {
@@ -856,21 +938,21 @@
       }
       const ouRule = findRule('B-OU-HIGH');
       if (ouRule.isEnabled && s.total >= ouRule.minSampleSize && ouRate > ouRule.thresholdValue) {
-        const severity = ouRate > 15 ? 'ATTENTION' : 'INFO';
+        const severity = ouRate > 8 ? 'URGENT' : 'ATTENTION';
         if (createWarning(ouRule, {
           targetType: 'REGISTRY', targetId: s.registry + '|O&U', targetLabel: period + '年 ' + s.registry + ' O&U% ' + n1(ouRate) + '%', period,
           metricValue: ouRate, metricLabel: 'O&U% ' + n1(ouRate) + '%', severity,
-          snapshot: { 登记处: s.registry, 其他及不明: s.ou + '例', 全癌种合计: s.total + '例', 'O&U%': n1(ouRate) + '%', 考核上限: ouRule.thresholdDisplay(), 关注线: '15%' },
+          snapshot: { 登记处: s.registry, 其他及不明: s.ou + '例', 全癌种合计: s.total + '例', 'O&U%': n1(ouRate) + '%', 考核上限: ouRule.thresholdDisplay(), 紧急线: '8%' },
           evidence: makeEvidence([['指标依据', ouRule.basis], ['其他及不明例数', s.ou + '例'], ['核实要求', '核对 ICD-10 归类与部位字典映射']])
         })) created++;
       }
       const ageRule = findRule('B-AGE-UNKNOWN');
       if (ageRule.isEnabled && s.total >= ageRule.minSampleSize && ageRate > ageRule.thresholdValue) {
-        const severity = ageRate > 5 ? 'URGENT' : 'ATTENTION';
+        const severity = ageRate > 2 ? 'URGENT' : 'ATTENTION';
         if (createWarning(ageRule, {
           targetType: 'REGISTRY', targetId: s.registry + '|年龄不明', targetLabel: period + '年 ' + s.registry + ' 年龄不明率 ' + n1(ageRate) + '%', period,
           metricValue: ageRate, metricLabel: '年龄不明率 ' + n1(ageRate) + '%', severity,
-          snapshot: { 登记处: s.registry, 年龄不明: s.ageUnknown + '例', 全癌种合计: s.total + '例', 年龄不明率: n1(ageRate) + '%', 考核上限: ageRule.thresholdDisplay(), 紧急线: '5%' },
+          snapshot: { 登记处: s.registry, 年龄不明: s.ageUnknown + '例', 全癌种合计: s.total + '例', 年龄不明率: n1(ageRate) + '%', 考核上限: ageRule.thresholdDisplay(), 紧急线: '2%' },
           evidence: makeEvidence([['指标依据', ageRule.basis], ['影响', '年龄别与标化率不可计算，将影响 C 层信号研判'], ['核实要求', '优先从身份证号与出生日期回补']])
         })) created++;
       }
@@ -1066,7 +1148,7 @@
             targetType: 'REGION_CANCER', targetId: s.region + '|' + s.cancer + '|聚集',
             targetLabel: period + '年 ' + s.region + ' ' + s.cancer + ' 标化发病比 SIR ' + n2(sir),
             period, metricValue: sir, metricLabel: 'SIR ' + n2(sir) + '（95%CI下限 ' + n2(s.ciLow) + '）', severity,
-            contextFlag: s.context, denominatorFlag: denomSuspect,
+            contextFlag: s.context, denominatorFlag: denomSuspect, observationOnly: true,
             thresholdSnapshot: 'SIR≥' + clusterRule.thresholdDisplay() + ' 且 CI下限＞1',
             snapshot: Object.assign({}, baseSnapshot, {
               实际例数: s.cases + '例', 期望例数: n1(s.expected) + '例', SIR: n2(sir),
@@ -1078,7 +1160,7 @@
             evidence: makeEvidence([
               ['判定依据', clusterRule.basis],
               ['实际/期望例数', s.cases + ' / ' + n1(s.expected) + ' 例'],
-              ['持续性', '近3年 SIR 持续≥1.5'],
+              ['持续性', '当前示例仅有单年度 SIR 与预置 CI，缺少逐年序列；作为待年度核查线索'],
               ['研判要求', occupational ? '职业/环境相关癌种，建议联动环境与职业史专项调查' : '需排除上报行为改变后提交专家组']
             ])
           })) created++;
@@ -1177,11 +1259,21 @@
   }
 
   function runAllEngines() {
-    const count = runOperationEngine() + runQualityEngine() + runSignalEngine() + runBaselineEngine();
-    toast(count ? '三层规则计算完成，新增 ' + count + ' 条预警' : '本轮计算未发现新命中规则');
+    applyDueRuleVersions();
+    const run = { time: new Date(), operator: currentOperator(), status: 'COMPLETED', newCount: 0, duplicateCount: 0, mode: '示例数据计算' };
+    const beforeCount = warnings.length;
+    currentRun = run;
+    try {
+      runOperationEngine(); runQualityEngine(); runSignalEngine(); runBaselineEngine();
+    } catch (error) {
+      run.status = 'FAILED'; run.error = error.message;
+    } finally { run.newCount = warnings.length - beforeCount; currentRun = null; warningRuns.unshift(run); }
+    toast(run.status === 'FAILED' ? '本次示例计算失败，请查看执行记录'
+      : '示例计算完成：新增 ' + run.newCount + ' 条，重复命中 ' + run.duplicateCount + ' 条', run.status === 'FAILED' ? 'error' : 'success');
     renderPage(state.page);
   }
   function runLayerEngine(type) {
+    applyDueRuleVersions();
     const count = type === 'REGISTRY_OPERATION' ? runOperationEngine()
       : type === 'REGISTRY_QUALITY' ? runQualityEngine()
         : runSignalEngine() + runBaselineEngine();
@@ -1288,8 +1380,11 @@
       t.slaDeadline = addWorkDays(t.createdAt, 10);
       t.feedbackAt = dateAt(-21, 14, 30);
       t.closedAt = dateAt(-18, 10, 5);
-      t.verificationResult = '属实-口径或编码问题';
-      t.handlingNote = '病理科 LIS 与登记系统的诊断依据字段映射错误，将「细胞学」误标为「临床」，已修正映射并回溯补录 2024 年全年病例，复算 MV% 由 58.2% 升至 71.4%。';
+      closed.triggerTime = dateAt(-32, 9, 0);
+      t.verificationResult = '属实-已修正复算达标';
+      t.closureReason = 'RESOLVED';
+      t.recalculation = { before: closed.metricValue, after: 71.4, evidence: '示例病理字段映射修正批次', mode: '前端手工核对示例' };
+      t.handlingNote = '示例整改：修正病理诊断依据字段映射并回溯补录，复算 MV% 由 ' + n1(closed.metricValue) + '% 升至 71.4%。';
       t.history.push(
         { time: t.feedbackAt, action: '提交反馈', detail: '结论：属实-口径或编码问题；' + t.handlingNote },
         { time: t.closedAt, action: '复核关闭', detail: '省级登记中心复算确认达标，预警关闭' }
@@ -1307,6 +1402,7 @@
       escalated.status = 'ESCALATED';
       t.status = 'ESCALATED';
       t.createdAt = dateAt(-9, 8, 30);
+      escalated.triggerTime = dateAt(-9, 8, 0);
       t.slaDeadline = addWorkDays(t.createdAt, 3);
       t.escalatedFrom = TYPE_META.REGISTRY_OPERATION.firstOwner;
       t.ownerRole = TYPE_META.REGISTRY_OPERATION.escalateOwner;
@@ -1314,18 +1410,19 @@
       logAction({ time: dateAt(-3, 9, 0), layer: 'A', ticketId: t.id, warningId: escalated.id, action: '超时自动升级', from: t.escalatedFrom, to: t.ownerRole, reason: 'SLA 3个工作日超时' });
     }
 
-    /* 样例3：C 层聚集信号已进入专家组论证（已反馈待复核） */
-    const signal = warnings.find(function (w) { return w.ruleId === 'C-CLUSTER' && w.targetId.indexOf('赣州市信丰县') === 0; });
+    /* 样例3：有多年度序列的趋势信号进入专家组论证（已反馈待复核） */
+    const signal = warnings.find(function (w) { return w.ruleId === 'C-ASR-TREND' && w.targetId.indexOf('赣州市信丰县') === 0; });
     if (signal) {
       const t = findTicketByWarning(signal.id);
       signal.status = 'FEEDBACK';
       t.status = 'FEEDBACK';
       t.createdAt = dateAt(-26, 9, 0);
+      signal.triggerTime = dateAt(-26, 8, 50);
       t.slaDeadline = addWorkDays(t.createdAt, 20);
       t.assigneeUser = '赣州市疾控 · 刘工';
       t.feedbackAt = dateAt(-6, 16, 20);
       t.verificationResult = '疑似真实升高';
-      t.handlingNote = '已核实信丰县上报机构数与上报行为近3年无变化，年龄不明率0.4%达标，人口基数有统计年鉴依据。食管癌 SIR 连续3年≥1.6，病例集中于县域西部3个乡镇，建议列入环境与饮食因素专项调查。';
+      t.handlingNote = '示例研判：已核对现有标化发病率序列，连续三年同向变化。建议继续核对上报行为、人口基数和登记质量后提交专家组。';
       t.expertReviewNote = '省级专家组初审意见：同意「疑似真实升高」，要求补充近5年乡镇级病例地址核准结果后再定稿。';
       t.history.push(
         { time: dateAt(-24, 10, 0), action: '接收工单', detail: '赣州市疾控确认接收' },
@@ -1346,6 +1443,8 @@
       t.slaDeadline = addWorkDays(t.createdAt, 20);
       t.feedbackAt = dateAt(-22, 11, 0);
       t.closedAt = dateAt(-15, 9, 40);
+      screen.triggerTime = dateAt(-40, 8, 50);
+      t.closureReason = 'REVIEWED';
       t.verificationResult = '筛查项目影响';
       t.handlingNote = '南昌市 2024 年起承接城市癌症早诊早治项目，乳腺筛查覆盖 40-69 岁女性 12.6 万人，早期病例检出增加。同期中标死亡率连续下降，符合筛查引起的发病率前移特征。';
       t.expertReviewNote = '省级专家组结论：判定为筛查项目导致的发病率前移，非真实疾病负担上升；建议后续按「筛查覆盖人群/非覆盖人群」分层监测。';
@@ -1370,6 +1469,8 @@
       t.slaDeadline = addWorkDays(t.createdAt, 3);
       t.feedbackAt = dateAt(-17, 10, 20);
       t.closedAt = dateAt(-16, 9, 15);
+      falsePositive.triggerTime = dateAt(-19, 8, 50);
+      t.closureReason = 'FALSE_POSITIVE';
       t.verificationResult = '误报';
       t.handlingNote = '协查回执已于时限内提交，因附件上传失败未写入协查库，回执原件与提交时间戳已提供。';
       t.history.push(
@@ -1620,9 +1721,10 @@
     if (!ticket) return;
     const meta = TYPE_META[ticket.type];
     const warning = findWarning(ticket.warningId);
+    if (ticket.status !== 'PENDING') { toast('仅待接收记录可以接收', 'error'); return; }
     ticket.status = 'PROCESSING';
-    ticket.assigneeUser = ticket.assigneeUser || (ticket.ownerRole + ' · 待指派');
-    ticket.history.push({ time: new Date(), action: '接收工单', detail: CURRENT_USER + '确认接收' });
+    ticket.assigneeUser = ticket.assigneeUser || currentOperator();
+    ticket.history.push({ time: new Date(), action: '接收工单', detail: currentOperator() + '确认接收' });
     if (warning) {
       warning.status = 'PROCESSING';
       warning.history.push({ time: new Date(), action: '工单接收', detail: ticket.id + '已进入处理中' });
@@ -1670,6 +1772,7 @@
   function submitFeedback(ticketId) {
     const ticket = findTicket(ticketId);
     if (!ticket) return;
+    if (!['PROCESSING', 'ESCALATED'].includes(ticket.status)) { toast('请先接收记录再提交反馈', 'error'); return; }
     const result = document.getElementById('waResult').value;
     const note = document.getElementById('waNote').value.trim();
     if (!note || note.length < 20) { toast('说明不能少于20字', 'error'); return; }
@@ -1680,6 +1783,9 @@
       if (result === '疑似真实升高' && !(b && b.checked && d && d.checked && q && q.checked)) {
         toast('判定「疑似真实升高」前必须完成全部三项前置排除', 'error');
         return;
+      }
+      if (result === '疑似真实升高' && findWarning(ticket.warningId)?.denominatorFlag) {
+        toast('人口分母仍待核，先完成分母专项核查或选择相应原因', 'error'); return;
       }
     }
     const meta = TYPE_META[ticket.type];
@@ -1742,6 +1848,13 @@
     const expertBlock = meta.requireExpertReview
       ? '<div class="form-group" style="margin-top:12px"><label>专家组论证记录 *（C 层结案必填，不少于15字）</label><textarea id="waExpertNote" rows="4" placeholder="请填写论证时间、参与专家、论证意见">' + esc(ticket.expertReviewNote || '') + '</textarea></div>'
       : '';
+    const reasonOptions = ticket.type === 'REGISTRY_QUALITY'
+      ? [['RESOLVED', '整改达标结束'], ['FALSE_POSITIVE', '误报结束'], ['FOLLOWUP', '转专项跟踪结束']]
+      : [['REVIEWED', '核查完成'], ['FALSE_POSITIVE', '误报结束'], ['FOLLOWUP', '转专项跟踪结束']];
+    const closureFields = '<div class="form-group" style="margin-top:12px"><label>结束原因 *</label><select id="waCloseReason">'
+      + reasonOptions.map(([key, text]) => '<option value="' + key + '"' + (ticket.verificationResult === '误报' && key === 'FALSE_POSITIVE' ? ' selected' : '') + '>' + text + '</option>').join('') + '</select></div>'
+      + (ticket.type === 'REGISTRY_QUALITY' ? '<div class="wa-form-grid" id="waRecalcFields"><div class="form-group"><label>整改后实际值（原指标单位） *</label><input id="waRecalcValue" type="number" step="0.01" placeholder="完整性请输入带符号的偏离百分比"></div><div class="form-group"><label>复算依据 / 数据批次 *</label><input id="waRecalcEvidence" placeholder="填写核对的数据批次与材料"></div></div>' : '')
+      + '<div class="wa-form-grid" id="waFollowupFields" hidden><div class="form-group"><label>专项跟踪编号 *</label><input id="waFollowupRef" placeholder="关联预警或专项跟踪编号"></div><div class="form-group"><label>跟踪责任方 *</label><input id="waFollowupOwner" placeholder="责任机构或经办人"></div></div>';
     const body = '<div class="wa-fields">' +
       '<div class="wa-field"><div class="wa-field-label">结论口径</div><div class="wa-value">' + esc(ticket.verificationResult) + '</div></div>' +
       '<div class="wa-field"><div class="wa-field-label">反馈时间</div><div class="wa-value">' + fmtTime(ticket.feedbackAt) + '</div></div>' +
@@ -1749,10 +1862,18 @@
       '</div>' +
       '<div class="wa-callout" style="margin:12px 0"><strong>' + esc(warning.targetLabel || '') + '</strong><br>' + esc(ticket.handlingNote || '-') + '</div>' +
       expertBlock +
-      '<div class="form-group" style="margin-top:12px"><label>复核意见</label><textarea id="waReviewNote" rows="3" placeholder="关闭时可填写确认依据；退回时必须说明补充要求"></textarea></div>';
+      closureFields +
+      '<div class="form-group" style="margin-top:12px"><label>复核意见 *（不少于5字）</label><textarea id="waReviewNote" rows="3" placeholder="填写结束依据；退回时说明补充要求"></textarea></div>';
     const foot = '<button class="btn btn-ghost" data-close>取消</button><button class="btn btn-outline" onclick="returnTicket(\'' + ticket.id + '\')">退回补充</button><button class="btn btn-primary" onclick="closeTicket(\'' + ticket.id + '\')">确认关闭</button>';
     const mask = waModal('归口复核 · ' + ticketId, body, foot, true);
     mask.querySelector('[data-close]').addEventListener('click', function () { mask.remove(); });
+    const updateClosureFields = () => {
+      const reason = mask.querySelector('#waCloseReason').value;
+      const recalc = mask.querySelector('#waRecalcFields'); if (recalc) recalc.hidden = reason !== 'RESOLVED';
+      mask.querySelector('#waFollowupFields').hidden = reason !== 'FOLLOWUP';
+    };
+    mask.querySelector('#waCloseReason').addEventListener('change', updateClosureFields);
+    updateClosureFields();
   }
 
   function closeTopModal() {
@@ -1765,8 +1886,30 @@
     if (!ticket) return;
     const meta = TYPE_META[ticket.type];
     const warning = findWarning(ticket.warningId);
+    if (ticket.status !== 'FEEDBACK') { toast('仅已反馈记录可以复核结束', 'error'); return; }
+    if (warning?.observationOnly) { toast('观察线索请使用结束观察入口，不作为疾病结论复核', 'error'); return; }
     const noteEl = document.getElementById('waReviewNote');
     const note = noteEl ? noteEl.value.trim() : '';
+    if (note.length < 5) { toast('请填写复核意见（不少于5字）', 'error'); return; }
+    const reason = document.getElementById('waCloseReason')?.value;
+    if (!reason) { toast('请选择结束原因', 'error'); return; }
+    let recalculation = null; let followup = null;
+    if (reason === 'RESOLVED') {
+      if (ticket.verificationResult !== '属实-已修正复算达标') { toast('仍在整改中的事项不能按达标结束，请退回补充或转专项跟踪', 'error'); return; }
+      const input = document.getElementById('waRecalcValue');
+      const after = input?.value.trim() ? Number(input.value) : NaN;
+      const evidence = document.getElementById('waRecalcEvidence')?.value.trim() || '';
+      if (!closurePass(warning, after)) { toast('请填写符合原触发规则的整改后实际值', 'error'); return; }
+      if (evidence.length < 5) { toast('请填写复算依据或数据批次', 'error'); return; }
+      recalculation = { before: warning.metricValue, after, evidence, mode: '前端手工核对示例', time: new Date() };
+    }
+    if (reason === 'FALSE_POSITIVE' && ticket.verificationResult !== '误报') { toast('误报结束应与反馈结论一致', 'error'); return; }
+    if (reason === 'FOLLOWUP') {
+      const reference = document.getElementById('waFollowupRef')?.value.trim() || '';
+      const owner = document.getElementById('waFollowupOwner')?.value.trim() || '';
+      if (!reference || !owner) { toast('请填写专项跟踪编号及责任方', 'error'); return; }
+      followup = { reference, owner };
+    }
     if (meta.requireExpertReview) {
       const expertEl = document.getElementById('waExpertNote');
       const expert = expertEl ? expertEl.value.trim() : '';
@@ -1777,8 +1920,12 @@
     }
     const time = new Date();
     ticket.status = 'CLOSED';
-    ticket.closedBy = CURRENT_USER;
+    ticket.closedBy = currentOperator();
     ticket.closedAt = time;
+    ticket.closureReason = reason;
+    ticket.reviewNote = note;
+    ticket.recalculation = recalculation;
+    ticket.followup = followup;
     ticket.history.push({ time, action: '复核关闭', detail: note || '归口复核确认，工单闭环' });
     if (warning) {
       warning.status = 'CLOSED';
@@ -1798,6 +1945,7 @@
   function returnTicket(ticketId) {
     const ticket = findTicket(ticketId);
     if (!ticket) return;
+    if (ticket.status !== 'FEEDBACK') { toast('仅已反馈记录可以退回补充', 'error'); return; }
     const meta = TYPE_META[ticket.type];
     const el = document.getElementById('waReviewNote');
     const reason = el ? el.value.trim() : '';
@@ -1828,11 +1976,12 @@
     const rule = findRule(ruleId);
     if (!rule) return;
     rule.isEnabled = !rule.isEnabled;
-    rule.updatedBy = CURRENT_USER;
+    rule.updatedBy = currentOperator();
     rule.updatedAt = new Date();
     rule.history.push({ version: rule.history.length + 1, time: rule.updatedAt, operator: rule.updatedBy, detail: rule.isEnabled ? '重新启用' : '停用规则' });
     logAction({ layer: TYPE_META[rule.warningType].code, action: rule.isEnabled ? '启用规则' : '停用规则', from: rule.id, to: rule.isEnabled ? '启用' : '停用' });
     toast(rule.isEnabled ? '规则已启用' : '规则已停用');
+    closeTopModal();
     renderPage(state.page);
   }
 
@@ -1949,14 +2098,17 @@
   }
 
   function openRuleModal(ruleId) {
+    applyDueRuleVersions();
     const rule = findRule(ruleId);
     if (!rule) return;
     const meta = TYPE_META[rule.warningType];
+    const edit = rule.pendingVersion || rule;
+    const automatic = AUTO_SEVERITY_RULES.has(rule.id);
     const history = rule.history.map(function (item) {
       return '<div class="wa-history-item"><strong>v' + item.version + '</strong><span class="wa-target">' + esc(fmtTime(item.time)) + ' · ' + esc(item.operator) + '</span><div style="margin-top:4px;color:#475569;font-size:12px">' + esc(item.detail) + '</div></div>';
     }).join('');
     const severityOptions = Object.keys(SEVERITY_META).map(function (key) {
-      return '<option value="' + key + '"' + (rule.defaultSeverity === key ? ' selected' : '') + '>' + SEVERITY_META[key].label + '</option>';
+      return '<option value="' + key + '"' + (edit.defaultSeverity === key ? ' selected' : '') + '>' + SEVERITY_META[key].label + '</option>';
     }).join('');
     const info = [
       ['规则ID', rule.id], ['所属层级', meta.code + ' · ' + meta.label], ['监测点', rule.monitorPoint],
@@ -1966,13 +2118,15 @@
       return '<div class="wa-field"><div class="wa-field-label">' + esc(item[0]) + '</div><div class="wa-value">' + esc(item[1]) + '</div></div>';
     }).join('');
     const body = '<div class="wa-fields">' + info + '</div>' +
-      '<div class="wa-callout info" style="margin:12px 0"><strong>判定依据：</strong>' + esc(rule.basis) + '<br><strong>参数说明：</strong>' + esc(rule.params) + '</div>' +
+      '<div class="wa-callout info" style="margin:12px 0"><strong>判定依据：</strong>' + esc(rule.basis) + '<br><strong>当前执行条件：</strong>' + esc(executionDescription(rule)) + '</div>' +
       '<div class="wa-section"><h4 class="wa-h">版本参数</h4><div class="wa-form-grid">' +
-      '<div class="form-group"><label>阈值（' + esc(rule.unit) + '）</label><input id="waRuleThreshold" type="number" min="0" step="0.01" value="' + esc(rule.thresholdValue) + '"></div>' +
-      '<div class="form-group"><label>最小样本量</label><input id="waRuleMinSample" type="number" min="0" step="1" value="' + esc(rule.minSampleSize) + '"></div>' +
-      '<div class="form-group"><label>默认级别</label><select id="waRuleSeverity">' + severityOptions + '</select></div>' +
-      '<div class="form-group"><label>生效日期</label><input id="waRuleEffectiveDate" type="date" value="' + esc(rule.effectiveDate) + '"></div>' +
+      '<div class="form-group"><label>阈值（' + esc(rule.unit) + '）</label><input id="waRuleThreshold" type="number" min="0" step="0.01" value="' + esc(edit.thresholdValue) + '"></div>' +
+      '<div class="form-group"><label>最小样本量</label><input id="waRuleMinSample" type="number" min="' + (rule.requiresSample ? 1 : 0) + '" step="1" value="' + esc(edit.minSampleSize) + '"></div>' +
+      '<div class="form-group"><label>' + (automatic ? '基础级别（按规则自动分级）' : '默认级别') + '</label><select id="waRuleSeverity"' + (automatic ? ' disabled' : '') + '>' + severityOptions + '</select></div>' +
+      '<div class="form-group"><label>生效日期</label><input id="waRuleEffectiveDate" type="date" value="' + esc(edit.effectiveDate) + '"></div>' +
+      '<div class="form-group full"><label>参数变更原因 *</label><textarea id="waRuleChangeReason" rows="2" placeholder="说明本次调整的业务原因"></textarea></div>' +
       '</div></div>' +
+      '<div class="wa-note">当前生效参数 v' + (rule.activeVersion || 2) + (rule.pendingVersion ? '；待生效参数 v' + rule.pendingVersion.activeVersion + '（' + esc(rule.pendingVersion.effectiveDate) + '）' : '') + '。本页为示例配置演示。</div>' +
       '<div class="wa-note">当前状态：' + (rule.isEnabled ? '启用' : '停用') + '；最近修改：' + esc(rule.updatedBy) + ' · ' + fmtTime(rule.updatedAt) + '。阈值调整仅影响后续计算，历史预警保留原快照。</div>' +
       '<div class="wa-section" style="margin-top:14px"><h4 class="wa-h">修改历史</h4><div class="wa-history">' + history + '</div></div>';
     const foot = '<button class="btn btn-ghost" data-close>关闭</button>' +
@@ -1989,26 +2143,36 @@
     const minSample = Number(document.getElementById('waRuleMinSample').value);
     const severity = document.getElementById('waRuleSeverity').value;
     const effectiveDate = document.getElementById('waRuleEffectiveDate').value;
+    const reason = document.getElementById('waRuleChangeReason')?.value.trim() || '';
     if (!Number.isFinite(threshold) || threshold < 0) { toast('阈值必须是不小于0的数字', 'error'); return; }
     if (!Number.isInteger(minSample) || minSample < 0) { toast('最小样本量必须是不小于0的整数', 'error'); return; }
     if (!effectiveDate) { toast('请选择生效日期', 'error'); return; }
+    if (reason.length < 4) { toast('请填写参数变更原因', 'error'); return; }
+    if (rule.requiresSample && minSample < 1) { toast('本规则最小样本量至少为1', 'error'); return; }
+    if (['A-TIMELINESS', 'A-FOLLOWUP-LOST', 'A-DCN-MONTH', 'B-MV-LOW', 'B-MV-CANCER', 'B-DCO-HIGH', 'B-UB-HIGH', 'B-OU-HIGH', 'B-AGE-UNKNOWN', 'B-DCN-OPEN', 'B-DCN-CANCER'].includes(rule.id) && threshold > 100) {
+      toast('比率阈值须在0至100之间', 'error'); return;
+    }
+    if (/^B-MI-/.test(rule.id) && threshold > 1) { toast('M/I偏离比例须在0至1之间', 'error'); return; }
+    if (['A-ZERO-REPORT', 'A-XIECHA-OVERDUE', 'A-AUDIT-BACKLOG', 'A-NCCR-SUBMIT', 'ASSIGN-STALE'].includes(rule.id) && !Number.isInteger(threshold)) {
+      toast('周期或数量阈值须为整数', 'error'); return;
+    }
+    const current = rule.pendingVersion || rule;
     const changes = [];
-    if (threshold !== rule.thresholdValue) changes.push('阈值：' + rule.thresholdValue + rule.unit + ' → ' + threshold + rule.unit);
-    if (minSample !== rule.minSampleSize) changes.push('最小样本量：' + rule.minSampleSize + ' → ' + minSample);
-    if (severity !== rule.defaultSeverity) changes.push('默认级别：' + SEVERITY_META[rule.defaultSeverity].label + ' → ' + SEVERITY_META[severity].label);
-    if (effectiveDate !== rule.effectiveDate) changes.push('生效日期：' + rule.effectiveDate + ' → ' + effectiveDate);
+    if (threshold !== current.thresholdValue) changes.push('阈值：' + current.thresholdValue + rule.unit + ' → ' + threshold + rule.unit);
+    if (minSample !== current.minSampleSize) changes.push('最小样本量：' + current.minSampleSize + ' → ' + minSample);
+    if (severity !== current.defaultSeverity) changes.push('默认级别：' + SEVERITY_META[current.defaultSeverity].label + ' → ' + SEVERITY_META[severity].label);
+    if (effectiveDate !== current.effectiveDate) changes.push('生效日期：' + current.effectiveDate + ' → ' + effectiveDate);
     if (!changes.length) { toast('参数未变化，未创建新版本', 'error'); return; }
     const time = new Date();
-    rule.thresholdValue = threshold;
-    rule.minSampleSize = minSample;
-    rule.defaultSeverity = severity;
-    rule.effectiveDate = effectiveDate;
-    rule.updatedBy = CURRENT_USER;
+    const next = { thresholdValue: threshold, minSampleSize: minSample, defaultSeverity: AUTO_SEVERITY_RULES.has(rule.id) ? rule.defaultSeverity : severity, effectiveDate, activeVersion: rule.history.length + 1 };
+    if (effectiveDate > todayISO()) rule.pendingVersion = next;
+    else { Object.assign(rule, next); delete rule.pendingVersion; }
+    rule.updatedBy = currentOperator();
     rule.updatedAt = time;
-    rule.history.push({ version: rule.history.length + 1, time, operator: CURRENT_USER, detail: '参数调整：' + changes.join('；') });
+    rule.history.push({ version: rule.history.length + 1, time, operator: currentOperator(), detail: '参数调整：' + changes.join('；') + '；原因：' + reason + (rule.pendingVersion ? '；待生效' : '；已生效') });
     logAction({ layer: TYPE_META[rule.warningType].code, action: '规则版本变更', from: 'v' + (rule.history.length - 1), to: 'v' + rule.history.length, reason: changes.join('；') });
     closeTopModal();
-    toast('已保存为 v' + rule.history.length);
+    toast('已保存示例参数 v' + rule.history.length + (rule.pendingVersion ? '，将在' + effectiveDate + '生效' : ''));
     renderPage(state.page);
   }
 
@@ -2032,7 +2196,8 @@
   }
 
   const publicApi = {
-    rules, warnings, tickets, operationLogs, TYPE_META, SEVERITY_META,
+    rules, warnings, tickets, operationLogs, warningRuns, TYPE_META, SEVERITY_META,
+    getWarningOperator: currentOperator, warningRuleDescription: executionDescription,
     runAllEngines, runLayerEngine, scanOverdue,
     waGo, waSetFilter, waOnKeyword, waSetRecordType, waSetRuleType, waSetTicketType, waResetRecordFilter, waResetTicketFilter, waResetRuleFilter, waNavigate, closeWarningModals, waKpiDrill,
     showWarningDetail, showTicketDetail, openRuleModal, saveRuleVersion, toggleRule,

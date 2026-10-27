@@ -522,6 +522,15 @@
     usageSt: null     /* 使用统计页筛选状态 */
   };
   window.KB = KB;
+  /* 富文本编辑器的对外入口：社区主帖的正文要用同一套编辑器（同一形制、同一套粘贴清洗），
+     不再给社区单独写一个 textarea。绑定事件必须调 bindRte()——richBox 只出静态 HTML。 */
+  KB.richBox = richBox;
+  KB.bindRte = bindRte;
+  KB.rteHtml = function (id) {
+    var el = document.getElementById(id);
+    if (!el) return '';
+    return String(el.innerHTML || '').trim();
+  };
 
   /* ---------- 种子：科普 5 条（迁自旧 DB.edu）+ 院内 2 条 ---------- */
   KB.assets = [
@@ -3394,9 +3403,18 @@
   function renderKBPage(pageId) {
     var el = $('pageContainer');
     if (!el) return;
+    /* 社区咨询（kb-service.js）是「科普与培训」下的二级菜单，13 个三级页面由它自己渲染。
+       这里只做兜底：首选分拣在 app.html 的 renderPage（那里能拿到当年真实的 window.HCService）。
+       'health-consult' 在 kbPageIds 里，会进到本函数但走不到下面任何分支，原先会落到末尾 PAGES
+       默认分支（「科普内容」），所以先把它归一成 kb-sci。 */
+    if (window.HCService && typeof window.HCService.pageOf === 'function') {
+      if (pageId === 'hc-service') { window.HCService.overview(); return; }
+      if (window.HCService.pageOf(pageId) !== pageId) { window.HCService.render(pageId); return; }
+    }
+    if (pageId === 'health-consult') pageId = 'kb-sci';
     /* 科普 / 培训页的视角：lib 内容库 / reprint 转载专区。切页保留，不要每次重置 */
     KB.lineView = KB.lineView || 'lib';
-    if (pageId === 'kb-library' || pageId === 'health-consult' || pageId === 'kb-shelf' || pageId === 'kb-sources') pageId = 'kb-sci';
+    if (pageId === 'kb-library' || pageId === 'kb-shelf' || pageId === 'kb-sources') pageId = 'kb-sci';
     /* 转载弹窗没有独立页面 id：kb-reprint 打开空弹窗，kb-reprint|<网址> 直接解析带进来的网址。
        弹窗挂在 body 上，页面本体仍是当前内容线；已转载内容的浏览在「科普/培训」页的转载专区页签里，
        不再有独立的转载页面。 */
@@ -5059,6 +5077,16 @@
         }
         pick.classList.toggle('on');
       }
+      return;
+    }
+
+    /* 社区咨询在「咨询会话」里列的科普内容（data-hcs="viewEdu"）：跳到知识的详情页。
+       这里接管的是 hc 页面上的入口，不会与知识库自身的按钮冲突。 */
+    var hcGo = ev.target.closest('[data-hcs="viewEdu"],[data-hcs="pickEdu"]');
+    if (hcGo) {
+      ev.preventDefault();
+      var hcId = hcGo.getAttribute('data-arg');
+      if (hcGo.getAttribute('data-hcs') === 'viewEdu') openDetail(hcId); else pickAsset(hcId);
       return;
     }
 

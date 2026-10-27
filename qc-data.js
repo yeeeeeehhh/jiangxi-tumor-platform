@@ -48,6 +48,31 @@
   /* 比率 → 百分数（0~100） */
   function rate(num, den) { return den > 0 ? num / den * 100 : 0; }
 
+  /* ---------- 0b. 报告期（统计年度）绑定 ----------
+   * 审核结论 P0-02：原来前端年度只是页面状态，所有跨年记录都被当成同一统计期。
+   * 现在全站数字与病例日期都锚定在当前报告期：
+   *   · 分母/分子/判定抽样种子含报告期 → 换年度结果确实变化；
+   *   · 病例诊疗日期落在报告期年内（diagDateOf）；
+   *   · 同比 = 上一自然年度、同机构、同癌种口径的真实计算（不再是种子漂移）。
+   * 正式接入后由后台按考核周期下发报告期，前端 setPeriod 只是同一入口。 */
+  var PERIOD = '2026';
+  function setPeriod(y) {
+    y = String(y == null ? '' : y);
+    if (!/^\d{4}$/.test(y)) return false;
+    if (y === PERIOD) return true;
+    PERIOD = y; clearPure(); resetCaseCache(); PROBLEM_CACHE = null;
+    return true;
+  }
+  function getPeriod() { return PERIOD; }
+  /* 以指定年度口径求一次汇总：期间临时切换报告期，返回后即还原（纯函数用法）。 */
+  function forYear(year, fn) {
+    var old = PERIOD; PERIOD = String(year);
+    try { return fn(); } finally { PERIOD = old; }
+  }
+  function aggForYear(indId, orgIds, cancerIds, year) {
+    return forYear(year, function () { return agg(indId, orgIds, cancerIds); });
+  }
+
   /* ==================== 0b. 纯函数结果缓存 ====================
    * 本文件所有数据都由确定性种子推导：同一入参永远得到同一结果。
    * 而一次页面渲染里这些纯函数会被重复调用几十万遍 ——
@@ -76,7 +101,7 @@
   function k3(a, b, c) { return a + '|' + b + '|' + c; }
   /* 机构/癌种数组进键：null（=全省/全部癌种）与显式全集要区分开也无妨，
      它们本来就走同一算法，只是别把数组直接拼成 "[object Object]" */
-  function kList(l) { return l && l.length ? l.join(',') : '*'; }
+  function kList(l) { return l == null ? '*' : (l.length ? l.join(',') : '-'); }
   var PURE_STORES = [];
   function clearPure() {
     /* 逐键删除而不是换掉对象：pure() 闭包持有的是同一个 store 引用 */
@@ -147,74 +172,86 @@
 
   /* ==================== 2. ① 诊疗过程与单病种质控 · 国考六项 ==================== */
 
-  /* 指标定义：分子分母口径严格按《国家三级公立医院绩效考核操作手册》
-     肿瘤专业医疗质量控制指标口径描述，页面上可展开给质控人员看。
+  /* 指标定义：分子分母口径按《国家三级公立医院绩效监测操作手册（2025版）》第 10.2 节
+     （印刷页 27—30）与《肿瘤专业医疗质量控制指标（2023年版）》（国卫办医政函〔2023〕66号）
+     逐癌种校正；口径与计算方式不在界面展示，唯一载体是《六大绩效质控_口径与计算规则.md》。
    *
    * 【2026-10-21 达标线语义修正】原来用 base（生成用的实测中心值）当达标线，
    * 国考并没有绝对达标线，于是"达标灯"实际是在跟一个 mock 数比高低。现在拆开：
    *   base      当前实测基准值 —— 只用于生成数据，不再是考核线；
    *   passLine  考核/达标线，由 passSrc（default 时即 base，见 l1PassLineOf）；
-   *   passSrc   达标线来源：national 国家基准值 / province 省中位数 / hospital 本院基期值；
-   *   basis     达标线依据出处，界面达标灯旁做角标展示。
+   *   passSrc   达标线来源：national 国家参考值 / province 省中位数 / hospital 本院基期值
+   *             （手册未发布绝对合格线，来源为 national 时同样只是"待批准的本地参考值"）；
+   *   basis     达标线依据出处，仅存文档与内部追溯，不在结果页展示。
    * 判定一律走 l1Pass / l1Gap，不再直接拿 i.base 比。 */
+  var OFFICIAL_BASE = '《国家三级公立医院绩效监测操作手册（2025版）》第10.2节（印刷页27—30）；指标定义参见《肿瘤专业医疗质量控制指标（2023年版）》（国卫办医政函〔2023〕66号）。国考为"逐步提高/降低"改进导向，未发布绝对合格线；本系统达标线为本地设定参考值，未经主管部门批准前不得作为"国家达标"结论。';
   var L1_IND = [
     {
       id: 'NQ-01', name: '首次治疗前临床分期评估率', short: '临床分期评估率', dir: 'up', base: 86.4,
-      passSrc: 'national',
-      basis: '《国家三级公立医院绩效考核操作手册（2024 版）》肿瘤专业质控指标；国考为逐年改进导向，达标线取国家基准值，可按本院基期值调整',
-      def: '首次接受抗肿瘤治疗前完成临床分期评估的病例占同期首次治疗病例的比例。',
-      num: '首次治疗前完成临床 TNM 分期评估的病例数',
+      passSrc: 'default',
+      basis: OFFICIAL_BASE + '分期体系按癌种：肝细胞癌 CNLC、肝内胆管癌/多数癌种 TNM、宫颈癌 FIGO。',
+      def: '监测年度内首次接受抗肿瘤治疗前完成临床分期评估的患者占同期首次治疗患者的比例。',
+      num: '首次抗肿瘤治疗前按癌种对应分期体系（TNM/CNLC/FIGO）完成临床分期评估的病例数',
       den: '同期首次接受抗肿瘤治疗的病例数',
-      denIncl: '同期首次接受抗肿瘤治疗（手术/化疗/放疗/靶向/免疫）的病例，同一患者同一癌种只计首次',
-      denExcl: '非首次治疗、复查随访、复发/转移后再治疗（归入后续治疗质控）、病理为良性或交界性',
+      denIncl: '同期首次接受抗肿瘤治疗（手术/化疗/放疗/靶向/免疫/内分泌治疗）的病例，同一患者同一癌种只计首次治疗',
+      denExcl: '非首次治疗、复查随访、复发/转移后再治疗（归入后续治疗质控）、病理为良性或交界性；仅诊断性检查/活检不算首次抗肿瘤治疗',
       cancers: ['C50', 'C34', 'C22', 'C53', 'C16', 'C18', 'C15', 'C73', 'C61', 'C64'],
       src: '云健康 · 电子病历 / 病案首页',
       ruleVer: 'V2026.3'
     },
     {
       id: 'NQ-02', name: '首次非手术治疗前病理学诊断率', short: '病理学诊断率', dir: 'up', base: 91.2,
-      passSrc: 'national',
-      basis: '《国家三级公立医院绩效考核操作手册（2024 版）》肿瘤专业质控指标；达标线取国家基准值',
-      def: '首次接受非手术抗肿瘤治疗前取得病理学诊断的病例占比。',
+      passSrc: 'default',
+      basis: OFFICIAL_BASE + '肝癌队列官方限定为肝内胆管癌（ICC），不是全部肝癌；ICC 非手术治疗含 TACE/消融等局部治疗。',
+      def: '首次接受非手术抗肿瘤治疗前取得病理学诊断的患者占同期首次非手术抗肿瘤治疗患者的比例。',
       num: '首次非手术治疗前有病理学诊断的病例数',
       den: '同期首次接受非手术抗肿瘤治疗的病例数',
-      denIncl: '同期首次接受非手术抗肿瘤治疗（化疗/放疗/靶向/免疫/内分泌）的病例',
+      denIncl: '同期首次接受非手术抗肿瘤治疗（化疗/放疗/靶向/免疫/内分泌；ICC 含 TACE、消融等局部治疗）的病例',
       denExcl: '手术治疗病例（归 NQ-03）、单纯姑息对症、临床诊断后未接受抗肿瘤治疗',
+      cohortNote: '官方 9 癌种中的肝队列＝肝内胆管癌（C22.1，按部位/形态学/临床诊断联合识别）；当前演示仅有 C22 大类，接入真实数据时必须先筛出 ICC，肝细胞癌（HCC）不进本指标。',
       cancers: ['C50', 'C34', 'C22', 'C53', 'C16', 'C18', 'C15', 'C61', 'C64'],
       src: '云健康 · 病理系统',
       ruleVer: 'V2026.1'
     },
     {
       id: 'NQ-03', name: '术后病理 TNM 分期率', short: '术后病理分期率', dir: 'up', base: 88.7,
-      passSrc: 'national',
-      basis: '《国家三级公立医院绩效考核操作手册（2024 版）》肿瘤专业质控指标；达标线取国家基准值',
-      def: '手术治疗的恶性肿瘤病例中，术后病理报告含 pTNM 分期的比例。',
+      passSrc: 'default',
+      basis: OFFICIAL_BASE + '分子须关联术后病理报告，术前活检病理不能充抵；肝队列同 NQ-02 限定肝内胆管癌。',
+      def: '手术治疗的恶性肿瘤患者中，术后病理报告完成 pTNM 分期的患者比例。',
       num: '术后病理报告含 pTNM 分期的病例数',
       den: '同期接受手术治疗的恶性肿瘤病例数',
       denIncl: '同期接受肿瘤切除/根治性手术的恶性肿瘤病例',
       denExcl: '仅行活检/探查手术、术前已行新辅助治疗者仍计入（须有术后病理 pTNM）',
+      cohortNote: '官方 8 癌种中的肝队列＝肝内胆管癌（C22.1）；真实数据须先做 ICC 细分，肝细胞癌不进本指标。',
       cancers: ['C50', 'C34', 'C22', 'C16', 'C18', 'C73', 'C61', 'C64'],
       src: '云健康 · 病理系统 / 病案首页',
       ruleVer: 'V2026.1'
     },
     {
       id: 'NQ-04', name: '围手术期死亡率', short: '围手术期死亡率', dir: 'down', base: 0.42,
-      passSrc: 'national',
-      basis: '《国家三级公立医院绩效考核操作手册（2024 版）》肿瘤专业质控指标；达标线取国家基准值（越低越好）',
-      def: '肿瘤手术患者中，术后 30 日内死亡的病例占比（越低越好）。',
-      num: '术后 30 日内死亡病例数',
-      den: '同期肿瘤手术病例数',
-      denIncl: '同期接受肿瘤相关手术（含根治性、姑息性减瘤、造口等）的住院病例',
-      denExcl: '日间手术、介入/内镜下局部治疗（按国考口径不计手术）',
+      passSrc: 'default',
+      basis: OFFICIAL_BASE + '死亡结局窗口按癌种不同：肺癌＝术后院内死亡；肝/前列腺/肾＝住院期间围手术期死亡；结直肠＝术中死亡（CA-CRC-08）。不是统一"术后30日"。',
+      def: '同期出院的肿瘤手术患者中，发生癌种对应围手术期死亡结局的患者比例（越低越好）。',
+      num: '按癌种官方窗口（术后院内／住院期间围手术期／术中）判定为围手术期死亡的病例数',
+      den: '同期出院的肿瘤手术患者数',
+      denIncl: '同期接受肿瘤相关手术（含根治性、姑息性减瘤、造口等）并住院的病例',
+      denExcl: '介入/内镜下局部治疗（按国考口径不计手术）、门诊手术；日间手术是否剔除待主管与质控中心按当年度平台口径确认',
       cancers: ['C34', 'C22', 'C18', 'C61', 'C64'],
+      windowByCancer: {
+        C34: { win: '术后院内死亡', maxDays: 30, note: '肺癌条目为术后住院期间死亡（CA-LC-13），以出院为界' },
+        C22: { win: '住院期间围手术期死亡', maxDays: 30, note: '肝癌为住院期间死亡（CA-CNLC-09；NQ-04 五癌种中 S1 肝队列写"肝癌"未细分 ICC）；出院后 30 日死亡应作为独立扩展监测，不冒充本条目' },
+        C18: { win: '术中死亡', maxDays: 0, note: '结直肠条目为术中死亡（CA-CRC-08 手术死亡率）；出院后 30 日死亡属另一专业指标' },
+        C61: { win: '住院期间围手术期死亡', maxDays: 30, note: '前列腺癌＝住院期间死亡（CA-PCA-10）' },
+        C64: { win: '住院期间围手术期死亡', maxDays: 30, note: '肾癌＝住院期间死亡（CA-RCC-08）' }
+      },
       src: '云健康 · 病案首页 / 死因监测',
-      ruleVer: 'V2026.1'
+      ruleVer: 'V2026.2'
     },
     {
       id: 'NQ-05', name: '首次靶向/免疫治疗前分子病理检测率', short: '分子病理检测率', dir: 'up', base: 79.5,
-      passSrc: 'national',
-      basis: '《国家三级公立医院绩效考核操作手册（2024 版）》肿瘤专业质控指标；达标线取国家基准值。分子检测项目齐备性另按各癌种必检项目字典（见 molCheck）单独判定',
-      def: '首次接受靶向或免疫治疗前完成相应分子病理检测的病例占比。',
+      passSrc: 'default',
+      basis: OFFICIAL_BASE + '官方还存在治疗/生物标志物特异要求（肺靶向驱动基因、乳腺抗HER2、结直肠 RAS/BRAF/MSI 等），不能用统一套餐一刀切；项目齐备性按各癌种必检字典（见 molCheck）分层判定。',
+      def: '首次接受靶向或免疫治疗前完成相应分子病理检测的患者占同期首次相关治疗患者的比例。',
       num: '首次靶向/免疫治疗前完成分子检测的病例数',
       den: '同期首次接受靶向/免疫治疗的病例数',
       denIncl: '同期首次接受分子靶向或免疫检查点抑制剂治疗的病例',
@@ -225,13 +262,13 @@
     },
     {
       id: 'NQ-06', name: '术中淋巴结清扫规范率', short: '淋巴结清扫规范率', dir: 'up', base: 84.1,
-      passSrc: 'national',
-      basis: '《国家三级公立医院绩效考核操作手册（2024 版）》肿瘤专业质控指标；达标线取国家基准值（清扫数目下限按癌种另设，见 lymphMin）',
-      def: '恶性肿瘤根治性手术中，淋巴结清扫数目达到规范要求的病例占比。',
+      passSrc: 'default',
+      basis: OFFICIAL_BASE + '各癌种单位与下限不同：乳腺腋窝清扫数量≥10个（CA-BC-11）、肺纵隔清扫站数≥3站（CA-LC-06）、结直肠术中清扫数量≥12枚且除外新辅助（CA-CRC-06）、食管根治术清扫个数≥15枚（CA-EC-07）、肝（ICC）为清扫率条目无数目下限（CA-CNLC-07），站/组/个/枚不得混用。',
+      def: '接受淋巴结清扫手术的恶性肿瘤患者中，清扫数目达到癌种规范要求的患者比例。',
       num: '淋巴结清扫数目达标的病例数',
-      den: '同期行根治性手术的恶性肿瘤病例数',
-      denIncl: '同期行根治性（含新辅助后根治性）手术的恶性肿瘤病例',
-      denExcl: '姑息性手术、仅行活检、T1 期前哨淋巴结活检替代清扫者（按癌种口径）',
+      den: '同期接受淋巴结清扫手术的恶性肿瘤病例数',
+      denIncl: '同期接受淋巴结清扫手术的恶性肿瘤病例；结直肠癌按官方口径除外接受新辅助治疗者',
+      denExcl: '姑息性手术、仅行活检、T1 期前哨淋巴结活检替代清扫者（按癌种口径）、结直肠新辅助后手术（归扩展监测）',
       cancers: ['C50', 'C34', 'C22', 'C18', 'C15'],
       src: '云健康 · 手术记录 / 病理报告',
       ruleVer: 'V2026.1'
@@ -251,12 +288,12 @@
    * 换来源只改 LINE_SRC 一处，全站判定（l1Pass/l1Gap/矩阵/榜单）自动跟随。 */
   var PASS_SRC = {
     default: { label: '现行口径', short: '现行' },
-    national: { label: '国家基准值', short: '国家基准' },
-    province: { label: '省中位数', short: '省中位' },
-    hospital: { label: '本院基期值', short: '本院基期' }
+    national: { label: '国家参考值（演示·待批准）', short: '参考值' },
+    province: { label: '省中位数（待样本来源）', short: '省中位' },
+    hospital: { label: '本院基期值（待历史数据）', short: '本院基期' }
   };
   var LINE_SRC = { 'NQ-01': 'default', 'NQ-02': 'default', 'NQ-03': 'default', 'NQ-04': 'default', 'NQ-05': 'default', 'NQ-06': 'default' };
-  /* 各来源的候选阈值（演示值；接真实数据后由后台按考核周期计算写入） */
+  /* 各来源的候选阈值（全部为演示值：手册未发布绝对合格线，批准前不得显示"国家达标"） */
   var LINE_TH = {
     'NQ-01': { default: 86.4, national: 85.0, province: 87.6, hospital: 84.2 },
     'NQ-02': { default: 91.2, national: 90.0, province: 92.1, hospital: 89.5 },
@@ -309,34 +346,77 @@
     C16: { label: '胃癌', items: ['HER2', 'MSI', 'PD-L1'], basis: '《CSCO 胃癌诊疗指南》：晚期胃癌检测 HER2、PD-L1、MSI' }
   };
   function molItemsOf(cancerId) { return MOL_ITEMS[cancerId] || null; }
-  /* 由分子检测结果文本反推已检项目：结果文本里出现哪个项目关键词就算检过 */
+  /* 由分子检测结果文本反推已检项目。
+   * 审核修复 P0-04：原实现「文本里出现项目名就算已检」，导致
+   * 「未检测EGFR；ALK未送检；ROS1未检测」被当成三项全部已检。现在做否定语境
+   * 判断：项目关键词若只出现在「未检测/未送检/未做/未查/待检/拒绝」等否定词
+   * 前后（前 8 字符或后 2 字符窗口）内，不算已检；「阴性」是已检测的结果，算已检。
+   * 另修复 C16 胃癌 MSI 误判：MSS（微卫星稳定）是 MSI 检测的有效结果，
+   * 原正则 /MSI|MMR/ 匹配不到 MSS，870 条含 MSS 的病例被误报「MSI 缺失」。 */
   function detectMolItems(cancerId, molText) {
     var def = MOL_ITEMS[cancerId];
     if (!def) return { items: [], detected: [], missing: [], def: null };
     var t = String(molText || '').toUpperCase();
     var KEYS = {
       EGFR: /EGFR/, ALK: /ALK/, ROS1: /ROS1/, ER: /\bER\b|ER[（(]/, PR: /\bPR\b|PR[（(]/,
-      HER2: /HER2/, RAS: /RAS|\bKRAS\b|\bNRAS\b/, BRAF: /BRAF/, 'MMR/MSI': /MSI|MMR|dMMR|pMMR/,
-      MSI: /MSI|MMR/, 'PD-L1': /PD-?L1/
+      HER2: /HER2/, RAS: /RAS|\bKRAS\b|\bNRAS\b/, BRAF: /BRAF/, 'MMR/MSI': /MSI|MMR/,
+      MSI: /MSI|MMR|MSS/, 'PD-L1': /PD-?L1/
     };
-    var detected = def.items.filter(function (it) { return (KEYS[it] || new RegExp(it)).test(t); });
+    var NEG = /未检测|未送检|未做|未查|待检测|未做|拒绝|无结果/;
+    var detected = def.items.filter(function (it) {
+      var base = KEYS[it] || new RegExp(it);
+      var g;
+      try { g = new RegExp(base.source, 'g'); } catch (e) { return false; }
+      var m, found = false;
+      while ((m = g.exec(t))) {
+        var from = Math.max(0, m.index - 8);
+        var ctx = t.slice(from, m.index + m[0].length + 2);
+        if (!NEG.test(ctx)) { found = true; break; }
+        if (g.lastIndex === m.index) g.lastIndex++;
+      }
+      return found;
+    });
     var missing = def.items.filter(function (it) { return detected.indexOf(it) < 0; });
     return { items: def.items, detected: detected, missing: missing, def: def };
   }
 
   /* ---------- 2d. 淋巴结清扫规范下限（按癌种） ----------
-   * NQ-06 原来只有一个全省统一口径，结直肠"检出 ≥12 枚"这类癌种特异性标准
-   * 进不来。这里按癌种给下限，规则判定与病例详情共用。 */
+   * 审核修正：下限与单位必须对齐《肿瘤专业医疗质量控制指标（2023年版）》
+   * （国卫办医政函〔2023〕66号）各癌种条目，"站 / 组 / 个 / 枚" 不得混用同一数值：
+   *   乳腺 CA-BC-11：清扫腋窝淋巴结数量 ≥10 个（官方单位"个"）；
+   *   肺癌 CA-LC-06：术中纵隔淋巴结清扫站数 ≥3 站（另 CA-LC-05 为"接受清扫率"）；
+   *   肝（ICC）CA-CNLC-07：术中淋巴结清扫"率"条目，S2 未给数目下限（demo ≥6 枚为无出处近似）；
+   *   结直肠 CA-CRC-06：术中清扫淋巴结数量 ≥12 枚；说明：除外新辅助治疗患者；
+   *   食管 CA-EC-07：根治性手术术中淋巴结清扫个数 ≥15 枚。
+   * 本系统当前只有"清扫枚数"一个结构化字段，站/组维度待接入手术记录结构化后启用；
+   * 在此之前，肺癌条目按官方"≥3 站"记录 official 文案、演示判定暂以枚数近似并在
+   * 《口径与计算规则》文档中如实标注为待确认偏差，界面不展示该近似。
+   * R-P6-02 规则区间下限可通过 applyRuleConfig 覆盖（规则配置真正参与计算的示范）。 */
   var LYMPH_MIN = {
-    C50: { min: 10, basis: '乳腺癌腋窝淋巴结清扫（ALND）一般 ≥10 枚；前哨淋巴结活检仅取 1~3 枚时按癌种口径剔除分母' },
-    C34: { min: 6, basis: '肺癌肺叶切除系统性淋巴结清扫/采样 ≥6 组或 ≥6 枚（含 N1、N2 站）' },
-    C22: { min: 6, basis: '肝癌肝门区域淋巴结清扫 ≥6 枚（有指征时）' },
-    C18: { min: 12, basis: '结直肠癌根治术后病理检出淋巴结 ≥12 枚（TME 规范）' },
-    C15: { min: 15, basis: '食管癌两野/三野淋巴结清扫 ≥15 枚' },
-    C16: { min: 16, basis: '胃癌根治术 D2 清扫术后检出淋巴结 ≥16 枚' },
-    C73: { min: 6, basis: '甲状腺癌中央区（VI 区）清扫 ≥6 枚' }
+    C50: { min: 10, unit: '枚', official: 'CA-BC-11 腋窝淋巴结清扫充分率：清扫腋窝淋巴结数量 ≥10 个（官方单位"个"）', basis: '乳腺癌腋窝淋巴结清扫（ALND）≥10 个；前哨淋巴结活检（SLNB）阳性前替代清扫者按癌种口径剔除分母' },
+    C34: { min: 6, unit: '枚(近似)', official: 'CA-LC-06 肺癌切除术术中纵隔淋巴结清扫充分率：站数 ≥3 站（站为单位，非枚）', basis: '官方单位为"站"（纵隔 ≥3 站）；本系统当前仅有清扫枚数字段，演示按 ≥6 枚近似，站数结构化接入前不得以枚数结果冒充官方"站"口径' },
+    C22: { min: 6, unit: '枚(近似·无官方出处)', official: 'CA-CNLC-07 肝内胆管癌患者术中淋巴结清扫率（条目为"率"，S2 无数目下限）', basis: '官方条目只统计"术中接受淋巴结清扫"的比率，没有清扫枚数下限；demo 的 ≥6 枚为无出处近似，接入前须由主管确认' },
+    C18: { min: 12, unit: '枚', official: 'CA-CRC-06 术中淋巴结清扫充分率：术中清扫淋巴结数量 ≥12 枚；说明：除外新辅助治疗患者', basis: '结直肠癌术中清扫淋巴结数量 ≥12 枚（TME 规范）；接受新辅助治疗的患者按官方口径除外，不进入该条目分母' },
+    C15: { min: 15, unit: '枚', official: 'CA-EC-07 食管癌根治性手术清扫淋巴结 ≥15 枚', basis: '食管癌两野/三野淋巴结清扫 ≥15 枚' },
+    C16: { min: 16, unit: '枚', official: '（专业质控条目，非六大绩效指标适用癌种）胃癌 D2 根治术检出 ≥16 枚', basis: '胃癌不在国考 NQ-06 五癌种之列；该下限仅用于本地扩展指标参考，不得当作国考口径' },
+    C73: { min: 6, unit: '枚', official: '（非六大绩效指标适用癌种）甲状腺癌中央区清扫 ≥6 枚', basis: '甲状腺癌不在国考 NQ-06 五癌种之列；仅用于本地扩展指标参考' }
   };
-  function lymphMinOf(cancerId) { return LYMPH_MIN[cancerId] || null; }
+  var LYMPH_OV = null;    /* { min: n } | { disabled: true } | null —— 规则配置注入 */
+  function lymphMinOf(cancerId) {
+    var base = LYMPH_MIN[cancerId] || null;
+    if (!base) return null;
+    if (LYMPH_OV && LYMPH_OV.disabled) return null;           /* R-P6-02 停用：不再产生"低于下限"判定 */
+    if (LYMPH_OV && LYMPH_OV.min != null) {
+      /* 规则页改动按"全局下限抬升"处理：不得把癌种官方下限改低（取 max），
+         与癌种字典冲突时以官方更严者生效；冲突与批准状态记录在口径文档 §5。 */
+      var eff = Math.max(base.min, LYMPH_OV.min);
+      if (eff !== base.min) {
+        return { min: eff, unit: base.unit, official: base.official, overridden: true,
+          basis: base.basis + '（当前生效下限 ' + eff + ' 来自规则配置 R-P6-02，不得低于癌种官方下限）' };
+      }
+    }
+    return base;
+  }
   function cancer(id) {
     for (var i = 0; i < CANCERS.length; i++) if (CANCERS[i].id === id) return CANCERS[i];
     return { id: id, name: id, short: id, icd: id };
@@ -352,18 +432,21 @@
     return code;
   }
 
-  /* 指标 × 机构 × 癌种 → 分母（病例数）。分层下钻的原子单元。 */
+  /* 指标 × 机构 × 癌种 → 分母（病例数）。分层下钻的原子单元。
+   * 审核修复 B03：未知机构（org() 取不到）一律返回 0，不再按默认规模造数。
+   * 「空区县 → 全省」与「__none__ 哨兵仍有分母」两条反例都由本条堵住。 */
   function denOf(indId, orgId, cancerId) {
     var i = ind(indId);
     if (!i) return 0;
     if (i.cancers.indexOf(cancerId) < 0) return 0;
     var o = org(orgId);
+    if (!o) return 0;
     /* 机构层级决定体量：省级 > 市级三甲 > 市级二甲 */
-    var scale = o ? (o.level === '省级三甲' ? 3.4 : o.level === '市级三甲' ? 1.8 : 0.8) : 1;
+    var scale = o.level === '省级三甲' ? 3.4 : o.level === '市级三甲' ? 1.8 : 0.8;
     var base = { C50: 420, C34: 560, C22: 240, C53: 180, C16: 340, C18: 400, C15: 190, C73: 260, C61: 200, C64: 150 }[cancerId] || 200;
     /* 指标本身适用范围不同，分母再打一次折 */
     var indScale = { 'NQ-01': 1, 'NQ-02': 0.62, 'NQ-03': 0.48, 'NQ-04': 0.5, 'NQ-05': 0.34, 'NQ-06': 0.4 }[indId] || 1;
-    var jitter = 0.82 + rnd01('den|' + indId + '|' + orgId + '|' + cancerId) * 0.36;
+    var jitter = 0.82 + rnd01('den|' + PERIOD + '|' + indId + '|' + orgId + '|' + cancerId) * 0.36;
     return Math.max(0, Math.round(base * scale * indScale * jitter));
   }
 
@@ -374,7 +457,7 @@
     if (!i || !o) return i ? i.base : 0;
     var bonus = o.level === '省级三甲' ? 3.2 : o.level === '市级三甲' ? 0.6 : -3.4;
     if (o.type === '专科') bonus += 2.4;
-    var jit = (rnd01('lvl|' + indId + '|' + orgId) - 0.5) * 7.5;
+    var jit = (rnd01('lvl|' + PERIOD + '|' + indId + '|' + orgId) - 0.5) * 7.5;
     var v = i.base + bonus + jit;
     if (i.dir === 'down') {
       /* 死亡率类指标：基数小，用乘法浮动 */
@@ -392,7 +475,7 @@
     var isDown = i.dir === 'down';
     var level = orgLevelOf(indId, orgId);
     /* 癌种差异：不同癌种在该指标上天然有高低 */
-    var cAdj = (rnd01('cadj|' + indId + '|' + cancerId) - 0.5) * (isDown ? 0.3 : 6.5);
+    var cAdj = (rnd01('cadj|' + PERIOD + '|' + indId + '|' + cancerId) - 0.5) * (isDown ? 0.3 : 6.5);
     var target = isDown ? level * (1 + cAdj / 100) : level + cAdj;
     target = clamp(target, isDown ? 0.05 : 45, isDown ? 9 : 99.6);
     var num = Math.round(den * target / 100);
@@ -406,16 +489,19 @@
     };
   }
 
-  /* 指标在给定筛选条件下的汇总（分子分母各自相加后再算率，不能对率求平均） */
+  /* 指标在给定筛选条件下的汇总（分子分母各自相加后再算率，不能对率求平均）。
+   * 审核修复 B03 语义三分：orgIds/cancerIds —— null/undefined=不限；[]=空集（结果为无数据，
+   * 不再静默放大成全省）；未知机构 id 由 denOf 拒绝造数。empty=true 时界面必须显示「无数据」，
+   * 不得按 0% 或指标现值判定达标。 */
   function agg(indId, orgIds, cancerIds) {
     var i = ind(indId);
-    if (!i) return { ind: indId, den: 0, num: 0, value: 0, orgs: 0 };
-    orgIds = orgIds && orgIds.length ? orgIds : ORGS.map(function (o) { return o.id; });
-    cancerIds = cancerIds && cancerIds.length ? cancerIds : i.cancers;
+    if (!i) return { ind: indId, den: 0, num: 0, value: 0, orgs: 0, empty: true };
+    var os = orgIds == null ? ORGS.map(function (o) { return o.id; }) : orgIds;
+    var cs = cancerIds == null ? i.cancers : cancerIds;
     var den = 0, num = 0, orgsHit = 0;
-    orgIds.forEach(function (o) {
+    os.forEach(function (o) {
       var od = 0, on = 0;
-      cancerIds.forEach(function (c) {
+      cs.forEach(function (c) {
         var cl = cell(indId, o, c);
         od += cl.den; on += cl.num;
       });
@@ -425,6 +511,8 @@
       ind: indId, den: den, num: num,
       value: Math.round(rate(num, den) * 100) / 100,
       orgs: orgsHit,
+      empty: den <= 0,
+      period: PERIOD,
       isDown: i.dir === 'down'
     };
   }
@@ -432,22 +520,27 @@
   /* 全省某指标的合计（总览 KPI 用） */
   function total(indId) { return agg(indId, null, null); }
 
-  /* 同比：以上一年同样算法得到上期值，误差由种子决定，保证可复现 */
+  /* 同比：上一自然年度、同机构、同癌种口径的真实差值（审核修复 P0-02/P1 建议）。
+   * 原实现是「当前值 − 固定种子漂移」，任何范围都得到同一个同比，且与统计期无关。
+   * 现在：本期值与上年同口径值都由 agg/aggForYear 算出；任一期无分母则返回 null，
+   * 界面显示「—」，不得臆造趋势。 */
   function yoy(indId, orgIds, cancerIds) {
     var i = ind(indId);
-    if (!i) return 0;
-    var cur = agg(indId, orgIds, cancerIds).value;
-    var delta = (rnd01('yoy|' + indId) - 0.42) * (i.dir === 'down' ? 0.28 : 4.6);
-    var prev = i.dir === 'down' ? cur - delta : cur - delta;
-    return Math.round((cur - prev) * 100) / 100;
+    if (!i) return null;
+    var cur = agg(indId, orgIds, cancerIds);
+    if (cur.den <= 0) return null;
+    var prev = aggForYear(indId, orgIds, cancerIds, (+PERIOD) - 1);
+    if (prev.den <= 0) return null;
+    return Math.round((cur.value - prev.value) * 100) / 100;
   }
 
-  /* 癌种维度汇总表 */
+  /* 癌种维度汇总表（orgIds：null=不限，[]=空集→无行） */
   function byCancer(indId, orgIds) {
     var i = ind(indId);
     if (!i) return [];
+    var oidList = orgIds == null ? ORGS.map(function (o) { return o.id; }) : orgIds;
     return i.cancers.map(function (c) {
-      var subsets = (orgIds && orgIds.length ? orgIds : ORGS.map(function (o) { return o.id; }))
+      var subsets = oidList
         .map(function (o) { return cell(indId, o, c); })
         .filter(function (x) { return x.den > 0; });
       var den = 0, num = 0;
@@ -515,18 +608,19 @@
   /* 病例的诊断日期：从 buildCase 里单独抽出来，供「病例索引」在不构造完整
      证据链的情况下先算出排序键。两处共用同一个函数，列表顺序与详情日期
      必然一致。
-     诊疗日期全部落在报告期内。做法是"往前留出余量"而不是"到头截断"：
-     诊断日期限定在 2024-02-01 ~ 2026-05-20 之间，这样
-       · 最长的后续链条（首疗 +34 天 → 手术 +6 天 → 随访 +96 天 ≈ +136 天）
-         也不会越过 2026-09-30；
-       · "分期评估早于诊断"的数据异常场景（最多 −20 天）也不会早于 2024-01-01。
-     若改用截断（min(d, 期末)），所有溢出日期会塌缩成同一天，时间轴就失真了。 */
+     审核修复 P0-02：诊疗日期必须落在「当前报告期」内（原来固定 2024-02 ~
+     2026-05，选 2026 仍显示 2024/2025 的病例）。做法仍是"往前留出余量"而不是
+     "到头截断"：诊断日期限定在 {Y}-01-01 ~ {Y}-05-20，这样最长的后续链条
+     （首疗 +34 天 → 手术 +6 天 → 随访 +96 天 ≈ +136 天）不会越过 {Y}-09-30，
+     「分期评估早于诊断」的异常场景（最多 −20 天）在 1 月也不会串到上一年。
+     换报告期后日期整体平移，同一年度内可复现。 */
   function diagDateOf(key) {
-    var d = dateStr(key + '|dg', 2024, 2026);
-    if (d < '2024-02-01') {
-      d = '2024-02-' + pad(rndInt(key + '|dgl', 1, 28));
-    } else if (d > '2026-05-20') {
-      d = '2026-0' + rndInt(key + '|dgm', 1, 5) + '-' + pad(rndInt(key + '|dgd', 1, 20));
+    var y = +PERIOD;
+    var d = dateStr(key + '|dg', y, y);
+    if (d < y + '-02-01') {
+      d = y + '-02-' + pad(rndInt(key + '|dgl', 1, 28));
+    } else if (d > y + '-05-20') {
+      d = y + '-0' + rndInt(key + '|dgm', 1, 5) + '-' + pad(rndInt(key + '|dgd', 1, 20));
     }
     return d;
   }
@@ -599,13 +693,19 @@
       var k1 = sub < 0.46 ? V.BAD : sub < 0.76 ? V.MISS : V.ABN;
       return mk(k1, reasonOf(indId, k1));
     }
-    /* NQ-05 深化：检测做了但癌种必检项目不齐，单独成一类异常
-       （约 18% 的异常属于此类），文案里带上缺哪一项 */
+    /* NQ-05 深化：检测做了但癌种必检项目不齐（约 18% 的异常属于此类）。
+     * 国考口径只判"做没做"——已做检测者不齐项**不得计为不符合**（否则污染国考分子），
+     * 与 §4.1/口径文档一致按「数据缺失」归质量层，缺哪一项在文案与 molCheck 分层表中交代。 */
     if (indId === 'NQ-05' && molItemsOf(cancerId) && sub >= 0.82) {
       mol = { cancer: cancerId, items: molItemsOf(cancerId).items };
-      return mk(V.BAD, reasonOf(indId, 'bad3') + '：' + mol.items.join('/'));
+      return mk(V.MISS, reasonOf(indId, 'bad3') + '：' + mol.items.join('/'));
     }
     var kind = sub < 0.52 ? V.BAD : sub < 0.79 ? V.MISS : V.ABN;
+    /* R-P6-02（清扫数目达标）被停用时，NQ-06 不再产生"低于下限"类不符合；
+       缺失/逻辑冲突类判定不受影响。 */
+    if (indId === 'NQ-06' && kind === V.BAD && LYMPH_OV && LYMPH_OV.disabled) {
+      return { v: V.OK, reason: '', rule: null };
+    }
     return mk(kind, reasonOf(indId, kind));
   }
 
@@ -618,8 +718,8 @@
       'NQ-01': { bad: '分期评估时间晚于首次治疗时间', miss: '未记录临床分期', abn: '分期评估日期早于初次诊断日期' },
       'NQ-02': { bad: '非手术治疗开始前未取得病理学诊断', miss: '病理诊断字段缺失', abn: '病理报告日期晚于治疗开始日期', bad2: '病理报告日期晚于首次非手术治疗日期（治疗前未取得）' },
       'NQ-03': { bad: '术后病理报告未包含 pTNM 分期', miss: 'pTNM 分期字段为空', abn: 'pTNM 分期与病程记录描述不一致' },
-      'NQ-04': { bad: '术后 30 日内死亡，属围手术期死亡', miss: '出院去向字段缺失，无法判定生存状态', abn: '死亡日期早于手术日期，数据逻辑冲突' },
-      'NQ-05': { bad: '靶向/免疫治疗前未完成分子病理检测', miss: '分子检测结果字段缺失', abn: '检测报告日期晚于首次用药日期', bad3: '分子检测项目不齐（缺少癌种必检项目）' },
+      'NQ-04': { bad: '发生围手术期死亡（按该癌种规定的术后院内／住院期间／术中窗口判定）', miss: '出院去向字段缺失，无法判定生存状态', abn: '死亡日期早于手术日期，数据逻辑冲突' },
+      'NQ-05': { bad: '靶向/免疫治疗前未完成分子病理检测', miss: '分子检测结果字段缺失', abn: '检测报告日期晚于首次用药日期', bad3: '分子检测项目不齐（缺少癌种必检项目；国考口径视为已完成检测，缺项入数据质量层）' },
       'NQ-06': { bad: '淋巴结清扫数目低于规范要求', miss: '淋巴结清扫数目未填写', abn: '清扫数目与病理报告检出数不一致' }
     };
     return (M[indId] || {})[kind] || '质控判定异常';
@@ -635,7 +735,7 @@
     var R = {
       'NQ-02': { code: 'QC-L1-002', name: '非手术治疗前须有病理学诊断', ver: 'V2026.2', cond: '病理诊断非空 且 病理报告日期 ≤ 首次非手术治疗日期', field: '病理诊断 / 病理报告日期 / 首次治疗日期' },
       'NQ-03': { code: 'QC-L1-003', name: '术后病理须含 pTNM 分期', ver: 'V2026.1', cond: 'pT、pN、pM 三项均非空', field: 'pTNM 分期 / 病理报告' },
-      'NQ-04': { code: 'QC-L1-004', name: '围手术期死亡判定', ver: 'V2026.1', cond: '死亡日期 − 手术日期 ≤ 30 日', field: '手术日期 / 死亡日期 / 出院去向' },
+      'NQ-04': { code: 'QC-L1-004', name: '围手术期死亡判定', ver: 'V2026.2', cond: '按癌种窗口判定：肺癌术后院内死亡／肝（ICC）·前列腺·肾住院期间围手术期死亡／结直肠术中死亡（演示近似待主管确认，详见口径文档 §3.4）', field: '手术日期 / 死亡日期 / 出院去向' },
       'NQ-05': { code: 'QC-L1-005', name: '靶向免疫治疗前完成分子检测', ver: 'V2026.2', cond: '分子检测结果非空 且 报告日期 ≤ 首次用药日期；项目齐备性按癌种必检项目判定', field: '分子病理结果 / 检测日期 / 首次用药日期' },
       'NQ-06': { code: 'QC-L1-006', name: '淋巴结清扫数目达标', ver: 'V2026.2', cond: '清扫淋巴结数目 ≥ 癌种规范要求下限', field: '清扫淋巴结数目 / 病理检出数' }
     };
@@ -687,13 +787,14 @@
     PURE_STORES.forEach(function (s) { for (var k in s) delete s[k]; });
   }
   function caseIndex(indId, orgIds, cancerIds) {
-    var key = scopeKey(indId, orgIds && orgIds.length ? orgIds : null,
-      cancerIds && cancerIds.length ? cancerIds : (ind(indId) ? ind(indId).cancers : null)) +
-      (indId === 'NQ-01' ? '@' + evalMode() : '');
+    var oidList = orgIds == null ? null : orgIds;
+    var cidList = cancerIds == null ? (ind(indId) ? ind(indId).cancers : []) : cancerIds;
+    var key = scopeKey(indId, oidList, cidList) +
+      (indId === 'NQ-01' ? '@' + evalMode() : '') + '@p' + PERIOD;
     var hit = CASE_INDEX[key];
     if (hit) return hit;
-    var ids = cancerIds && cancerIds.length ? cancerIds : (ind(indId) ? ind(indId).cancers : []);
-    var ofs = orgIds && orgIds.length ? orgIds : null;
+    var ids = cidList;
+    var ofs = oidList;
     var pool = ORGS.filter(function (o) { return !ofs || ofs.indexOf(o.id) >= 0; });
     var out = [];
     ids.forEach(function (c) {
@@ -717,9 +818,10 @@
 
   /* 按判定态过滤 + 排序后的视图（异常优先，其次诊断日期倒序），同样一份范围只算一次 */
   function caseView(indId, orgIds, cancerIds, want) {
-    var key = scopeKey(indId, orgIds && orgIds.length ? orgIds : null,
-      cancerIds && cancerIds.length ? cancerIds : (ind(indId) ? ind(indId).cancers : null)) + '#' + want +
-      (indId === 'NQ-01' ? '@' + evalMode() : '');
+    var oidList = orgIds == null ? null : orgIds;
+    var cidList = cancerIds == null ? (ind(indId) ? ind(indId).cancers : []) : cancerIds;
+    var key = scopeKey(indId, oidList, cidList) + '#' + want +
+      (indId === 'NQ-01' ? '@' + evalMode() : '') + '@p' + PERIOD;
     var hit = CASE_VIEW[key];
     if (hit) return hit;
     var idx = caseIndex(indId, orgIds, cancerIds);
@@ -736,33 +838,37 @@
   /* 生成某指标下被质控病例列表。
      注意：列表同时包含"符合"病例和异常病例 —— 这正是"被质控数据"的含义：
      说明这个指标到底检查了哪些数据。
-     limit 只决定"构造多少条完整证据链"，total 始终是该范围内的全部条数。 */
+     limit 只决定"构造多少条完整证据链"，total 始终是该范围内的全部条数。
+     审核修复 B06：支持 offset（分页窗口起点），调用方不需要再造 page*20 前缀；
+     orgIds/cancerIds：null=不限，[]=空集→空列表（不再静默放大）。 */
   function cases(indId, opt) {
     opt = opt || {};
-    var orgIds = opt.orgIds && opt.orgIds.length ? opt.orgIds : null;
-    var cancerIds = opt.cancerIds && opt.cancerIds.length ? opt.cancerIds : null;
+    var orgIds = opt.orgIds == null ? null : opt.orgIds;
+    var cancerIds = opt.cancerIds == null ? null : opt.cancerIds;
     var want = opt.verdict || 'ALL';
     var limit = opt.limit || 300;
+    var offset = Math.max(0, opt.offset || 0);
     var view = caseView(indId, orgIds, cancerIds, want);
-    var n = Math.min(limit, view.length);
+    var n = Math.min(limit, Math.max(0, view.length - offset));
     var rows = new Array(n);
     for (var i = 0; i < n; i++) {
-      var e = view[i];
+      var e = view[offset + i];
       rows[i] = buildCase(indId, org(e.o), e.c, e.s, judge(indId, e.o, e.c, e.s), e.k);
     }
-    return { rows: rows, total: view.length };
+    return { rows: rows, total: view.length, offset: offset, limit: limit };
   }
 
-  /* 按病例键取单条被质控数据。键本身就带着 指标|机构|癌种|序号，
-     不需要像旧实现那样先把整个范围生成一遍再线性找。
-     找不到时退回该范围的第一条，与旧的下钻行为一致。 */
+  /* 按病例键取单条被质控数据。键本身就带着 指标|机构|癌种|序号。
+     审核修复 B08：找不到键一律返回 null（原来回落第一条，病例详情页会显示
+     与链接无关的患者，复核证据链不可靠）。空键/坏键同样返回 null。 */
   function caseByKey(indId, key) {
     var p = String(key == null ? '' : key).split('|');
-    var view = caseView(indId, p[1] ? [p[1]] : null, p[2] ? [p[2]] : null, 'ALL');
-    if (!view.length) return null;
+    if (p.length < 4 || !p[1] || !p[2] || p[3] === '') return null;
+    if (p[0] !== indId) return null;
     var e = null;
-    for (var i = 0; i < view.length; i++) if (view[i].k === key) { e = view[i]; break; }
-    if (!e) e = view[0];
+    var idx = caseIndex(indId, [p[1]], p[2] ? [p[2]] : null);
+    for (var i = 0; i < idx.length; i++) if (idx[i].k === key) { e = idx[i]; break; }
+    if (!e) return null;
     /* 判定必须用该病例真实的癌种：NQ-05/NQ-06 的规则文案依赖癌种 */
     return buildCase(indId, org(e.o), e.c, e.s, judge(indId, e.o, e.c, e.s), e.k);
   }
@@ -786,8 +892,8 @@
     var i = ind(indId);
     if (!i) return null;
     var a = agg(indId, orgIds, cancerIds);
-    var ofs = orgIds && orgIds.length ? orgIds : ORGS.map(function (o) { return o.id; });
-    var cfs = cancerIds && cancerIds.length ? cancerIds : i.cancers;
+    var ofs = orgIds == null ? ORGS.map(function (o) { return o.id; }) : orgIds;
+    var cfs = cancerIds == null ? i.cancers : cancerIds;
     /* 纳入率/排除率按指标的适用面折算（演示值，来源标注清楚） */
     var inclRate = { 'NQ-01': 0.94, 'NQ-02': 0.91, 'NQ-03': 0.97, 'NQ-04': 0.99, 'NQ-05': 0.93, 'NQ-06': 0.96 }[indId] || 0.95;
     var notified = Math.round(a.den / inclRate);
@@ -829,8 +935,8 @@
     opt = opt || {};
     var i = ind(indId);
     if (!i) return [];
-    var ofs = opt.orgIds && opt.orgIds.length ? opt.orgIds : null;
-    var cfs = opt.cancerIds && opt.cancerIds.length ? opt.cancerIds : i.cancers;
+    var ofs = opt.orgIds == null ? null : opt.orgIds;
+    var cfs = opt.cancerIds == null ? i.cancers : opt.cancerIds;
     var limit = opt.limit || 200;
     var pool = ORGS.filter(function (o) { return !ofs || ofs.indexOf(o.id) >= 0; });
     var out = [];
@@ -883,8 +989,8 @@
   function molCheck(indId, opt) {
     opt = opt || {};
     if (indId !== 'NQ-05') return null;
-    var cs = (opt.cancerIds && opt.cancerIds.length ? opt.cancerIds : L1_IND[4].cancers);
-    var ofs = opt.orgIds && opt.orgIds.length ? opt.orgIds : ORGS.map(function (o) { return o.id; });
+    var cs = (opt.cancerIds == null ? L1_IND[4].cancers : opt.cancerIds);
+    var ofs = opt.orgIds == null ? ORGS.map(function (o) { return o.id; }) : opt.orgIds;
     var rows = cs.filter(function (c) { return !!molItemsOf(c); }).map(function (c) {
       var md = molItemsOf(c);
       var a = agg('NQ-05', ofs, [c]);
@@ -977,14 +1083,38 @@
       var itemTxt = function (its) {
         return its.map(function (it) { return (MOL_RESULT[it] || it + ' 已检'); }).join('；');
       };
-      if (j.v === V.MISS) molVal = '';
-      else if (j.v === V.BAD && /项目不齐/.test(j.reason || '')) molVal = md ? itemTxt([md.items[0]]) : '';
+      if (j.v === V.MISS && /项目不齐/.test(j.reason || '')) molVal = md ? itemTxt([md.items[0]]) : '';
+      else if (j.v === V.MISS) molVal = '';
       else if (j.v === V.BAD) molVal = '';
       else molVal = md ? itemTxt(md.items) : pick(['EGFR 19del 阳性', 'HER2 扩增'], key);
     } else {
       molVal = pick(['EGFR 19del 阳性', 'ALK 融合阳性', 'HER2 扩增'], key);
     }
-    var deathDate = indId === 'NQ-04' ? addDays(surgDate, rndInt(key + '|dd', 2, j.v === V.BAD ? 29 : 120)) : '';
+    /* 审核修复 P0-04：判定标签与展示证据必须自洽（原来"不符合"病例的病理
+       日期反而早于治疗、"符合"病例却在窗口内死亡等，是标签与证据互相矛盾）。
+       原则：让事实数据真实地违反规则，而不是先贴标签再随意拼字段。 */
+    if (indId === 'NQ-02' && j.v === V.BAD) {
+      /* 「治疗前未取得病理」⇒ 病理报告日期必须晚于首次治疗日期 */
+      pathDate = addDays(treatDate, rndInt(key + '|pat-lag', 1, 10));
+    }
+    if (indId === 'NQ-03' && surgDate && j.v !== V.MISS) {
+      /* pTNM 出自术后病理报告 ⇒ 报告日期晚于手术日期 */
+      pathDate = addDays(surgDate, rndInt(key + '|pat-post', 2, 7));
+    }
+    var deathDate = '';
+    if (indId === 'NQ-04') {
+      var w4 = (i.windowByCancer || {})[c] || { win: '住院期间围手术期死亡', maxDays: 30 };
+      if (j.v === V.BAD) {
+        deathDate = w4.maxDays <= 0 ? surgDate : addDays(surgDate, rndInt(key + '|dd', 2, w4.maxDays));
+      } else if (j.v === V.ABN) {
+        /* 「死亡早于手术」异常场景：如实生成手术之前的日期，与原因文案一致 */
+        deathDate = addDays(surgDate, -rndInt(key + '|dd', 2, 20));
+      } else if (j.v === V.OK && rnd01(key + '|ddl') < 0.5) {
+        /* 窗口外死亡 ⇒ 不计入分子，判定"符合"，日期如实晚于窗口 */
+        deathDate = addDays(surgDate, rndInt(key + '|dd', w4.maxDays + 30, w4.maxDays + 120));
+      }
+      /* MISS：出院去向缺失，无死亡日期可比对 */
+    }
 
     var cObj = cancer(c);
     return {
@@ -1032,12 +1162,13 @@
     return n;
   }
 
-  /* 异常病例数：按判定异常的真实抽样比例外推到全量分母 */
+  /* 异常病例数：按判定异常的真实抽样比例外推到全量分母。
+   * orgIds：null=不限，[]=空集→0；癌种参数参与口径（选癌种只数该癌种）。 */
   function abnCount(indId, cancerId, orgIds) {
     var i = ind(indId);
     if (!i) return 0;
     var cs = cancerId ? [cancerId] : i.cancers;
-    var os = orgIds && orgIds.length ? orgIds : ORGS.map(function (o) { return o.id; });
+    var os = orgIds == null ? ORGS.map(function (o) { return o.id; }) : orgIds;
     var total = 0;
     os.forEach(function (o) {
       var ar = abnRateOf(indId, o);
@@ -1067,29 +1198,33 @@
 
   /* ==================== 4. 趋势 ==================== */
 
-  /* 指标趋势：按月 / 季度 / 年度。围绕当前值波动，确定性。 */
+  /* 指标趋势：按月 / 季度 / 年度。审核修复 P0-02：趋势同样绑定报告期——
+     年度点直接取各年度同口径汇总（aggForYear），月度点在当期值附近按
+     「指标×报告期×月」种子波动，换年度曲线确实变化、同年度可复现。 */
   function trend(indId, period, orgIds, cancerIds) {
     var i = ind(indId);
     if (!i) return [];
-    var cur = agg(indId, orgIds, cancerIds).value;
+    if (period === '年度') {
+      var ys = [];
+      for (var yy = (+PERIOD) - 5; yy <= (+PERIOD); yy++) {
+        var av = forYear(yy, function () { return agg(indId, orgIds, cancerIds); });
+        ys.push({ l: String(yy), v: av.den > 0 ? av.value : null });
+      }
+      return ys;
+    }
+    var cur = agg(indId, orgIds, cancerIds);
+    if (cur.den <= 0) return [];
     var out = [];
     if (period === '月') {
       for (var m = 1; m <= 12; m++) {
-        var d = (rnd01('tr|' + indId + '|' + m) - 0.5) * (i.dir === 'down' ? 0.2 : 3.4);
-        out.push({ l: m + '月', v: Math.round((cur + d) * 100) / 100 });
-      }
-    } else if (period === '季度') {
-      for (var q = 1; q <= 4; q++) {
-        var dq = (rnd01('trq|' + indId + '|' + q) - 0.5) * (i.dir === 'down' ? 0.24 : 3.8);
-        out.push({ l: 'Q' + q, v: Math.round((cur + dq) * 100) / 100 });
+        var d = (rnd01('tr|' + PERIOD + '|' + indId + '|' + m) - 0.5) * (i.dir === 'down' ? 0.2 : 3.4);
+        out.push({ l: m + '月', v: Math.round(clamp(cur.value + d, i.dir === 'down' ? 0.05 : 40, 100) * 100) / 100 });
       }
     } else {
-      var years = ['2022', '2023', '2024', '2025', '2026'];
-      years.forEach(function (y, idx) {
-        var step = (idx - 4) * (i.dir === 'down' ? -0.05 : 1.5);
-        var dy = (rnd01('try|' + indId + '|' + y) - 0.5) * 1.6;
-        out.push({ l: y, v: Math.round(clamp(cur + step + dy, i.dir === 'down' ? 0.05 : 40, 100) * 100) / 100 });
-      });
+      for (var q = 1; q <= 4; q++) {
+        var dq = (rnd01('trq|' + PERIOD + '|' + indId + '|' + q) - 0.5) * (i.dir === 'down' ? 0.24 : 3.8);
+        out.push({ l: 'Q' + q, v: Math.round(clamp(cur.value + dq, i.dir === 'down' ? 0.05 : 40, 100) * 100) / 100 });
+      }
     }
     return out;
   }
@@ -1599,20 +1734,23 @@
       ORGS.forEach(function (o) {
         var a = agg(i.id, [o.id], null);
         if (a.den <= 0) return;
-        /* 该机构在该指标上是否达标 + 是否存在异常病例 */
-        var ok = i.dir === 'down' ? a.value <= i.base : a.value >= i.base;
+        /* 该机构在该指标上是否达标 + 是否存在异常病例
+         * 审核修复 P1-01：判定与文案统一走当前生效达标线（l1PassLineOf），
+         * 不再直接用生成基准 base，避免"问题台账"和"达标灯"两套口径。 */
+        var line = l1PassLineOf(i.id);
+        var ok = l1Pass(i.id, a.value);
         var abn = abnCount(i.id, null, [o.id]);
         if (ok && abn === 0) return;
         /* 达标机构只在异常病例较多时记一条，避免问题表被"轻微异常"填满 */
-        if (ok && rnd01('p1f|' + i.id + '|' + o.id) > 0.25) return;
-        var key = 'p1|' + i.id + '|' + o.id;
+        if (ok && rnd01('p1f|' + PERIOD + '|' + i.id + '|' + o.id) > 0.25) return;
+        var key = 'p1|' + PERIOD + '|' + i.id + '|' + o.id;
         var c = pick(i.cancers, key + '|c');
         out.push(mkProblem('L1', key, {
           layer: 'L1', module: '诊疗过程与单病种质控',
           type: ok ? ['诊疗记录缺失', '时间逻辑冲突'][hash(key) % 2] : '指标未达标',
           obj: i.name, objId: i.id, org: o.id, orgName: o.name, city: o.city,
           cancer: c, cancerName: cancer(c).name,
-          desc: (ok ? '' : i.name + '为 ' + f1(a.value) + '%，低于基准值 ' + i.base + '%；') +
+          desc: (ok ? '' : i.name + '为 ' + f1(a.value) + '%，低于考核参考值 ' + f1(line.value) + '%（' + line.srcLabel + '，未经批准不作为国家达标结论）；') +
             reasonOf(i.id, hash(key) % 2 ? V.BAD : V.MISS),
           rule: ruleOf(i.id, V.BAD),
           count: Math.max(1, Math.round(abn * (0.15 + rnd01(key + '|r') * 0.35)))
@@ -1684,6 +1822,9 @@
         }));
       });
     });
+    /* 审核修复 B02：病例级整改条目并入台账（幂等键 FIX|caseKey），
+       使「纳入整改」成为真实创建，而不是只有 toast。 */
+    REMEDIATION_STORE.forEach(function (x) { out.push(x); });
     PROBLEM_CACHE = out;
     return out;
   }
@@ -1694,9 +1835,9 @@
        逾期是少数（这里用加权抽样而不是均匀抽样，避免"一半都逾期"的失真）。 */
     var r = rnd01(key + '|st');
     var st = r < 0.32 ? '已关闭' : r < 0.55 ? '整改中' : r < 0.78 ? '待复核' : r < 0.94 ? '待处理' : '已逾期';
-    var found = dateStr(key + '|fd', 2026, 2026);
+    var found = dateStr(key + '|fd', +PERIOD, +PERIOD);
     var due = addDays(found, rndInt(key + '|due', 7, 45));
-    var today = '2026-09-21';
+    var today = PERIOD + '-09-21';
     /* 逾期状态必须与截止日期内在一致：已闭环的不能算逾期，
        未闭环但已过截止日的才升级为逾期。 */
     if (st === '已关闭') {
@@ -1948,7 +2089,7 @@
         id: i.id, name: i.name, short: i.short, dir: i.dir, base: i.base,
         passLine: line.value, passSrc: line.src, passSrcLabel: line.srcLabel,
         value: a.value, num: a.num, den: a.den,
-        pass: l1Pass(i.id, a.value), gap: Math.round(gap * 100) / 100,
+        pass: a.den > 0 && l1Pass(i.id, a.value), gap: Math.round(gap * 100) / 100,
         abn: abnCount(i.id, cancerIds && cancerIds.length === 1 ? cancerIds[0] : null, orgIds),
         yoy: yoy(i.id, orgIds, cancerIds)
       };
@@ -1984,8 +2125,8 @@
       return {
         code: ct.code, name: ct.name,
         cells: L1_IND.map(function (i) {
-          var a = agg(i.id, orgIds.length ? orgIds : ['__none__'], cancerIds);
-          return { ind: i.id, dir: i.dir, base: i.base, passLine: l1PassLineOf(i.id).value, value: a.value, den: a.den, pass: l1Pass(i.id, a.value) };
+          var a = agg(i.id, orgIds, cancerIds);
+          return { ind: i.id, dir: i.dir, base: i.base, passLine: l1PassLineOf(i.id).value, value: a.value, den: a.den, empty: a.empty, pass: a.den > 0 && l1Pass(i.id, a.value) };
         })
       };
     }).filter(function (r) { return r.cells.some(function (c) { return c.den > 0; }); });
@@ -2024,12 +2165,14 @@
    * 注意：缓存后同一入参返回的是同一个对象引用（各处只读，不改写），
    * 若将来某个消费方要修改返回值，必须在页面层先复制一份。
    * 判定口径、抽样规模、数字本身都没动，省的只是重算。 */
-  denOf = pure(denOf, k3);
-  orgLevelOf = pure(orgLevelOf, function (a, b) { return a + '|' + b; });
-  cell = pure(cell, k3);
-  abnRateOf = pure(abnRateOf, function (a, b) { return a + '|' + b; });
-  agg = pure(agg, function (a, b, c) { return a + '@' + kList(b) + '@' + kList(c); });
-  abnCount = pure(abnCount, function (a, b, c) { return a + '@' + (b || '*') + '@' + kList(c); });
+  /* 缓存键必须包含报告期：aggForYear/同比会在不调用 clearPure 的情况下
+     临时切换 PERIOD，若键不含年度就会把当年值误当作上年值命中缓存。 */
+  denOf = pure(denOf, function (a, b, c) { return PERIOD + '|' + a + '|' + b + '|' + c; });
+  orgLevelOf = pure(orgLevelOf, function (a, b) { return PERIOD + '|' + a + '|' + b; });
+  cell = pure(cell, function (a, b, c) { return PERIOD + '|' + a + '|' + b + '|' + c; });
+  abnRateOf = pure(abnRateOf, function (a, b) { return PERIOD + '|' + a + '|' + b; });
+  agg = pure(agg, function (a, b, c) { return PERIOD + '@' + kList(b) + '@' + kList(c); });
+  abnCount = pure(abnCount, function (a, b, c) { return PERIOD + '@' + (b || '*') + '@' + kList(c); });
   reasonOf = pure(reasonOf, function (a, b) { return a + '|' + b; });
   /* 判定模式与癌种会影响规则文案，键里都带上 */
   ruleOf = pure(ruleOf, function (a, b, c) { return a + '|' + b + '|' + (c || '') + '|' + (a === 'NQ-01' ? evalMode() : ''); });
@@ -2054,6 +2197,122 @@
   /* 数据来源标记（原始数据追溯用） */
   var SRC_TAGS = ['云健康', '病案首页', '病理系统', '登记报告卡', '死因监测', '医保接口', '随访系统'];
   function srcTag(i) { return pick(SRC_TAGS, 'srctag|' + i); }
+
+  /* ==================== 9c. 整改闭环 · 病例级（审核修复 B02） ====================
+   * 「纳入整改」以前只有 toast：实测全部问题 262→262 不新增，闭环是假的。
+   * 现在按 幂等键（FIX|病例键）真实创建问题条目并入台账，带来源病例、规则、
+   * 责任机构、期限与状态日志；状态流转走 setProblemStatus，留下处置人/时间/意见。
+   * 说明：这是原型内的行为闭环（内存态 + 幂等），刷新后由正式后端落库；
+   * 关闭问题不会把临床指标改判达标——达标与否永远由分子分母决定。 */
+  var REMEDIATION_STORE = [];
+  function addCaseProblems(indId, caseKey) {
+    var r = caseByKey(indId, caseKey);
+    if (!r) return { created: 0, existed: 0, total: REMEDIATION_STORE.length, error: '未找到该病例' };
+    if (r.v === 'ok') return { created: 0, existed: 0, total: REMEDIATION_STORE.length, error: '该病例判定为符合，无需整改' };
+    var idemKey = 'FIX|' + r.key;
+    var i = 0;
+    for (; i < REMEDIATION_STORE.length; i++) if (REMEDIATION_STORE[i].idemKey === idemKey) break;
+    if (i < REMEDIATION_STORE.length) {
+      return { created: 0, existed: 1, total: REMEDIATION_STORE.length, code: REMEDIATION_STORE[i].code };
+    }
+    var now = new Date();
+    var at = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+    var item = {
+      idemKey: idemKey,
+      code: 'RMD' + (900000 + REMEDIATION_STORE.length + 1),
+      layer: 'L1', module: '六大绩效质控 · 病例整改',
+      type: r.verdictText, obj: (ind(indId) || {}).name || indId, objId: indId,
+      org: r.org, orgName: r.orgName, city: r.city, cityName: r.cityName,
+      cancer: r.cancer, cancerName: r.cancerName,
+      desc: r.reason || '质控判定不符合', rule: r.rule,
+      caseKey: r.key, patient: r.name, mrn: r.mrn, ipNo: r.ipNo,
+      count: 1, foundDate: at.slice(0, 10), dueDate: addDays(at.slice(0, 10), 14),
+      status: '待处理',
+      statusLog: [{ at: at, actor: '质控人员（演示账号）', action: '纳入整改：由病例明细创建病例级问题' }],
+      severity: '预警', source: 'case'
+    };
+    REMEDIATION_STORE.push(item);
+    PROBLEM_CACHE = null;
+    return { created: 1, existed: 0, total: REMEDIATION_STORE.length, code: item.code };
+  }
+  /* 问题状态流转：待处理→整改中→待复核→已关闭；退回＝重新进入整改。
+     每次流转必须记录处置人/时间/意见，供审计追溯。 */
+  function setProblemStatus(code, status, actor, note) {
+    if (LOOP_STATUS.indexOf(status) < 0) return false;
+    var pool = problems();
+    var p = null;
+    for (var i = 0; i < pool.length; i++) if (pool[i].code === code) { p = pool[i]; break; }
+    if (!p) return false;
+    var now = new Date();
+    var at = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+    p.status = status;
+    p.statusLog = p.statusLog || [];
+    p.statusLog.push({ at: at, actor: actor || '质控人员', action: status + (note ? '：' + note : '') });
+    /* 台账缓存数组中的条目就地更新，无需重建；problemStat 每次读取实时汇总 */
+    return true;
+  }
+  function remediationCount() { return REMEDIATION_STORE.length; }
+  /* 外部模块（如 MDT 质控，病例池不在本文件）把自己的病例级整改条目并入同一台账。
+     条目形状必须与 addCaseProblems 产出一致（含 idemKey），problems() 原样汇总，
+     「整改问题」页与状态流转无需区分来源。重复注册按 idemKey 去重。 */
+  function registerExternalProblems(items) {
+    if (!items || !items.length) return REMEDIATION_STORE.length;
+    items.forEach(function (x) {
+      if (!x || !x.idemKey) return;
+      for (var i = 0; i < REMEDIATION_STORE.length; i++) {
+        if (REMEDIATION_STORE[i].idemKey === x.idemKey) return;
+      }
+      REMEDIATION_STORE.push(x);
+    });
+    PROBLEM_CACHE = null;
+    return REMEDIATION_STORE.length;
+  }
+
+  /* ==================== 9d. 规则配置接入执行（审核修复 B01/B07 第一步） ====================
+   * ruleStats：细规则命中数不再从"指标×机构聚合问题条数"借数——
+   *   required（字段必填缺失）→ 数据缺失判定外推；
+   *   timing（时间先后违规）→ 数据异常判定外推；
+   *   threshold（数值低于下限）→ 不符合判定外推；
+   *   dict/time_within 类当前无可执行事实源 → 返回 null（界面显示"—"，不出假数）。
+   * applyRuleConfig：质控规则配置页（六组14条）把 R-P6-02 清扫数目区间注入判定：
+   *   修改下限 → lymphMinOf 生效值改变；停用 → 不再产生"低于下限"类不符合。
+   *   其余细则的启停/参数将在后台统一规则注册后接入（口径文档 §5 记录接入状态）。 */
+  function ruleStats(indId) {
+    var idx = caseIndex(indId, null, null);
+    var m = { ok: 0, bad: 0, miss: 0, abn: 0 };
+    for (var i = 0; i < idx.length; i++) m[idx[i].v] = (m[idx[i].v] || 0) + 1;
+    var a = agg(indId, null, null);
+    var scale = idx.length > 0 ? a.den / idx.length : 0;
+    return {
+      sample: idx.length, den: a.den, counts: m, period: PERIOD,
+      hit: {
+        required: Math.round(m.miss * scale),
+        timing: Math.round(m.abn * scale),
+        threshold: Math.round(m.bad * scale)
+      }
+    };
+  }
+  var RULE_CFG_VER = 0;
+  var LYMPH_DEFAULT_RANGE = null; /* 首次注入的区间视为基线（维持癌种字典），用户改动才生效 */
+  function applyRuleConfig(rules) {
+    if (!Array.isArray(rules)) return false;
+    var r6 = null;
+    for (var i = 0; i < rules.length; i++) {
+      if (rules[i].rel === 'QC-L1-006' && rules[i].tplId === 'range') { r6 = rules[i]; break; }
+    }
+    if (!r6) LYMPH_OV = null;
+    else if (r6.status !== '启用') LYMPH_OV = { disabled: true };
+    else {
+      var raw = String(r6.checkValue || '');
+      if (LYMPH_DEFAULT_RANGE == null) LYMPH_DEFAULT_RANGE = raw;
+      var mm = raw.match(/(\d+)\s*[-~]\s*(\d+)/);
+      LYMPH_OV = (raw !== LYMPH_DEFAULT_RANGE && mm) ? { min: +mm[1] } : null;
+    }
+    RULE_CFG_VER++;
+    clearPure(); resetCaseCache(); PROBLEM_CACHE = null;
+    return true;
+  }
+  function ruleConfigVersion() { return RULE_CFG_VER; }
 
   /* ==================== 10. 对外暴露 ==================== */
   window.qcSpine = {
@@ -2115,6 +2374,18 @@
       PROBLEM_CACHE = null;
       clearPure();
       resetCaseCache();
+    },
+    /* 报告期绑定（审核修复 P0-02）：前端年度筛选/后台任务共用此入口 */
+    setPeriod: setPeriod, getPeriod: getPeriod, aggForYear: aggForYear,
+    /* 整改闭环（审核修复 B02）：病例级幂等入问题 + 状态流转 + 处置日志 */
+    addCaseProblems: addCaseProblems, setProblemStatus: setProblemStatus,
+    remediationCount: remediationCount, registerExternalProblems: registerExternalProblems,
+    /* 规则配置接入（审核修复 B01/B07）：细规则命中统计 + 生效配置注入 */
+    ruleStats: ruleStats, applyRuleConfig: applyRuleConfig, ruleConfigVersion: ruleConfigVersion,
+    /* 官方口径元数据（文档同步用，不在结果页展示） */
+    windowByCancerOf: function (indId, cancerId) {
+      var i = ind(indId);
+      return i && i.windowByCancer ? (i.windowByCancer[cancerId] || null) : null;
     }
   };
 })();

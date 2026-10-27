@@ -5,11 +5,12 @@
 (function () {
   'use strict';
 
-  /* 规则分组与六大绩效指标一一对应（配与看闭环）。
+  /* 规则分组与六大绩效指标一一对应（配与看闭环），另加 MDT 入组规则组
+   * —— 2026-10-26 MDT 精简后，原「入组规则配置」独立页面撤销，规则收至此。
    * 旧九分类里 MDT/远程会诊/人群纳管/病案首页格式/报告卡单卡(身份证/电话/报卡时序/MV/DCO)
    * 等字段级规则，按条线归属移出到登记条线（报告卡质量监测·审核质控 / 预警模块），
-   * 本页只保留「六大绩效判定规则」。 */
-  var OWNED_IDS = ['qc-p1', 'qc-p2', 'qc-p3', 'qc-p4', 'qc-p5', 'qc-p6'];
+   * 本页只保留「六大绩效判定规则」与「MDT 入组规则」。 */
+  var OWNED_IDS = ['qc-p1', 'qc-p2', 'qc-p3', 'qc-p4', 'qc-p5', 'qc-p6', 'qc-mdt-r'];
 
   var CATEGORIES = [
     { id: 'qc-p1', label: '首次治疗前临床分期评估率' },
@@ -17,7 +18,8 @@
     { id: 'qc-p3', label: '术后病理 TNM 分期率' },
     { id: 'qc-p4', label: '围手术期死亡率' },
     { id: 'qc-p5', label: '首次靶向/免疫治疗前分子病理检测率' },
-    { id: 'qc-p6', label: '术中淋巴结清扫规范率' }
+    { id: 'qc-p6', label: '术中淋巴结清扫规范率' },
+    { id: 'qc-mdt-r', label: 'MDT 入组规则（应讨论病例判定）' }
   ];
 
   /* ==================== 校验模板 & 字段字典 ==================== */
@@ -40,7 +42,9 @@
     'qc-p3': ['pTNM分期', 'T分期', 'N分期', 'M分期', 'AJCC版本'],
     'qc-p4': ['出院去向', '死亡日期', '手术日期', '首次病程记录时间', '入院时间'],
     'qc-p5': ['分子检测结果', '检测日期', '首次用药日期'],
-    'qc-p6': ['清扫淋巴结数目', '病理检出数', '手术记录']
+    'qc-p6': ['清扫淋巴结数目', '病理检出数', '手术记录'],
+    /* MDT 入组规则：按癌种 + 临床特征判定，不是单字段校验 */
+    'qc-mdt-r': ['癌种编码', '临床分期', '治疗意图', '转移部位', '手术情况', '生存状态', 'MDT 入组条件']
   };
 
   var SEVERITIES = [
@@ -169,30 +173,96 @@
     { id: 'R-P5-02', category: 'qc-p5', rel: 'QC-L1-005', name: '检测日期不晚于首次用药', targetField: '检测日期', tplId: 'date_not_after', checkValue: '首次用药日期', severity: 'block', errorMsg: '分子检测须在首次靶向/免疫治疗用药前完成', status: '启用', period: '2026年度' },
     /* —— qc-p6 术中淋巴结清扫规范率（QC-L1-006） —— */
     { id: 'R-P6-01', category: 'qc-p6', rel: 'QC-L1-006', name: '清扫数目非空', targetField: '清扫淋巴结数目', tplId: 'required', checkValue: '', severity: 'block', errorMsg: '清扫淋巴结数目须完整填写', status: '启用', period: '2026年度' },
-    { id: 'R-P6-02', category: 'qc-p6', rel: 'QC-L1-006', name: '清扫数目达标', targetField: '清扫淋巴结数目', tplId: 'range', checkValue: '12-99', severity: 'warn', errorMsg: '清扫淋巴结数目须达到癌种规范要求下限', status: '启用', period: '2026年度' }
+    { id: 'R-P6-02', category: 'qc-p6', rel: 'QC-L1-006', name: '清扫数目达标', targetField: '清扫淋巴结数目', tplId: 'range', checkValue: '12-99', severity: 'warn', errorMsg: '清扫淋巴结数目须达到癌种规范要求下限', status: '启用', period: '2026年度' },
+    /* —— qc-mdt-r MDT 入组规则（QC-MDT-001 的分母口径）——
+       这些规则决定哪些病例「应该」做 MDT，即 MDT 讨论率的分母。
+       改入组规则只改这一组，讨论率分母随之变化（口径见 qc-mdt-data.js ENTER_RULES）。
+       注意：国家层面尚未发布肿瘤 MDT 专项质控指标，本组为院级口径，
+       须经院内质控委员会确认并报省质控中心，不得当作国家规定使用。 */
+    { id: 'R-MDT-LC-1', category: 'qc-mdt-r', rel: 'QC-MDT-001', name: '肺癌 III 期及以上', targetField: 'MDT 入组条件', tplId: 'cross', checkValue: '癌种=C34 且 临床分期≥IIIA', severity: 'warn', errorMsg: 'III 期及以上肺癌应纳入 MDT 管理', status: '启用', period: '2026年度', basis: '《原发性肺癌诊疗指南》多学科诊疗推荐' },
+    { id: 'R-MDT-LC-2', category: 'qc-mdt-r', rel: 'QC-MDT-001', name: '肺癌拟行新辅助治疗', targetField: 'MDT 入组条件', tplId: 'cross', checkValue: '癌种=C34 且 治疗意图=新辅助', severity: 'warn', errorMsg: '拟行新辅助治疗的肺癌应纳入 MDT 管理', status: '启用', period: '2026年度', basis: '《原发性肺癌诊疗指南》多学科诊疗推荐' },
+    { id: 'R-MDT-LC-3', category: 'qc-mdt-r', rel: 'QC-MDT-001', name: '肺癌寡转移局部治疗决策', targetField: 'MDT 入组条件', tplId: 'cross', checkValue: '癌种=C34 且 IV期 且 转移灶≤3', severity: 'log', errorMsg: '寡转移需局部治疗决策的肺癌建议 MDT', status: '启用', period: '2026年度', basis: '院级口径（待确认），不作为强制' },
+    { id: 'R-MDT-BC-1', category: 'qc-mdt-r', rel: 'QC-MDT-001', name: '乳腺癌拟行新辅助治疗', targetField: 'MDT 入组条件', tplId: 'cross', checkValue: '癌种=C50 且 治疗意图=新辅助', severity: 'warn', errorMsg: '拟行新辅助治疗的乳腺癌应纳入 MDT 管理', status: '启用', period: '2026年度', basis: '《CSCO 乳腺癌诊疗指南》' },
+    { id: 'R-MDT-BC-2', category: 'qc-mdt-r', rel: 'QC-MDT-001', name: '乳腺癌 HER2 阳性或三阴性', targetField: 'MDT 入组条件', tplId: 'cross', checkValue: '癌种=C50 且 分子分型∈{HER2+,TNBC}', severity: 'warn', errorMsg: 'HER2 阳性或三阴性乳腺癌应纳入 MDT 管理', status: '启用', period: '2026年度', basis: '《CSCO 乳腺癌诊疗指南》' },
+    { id: 'R-MDT-BC-3', category: 'qc-mdt-r', rel: 'QC-MDT-001', name: '乳腺癌局部晚期', targetField: 'MDT 入组条件', tplId: 'cross', checkValue: '癌种=C50 且 临床分期≥IIIA', severity: 'warn', errorMsg: '局部晚期乳腺癌应纳入 MDT 管理', status: '启用', period: '2026年度', basis: '《CSCO 乳腺癌诊疗指南》' },
+    { id: 'R-MDT-CRC-1', category: 'qc-mdt-r', rel: 'QC-MDT-001', name: '直肠癌局部进展期', targetField: 'MDT 入组条件', tplId: 'cross', checkValue: '癌种=C18 且 部位=直肠 且 (T3/T4 或 N+)', severity: 'warn', errorMsg: '局部进展期直肠癌应纳入 MDT 管理', status: '启用', period: '2026年度', basis: '《CSCO 结直肠癌诊疗指南》' },
+    { id: 'R-MDT-CRC-2', category: 'qc-mdt-r', rel: 'QC-MDT-001', name: '结直肠癌肝/肺转移可切除性判断', targetField: 'MDT 入组条件', tplId: 'cross', checkValue: '癌种=C18 且 存在可切除或潜在可切除转移灶', severity: 'warn', errorMsg: '转移性结直肠癌可切除性判断应 MDT', status: '启用', period: '2026年度', basis: '《CSCO 结直肠癌诊疗指南》' },
+    { id: 'R-MDT-GC-1', category: 'qc-mdt-r', rel: 'QC-MDT-001', name: '胃癌拟行新辅助治疗', targetField: 'MDT 入组条件', tplId: 'cross', checkValue: '癌种=C16 且 治疗意图=新辅助', severity: 'warn', errorMsg: '拟行新辅助治疗的胃癌应纳入 MDT 管理', status: '启用', period: '2026年度', basis: '《CSCO 胃癌诊疗指南》' },
+    { id: 'R-MDT-GC-2', category: 'qc-mdt-r', rel: 'QC-MDT-001', name: '胃癌腹膜转移', targetField: 'MDT 入组条件', tplId: 'cross', checkValue: '癌种=C16 且 存在腹膜转移', severity: 'warn', errorMsg: '腹膜转移胃癌应纳入 MDT 管理', status: '启用', period: '2026年度', basis: '《CSCO 胃癌诊疗指南》' },
+    { id: 'R-MDT-HCC-1', category: 'qc-mdt-r', rel: 'QC-MDT-001', name: '肝癌超出手术切除标准', targetField: 'MDT 入组条件', tplId: 'cross', checkValue: '癌种=C22 且 不可切除或需在TACE/靶向/消融间决策', severity: 'warn', errorMsg: '超出手术切除标准的肝癌应纳入 MDT 管理', status: '启用', period: '2026年度', basis: '《原发性肝癌诊疗指南》' },
+    { id: 'R-MDT-EC-1', category: 'qc-mdt-r', rel: 'QC-MDT-001', name: '食管癌拟行新辅助治疗', targetField: 'MDT 入组条件', tplId: 'cross', checkValue: '癌种=C15 且 治疗意图=新辅助', severity: 'warn', errorMsg: '拟行新辅助治疗的食管癌应纳入 MDT 管理', status: '启用', period: '2026年度', basis: '《CSCO 食管癌诊疗指南》' },
+    { id: 'R-MDT-EC-2', category: 'qc-mdt-r', rel: 'QC-MDT-001', name: '颈段/上段食管癌', targetField: 'MDT 入组条件', tplId: 'cross', checkValue: '癌种=C15 且 部位∈{颈段,上段}', severity: 'warn', errorMsg: '颈段/上段食管癌应纳入 MDT 管理', status: '启用', period: '2026年度', basis: '《CSCO 食管癌诊疗指南》' },
+    { id: 'R-MDT-ALL-1', category: 'qc-mdt-r', rel: 'QC-MDT-001', name: '非计划再次手术（全癌种）', targetField: 'MDT 入组条件', tplId: 'cross', checkValue: '本次住院存在非计划再次手术', severity: 'warn', errorMsg: '非计划再次手术病例应纳入 MDT 管理', status: '启用', period: '2026年度', basis: '《国家医疗质量安全改进目标》疑难病例讨论要求' },
+    { id: 'R-MDT-ALL-2', category: 'qc-mdt-r', rel: 'QC-MDT-001', name: '死亡病例讨论（全癌种）', targetField: 'MDT 入组条件', tplId: 'cross', checkValue: '住院死亡', severity: 'warn', errorMsg: '住院死亡病例应完成死亡病例讨论', status: '启用', period: '2026年度', basis: '《医疗质量安全核心制度》死亡病例讨论制度' }
   ];
 
-  /* 规则命中数：从质控问题中心（window.qcSpine.problems()）按规则号实时统计。
-   * 取不到脊柱（脚本未加载）或该规则无对应问题时返回 null → 界面显示"—"，
-   * 绝不硬造数字。阈值类聚合规则本身没有"逐条命中"语义，返回 null。 */
-  function statHitOf(rule) {
-    if (rule.tplId === 'threshold_gt' || rule.tplId === 'threshold_lt') return null;
-    var S = window.qcSpine;
-    if (!S || typeof S.problems !== 'function') return null;
-    try {
-      var ps = S.problems();
-      var hit = 0;
-      var rel = relForRule(rule);
-      ps.forEach(function (p) {
-        var code = (p.rule && p.rule.code) || '';
-        if (code === rel) hit++;
-      });
-      return hit;   /* 可能为 0，0 与 null 语义不同：0=统计到但无命中 */
-    } catch (e) { return null; }
+  /* 审核修复 B01：规则配置的持久化与执行接入。
+   * ① 启停/编辑/新增写入 localStorage，刷新后保留（原实现只改页面私有数组，
+   *    重开即回默认）；② 每次变更同步注入数据脊柱：R-P6-02 区间下限/停用
+   *    会真正改变 NQ-06 判定；其余细则的执行接入状态见《口径与计算规则》§5；
+   * ③ 变更留痕（jx.qcrules.log.v1，最近 200 条），作为生效记录。 */
+  var LS_KEY = 'jx.qcrules.v1', LS_LOG = 'jx.qcrules.log.v1';
+  function syncSpine() {
+    var Sp = window.qcSpine;
+    if (Sp && typeof Sp.applyRuleConfig === 'function') { try { Sp.applyRuleConfig(RULES); } catch (e) {} }
   }
+  function saveRules(logEntry) {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(RULES));
+      if (logEntry) {
+        var lg = JSON.parse(localStorage.getItem(LS_LOG) || '[]');
+        lg.push(logEntry);
+        if (lg.length > 200) lg = lg.slice(-200);
+        localStorage.setItem(LS_LOG, JSON.stringify(lg));
+      }
+    } catch (e) { /* 隐私模式等场景静默：内存内变更仍生效 */ }
+    syncSpine();
+  }
+  function logEntry(action, r) {
+    return { at: new Date().toISOString(), action: action,
+      ruleId: r && r.id, rel: r && r.rel, name: r && r.name, status: r && r.status,
+      checkValue: r && r.checkValue, configVersion: (window.qcSpine && window.qcSpine.ruleConfigVersion) ? window.qcSpine.ruleConfigVersion() : 0 };
+  }
+  (function hydrate() {
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      if (!raw) return;
+      var arr = JSON.parse(raw);
+      if (!Array.isArray(arr) || !arr.length) return;
+      RULES.length = 0;
+      arr.forEach(function (r) { if (r && r.id) RULES.push(r); });
+    } catch (e) { /* 存储损坏则回退内置默认 */ }
+  })();
 
   /* 自动补齐 description */
   RULES.forEach(function (r) { r.description = autoDesc(r.category, r.targetField, r.tplId, r.checkValue, r.errorMsg); });
+  saveRules(null); /* 首次加载即持久化当前生效配置并同步脊柱 */
+
+  /* 规则命中数：按"细则角色 → 判定类型"从病例级抽样外推（审核修复 B07）。
+   * 原实现统计的是"指标×机构聚合问题条数"，导致同组所有细则显示同一数字，
+   * 新建未执行的规则也立刻有数。现在：
+   *   required（字段必填）→ 数据缺失判定外推；
+   *   date_not_after / date_not_before（时序）→ 数据异常判定外推；
+   *   range（数值下限）→ 不符合判定外推；
+   *   dict / time_within / threshold_*：当前无可执行事实源或未执行 → 返回 null 显示"—"，
+   *   绝不给未运行的规则编命中数。停用规则同样显示"—"。 */
+  var REL2IND = { 'QC-L1-001': 'NQ-01', 'QC-L1-002': 'NQ-02', 'QC-L1-003': 'NQ-03', 'QC-L1-004': 'NQ-04', 'QC-L1-005': 'NQ-05', 'QC-L1-006': 'NQ-06' };
+  var TPL2ROLE = { required: 'required', date_not_after: 'timing', date_not_before: 'timing', range: 'threshold' };
+  function statHitOf(rule) {
+    if (rule.status !== '启用') return null;
+    /* MDT 入组规则（cross 型、rel=QC-MDT-001）没有逐条命中统计：
+       它的产出是「应讨论病例分母」，不是问题条数，显示「—」而不是编一个数。 */
+    if (rule.category === 'qc-mdt-r' || rule.rel === 'QC-MDT-001') return null;
+    var role = TPL2ROLE[rule.tplId];
+    var indId = REL2IND[rule.rel];
+    var Sp = window.qcSpine;
+    if (!role || !indId || !Sp || typeof Sp.ruleStats !== 'function') return null;
+    try {
+      var rs = Sp.ruleStats(indId);
+      if (!rs || rs.den <= 0 || rs.sample <= 0) return null;
+      return rs.hit[role];
+    } catch (e) { return null; }
+  }
 
   /* ==================== 弹窗 ==================== */
   function qcrModal(title, body, footHtml) {
@@ -273,9 +343,13 @@
       vals.description = autoDesc(vals.category, vals.targetField, vals.tplId, vals.checkValue, vals.errorMsg);
       if (isEdit) {
         Object.keys(vals).forEach(function (k) { rule[k] = vals[k]; });
+        rule.description = autoDesc(rule.category, rule.targetField, rule.tplId, rule.checkValue, rule.errorMsg);
+        saveRules(logEntry('编辑', rule));
       } else {
         vals.period = '2026年度';
+        vals.description = autoDesc(vals.category, vals.targetField, vals.tplId, vals.checkValue, vals.errorMsg);
         RULES.push(vals);
+        saveRules(logEntry('新增', vals));
       }
       mask.remove();
       renderInto(state.category);
@@ -318,8 +392,9 @@
     var r = RULES.find(function (x) { return x.id === id; });
     if (!r) return;
     r.status = r.status === '启用' ? '停用' : '启用';
+    saveRules(logEntry('启停切换', r));
     renderInto(state.category);
-    toast(r.status === '启用' ? '已启用「' + r.name + '」' : '已停用「' + r.name + '」');
+    toast(r.status === '启用' ? '已启用「' + r.name + '」，配置已保存' : '已停用「' + r.name + '」，配置已保存');
   };
   window.qcrDelete = function (id) {
     var r = RULES.find(function (x) { return x.id === id; });
@@ -327,6 +402,7 @@
     var doDel = function () {
       var idx = RULES.indexOf(r);
       if (idx >= 0) RULES.splice(idx, 1);
+      saveRules(logEntry('删除', r));
       renderInto(state.category);
       toast('已删除规则「' + r.name + '」');
     };

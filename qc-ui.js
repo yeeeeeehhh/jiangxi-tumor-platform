@@ -456,14 +456,21 @@
     return cols;
   }
 
-  /* 渲染（只画当前状态，交互靠事件代理 + qcCascRefresh 重画面板） */
+  /* 渲染（只画当前状态，交互靠事件代理 + qcCascRefresh 重画面板）
+   * 审查修复：path 必须落到 DOM 上（data-qccasc-path），否则每次页面重绘后
+   * box._qcPath 都是空的 —— 用户先选「南昌市」、页面重绘、再点「东湖区」时
+   * cascPick 从空数组开始 slice，把上级选择丢掉，筛出来的范围就错一级。
+   * placeholder 同样要输出（data-qccasc-ph），清除按钮才能回显正确文案。 */
   function cascader(id, path, ph, tree) {
     var root = tree || (typeof window !== 'undefined' && window.regionData ? window.regionData[0] : null);
     var p = (path || []).filter(Boolean);
     var label = cascPathValue(p);
-    return '<div class="qc-casc" data-qccasc="' + esc(id) + '">' +
+    var phText = ph || '全部地区';
+    return '<div class="qc-casc" data-qccasc="' + esc(id) + '"' +
+      ' data-qccasc-path="' + esc(p.join('\u0001')) + '"' +
+      ' data-qccasc-ph="' + esc(phText) + '">' +
       '<button type="button" class="qc-casc-trigger' + (p.length ? ' has' : '') + '" data-qccasc-trigger="1">' +
-      '<span class="qc-casc-val' + (p.length ? '' : ' ph') + '">' + esc(label || ph || '全部地区') + '</span>' +
+      '<span class="qc-casc-val' + (p.length ? '' : ' ph') + '">' + esc(label || phText) + '</span>' +
       '<span class="qc-casc-clr" data-qccasc-clear="1" title="清除">×</span>' +
       '<span class="qc-casc-caret">▼</span>' +
       '</button>' +
@@ -471,14 +478,31 @@
       '</div>';
   }
 
-  /* 重画某个级联控件的面板内容（打开面板 / 选了某一层之后调用） */
+  /* 从 DOM 读回当前路径（重绘后恢复 _qcPath 的唯一来源） */
+  function cascPathFromDom(box) {
+    if (!box) return [];
+    var raw = box.getAttribute('data-qccasc-path') || '';
+    return raw ? raw.split('\u0001').filter(Boolean) : [];
+  }
+  /* 把路径写回 DOM，保证「DOM 状态 = 内存状态」，重绘与清除都不丢层级 */
+  function cascPathToDom(box, path) {
+    if (!box) return;
+    box.setAttribute('data-qccasc-path', (path || []).filter(Boolean).join('\u0001'));
+  }
+
+  /* 重画某个级联控件的面板内容（打开面板 / 选了某一层之后调用）。
+     路径以 DOM 为权威来源：页面重绘后 _qcPath 会被重置，必须从
+     data-qccasc-path 恢复，否则上级选择丢失（见 cascader 注释）。 */
   function cascRefresh(box) {
     if (!box) return;
     var panel = box.querySelector('[data-qccasc-panel]');
     if (!panel) return;
     var root = window.regionData ? window.regionData[0] : null;
     if (!root) { panel.innerHTML = '<div class="qc-casc-empty">区域数据未加载</div>'; return; }
-    var path = box._qcPath || [];
+    /* DOM 有值就用 DOM，否则沿用内存（首次打开且从未选过） */
+    var domPath = cascPathFromDom(box);
+    var path = domPath.length ? domPath : (box._qcPath || []);
+    box._qcPath = path;
     var cols = cascColumns(root, path);
     panel.innerHTML = cols.map(function (col, ci) {
       return '<div class="qc-casc-col" data-qccasc-col="' + ci + '">' +
@@ -507,11 +531,15 @@
     }
   }
 
-  /* 点某一层：选中它、清空其后各层、重画面板；最末层选完顺手收起 */
+  /* 点某一层：选中它、清空其后各层、重画面板；最末层选完顺手收起。
+     起点路径从 DOM 读，避免重绘后 box._qcPath 为空导致上级选择被丢掉。 */
   function cascPick(box, ci, label) {
-    var path = (box._qcPath || []).slice(0, ci);
+    var base = cascPathFromDom(box);
+    if (!base.length && box._qcPath && box._qcPath.length) base = box._qcPath;
+    var path = base.slice(0, ci);
     path[ci] = label;
     box._qcPath = path;
+    cascPathToDom(box, path);
     /* 回显路径 */
     var valEl = box.querySelector('.qc-casc-val');
     var trig = box.querySelector('[data-qccasc-trigger]');
@@ -529,10 +557,38 @@
     }
     /* 通知宿主页面 */
     var id = box.getAttribute('data-qccasc');
-    if (typeof window.onQcCascade === 'function') window.onQcCascade(id, path, box);
+    dispatchCascade(id, path, box);
   }
 
-  /* 全局只装一次：开关面板 / 点选 / 清除 / 点外面收起 */
+  /* ==================== 级联选择器回调注册表 ====================
+   * 审查修复：原来 window.onQcCascade 是**单一全局函数**，谁最后赋值谁生效。
+   * 质控管理下有六大绩效质控、MDT质控两个宿主要响应级联，靠「后加载的包住
+   * 先加载的」维持 —— 任何一处顺序变化或重复赋值（第三方模块、热更新）
+   * 都会把另一个宿主的地区筛选彻底打断，且页面没有任何报错，只是筛选不生效。
+   * 现在改为注册表：每个宿主用 qcUI.onCascade(owner, fn) 注册，按注册顺序
+   * 依次询问，handler 返回 true 表示认领该 id。window.onQcCascade 保留为
+   * 兼容入口（老写法仍可用，且在注册表之后兜底执行）。 */
+  var CASCADE_HANDLERS = [];
+  function onCascade(owner, fn) {
+    if (typeof fn !== 'function') return;
+    for (var i = 0; i < CASCADE_HANDLERS.length; i++) {
+      if (CASCADE_HANDLERS[i].owner === owner) { CASCADE_HANDLERS[i].fn = fn; return; }
+    }
+    CASCADE_HANDLERS.push({ owner: owner, fn: fn });
+  }
+  /* 逐级派发：handler 返回 true 表示已认领，不再往下传 */
+  function dispatchCascade(id, path, box) {
+    for (var i = 0; i < CASCADE_HANDLERS.length; i++) {
+      try {
+        if (CASCADE_HANDLERS[i].fn(id, path, box) === true) return;
+      } catch (e) { /* 单个宿主出错不阻断其它宿主 */ }
+    }
+    /* 兼容老写法：仍有模块直接赋值 window.onQcCascade */
+    var legacy = window.onQcCascade;
+    if (typeof legacy === 'function') {
+      try { legacy(id, path, box); } catch (e2) {}
+    }
+  }
   if (typeof document !== 'undefined' && !document._qcCascBound) {
     document._qcCascBound = true;
     document.addEventListener('click', function (ev) {
@@ -542,14 +598,17 @@
       if (clr) {
         var bx = clr.closest('[data-qccasc]');
         if (bx) {
+          /* 清除：内存与 DOM 都要清，否则重绘后旧路径又被读回来 */
           bx._qcPath = [];
+          cascPathToDom(bx, []);
           var v = bx.querySelector('.qc-casc-val');
           var tg = bx.querySelector('[data-qccasc-trigger]');
-          if (v) { v.textContent = bx.getAttribute('data-qccasc-ph') || '全部地区'; v.classList.add('ph'); }
+          var phText = bx.getAttribute('data-qccasc-ph') || '全部地区';
+          if (v) { v.textContent = phText; v.classList.add('ph'); }
           if (tg) tg.classList.remove('has');
           cascRefresh(bx);
           var id0 = bx.getAttribute('data-qccasc');
-          if (typeof window.onQcCascade === 'function') window.onQcCascade(id0, [], bx);
+          dispatchCascade(id0, [], bx);
         }
         ev.stopPropagation();
         return;
@@ -572,7 +631,9 @@
         if (panel) panel.classList.toggle('on', !!willOpen);
         trig.classList.toggle('on', !!willOpen);
         if (willOpen && box3) {
-          if (!box3._qcPath) box3._qcPath = [];
+          /* 打开面板前用 DOM 路径覆盖内存（页面重绘后 _qcPath 不可信） */
+          var domP = cascPathFromDom(box3);
+          box3._qcPath = domP.length ? domP : (box3._qcPath || []);
           cascRefresh(box3);
         }
         ev.stopPropagation();
@@ -603,17 +664,31 @@
       '</div></div>';
   }
 
-  /* 分页条。动作格式统一为 "<pageKey>:page:<n>"，与各模块的点击监听一致。 */
+  /* 分页条。动作格式统一为 "<pageKey>:page:<n>"，与各模块的点击监听一致。
+   * 审核修复 B06：原来只渲染 1—8 页按钮、无翻页，第 9 页以后不可达。
+   * 现改为窗口化页码（首页/尾页常驻 + 当前页±2）+「上一页/下一页」，任意页数可达。 */
   function pager(total, page, per, pageKey) {
     var max = Math.max(1, Math.ceil(total / per));
     if (page > max) page = max;
-    var btns = '';
-    for (var i = 1; i <= max && i <= 8; i++) {
-      if (i === page) btns += '<b>' + i + '</b>';
-      else btns += '<button class="btn btn-ghost" style="height:28px;padding:0 9px" data-qc="' + esc(pageKey) + ':page:' + i + '">' + i + '</button>';
+    if (page < 1) page = 1;
+    function btn(n, label) {
+      if (n === page) return '<b>' + (label || n) + '</b>';
+      return '<button class="btn btn-ghost" style="height:28px;padding:0 9px" data-qc="' + esc(pageKey) + ':page:' + n + '">' + (label || n) + '</button>';
     }
-    if (max > 8) btns += '<span style="color:#94a3b8">…共 ' + max + ' 页</span>';
-    return '<div class="qc-foot"><span>共 ' + fmt(total) + ' 条</span><span class="qc-pager">' + btns + '</span></div>';
+    var btns = '';
+    if (max > 1) btns += btn(page - 1, '‹ 上一页');
+    var win = {};
+    var want = [1, max, page - 2, page - 1, page, page + 1, page + 2];
+    want.forEach(function (n) { if (n >= 1 && n <= max) win[n] = 1; });
+    var keys = Object.keys(win).map(Number).sort(function (a, b) { return a - b; });
+    var prevN = 0;
+    keys.forEach(function (n) {
+      if (prevN && n - prevN > 1) btns += '<span style="color:#94a3b8;padding:0 4px">…</span>';
+      btns += btn(n);
+      prevN = n;
+    });
+    if (max > 1) btns += btn(page + 1, '下一页 ›');
+    return '<div class="qc-foot"><span>共 ' + fmt(total) + ' 条 · ' + max + ' 页</span><span class="qc-pager">' + btns + '</span></div>';
   }
   /* 内存分页 */
   function slice(list, page, per) {
@@ -901,6 +976,8 @@
     /* 级联选择器（区域五级联动） */
     cascader: cascader, cascRefresh: cascRefresh, cascCloseAll: cascCloseAll,
     cascPathValue: cascPathValue,
+    /* 级联回调注册表：宿主模块用它登记自己的地区筛选处理函数（互不覆盖） */
+    onCascade: onCascade, dispatchCascade: dispatchCascade,
     modal: modal, closeModal: closeModal, toast: toast
   };
 })();

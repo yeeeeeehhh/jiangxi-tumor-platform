@@ -1715,37 +1715,7 @@
   }
 
   /* ===================== 11. 七个阶段工作区 =====================
-     每个工作区 = 阶段说明 + 阶段任务清单 + 阶段产物 + 本阶段操作。
-     区别于旧版：这里只展示**当前阶段该干的事**，且每项产物都能看出是否齐备。 */
-
-  /* 通用：阶段任务清单（勾选态由数据推导，不可手改） */
-  function stageChecklist(items) {
-    var done = items.filter(function (x) { return x.ok; }).length;
-    return '<div class="panel" style="margin-bottom:16px"><div class="panel-header">本阶段任务清单' +
-      '<span class="ph-sub">已完成 ' + done + ' / ' + items.length + '</span></div>' +
-      '<div class="panel-body" style="padding-top:6px"><ul class="ar-checklist">' +
-      items.map(function (x) {
-        return '<li class="' + (x.ok ? 'ok' : 'todo') + '"><span class="ck">' + (x.ok ? '✓' : '○') + '</span>' +
-          '<div class="ct"><div class="ct-t">' + e(x.title) + '</div>' +
-          (x.desc ? '<div class="ct-d">' + e(x.desc) + '</div>' : '') + '</div>' +
-          (x.act ? '<div class="ct-a">' + x.act + '</div>' : '') + '</li>';
-      }).join('') + '</ul></div></div>';
-  }
-
-  /* 通用：阶段留痕（该阶段相关的流转记录） */
-  function stageLogPanel(t, stageId) {
-    var logs = (t.stageLog || []).filter(function (l) { return l.to === stageId || l.from === stageId; });
-    if (!logs.length) return '';
-    return '<div class="panel" style="margin-bottom:16px"><div class="panel-header">阶段留痕</div>' +
-      '<div class="panel-body" style="padding-top:8px"><table class="data-table" style="width:100%;min-width:0">' +
-      '<thead><tr><th class="code" style="width:150px">时间</th><th class="code" style="width:100px">动作</th><th class="txt">说明</th><th class="code" style="width:150px">操作人</th></tr></thead><tbody>' +
-      logs.map(function (l) {
-        return '<tr><td class="code" style="font-size:12px;color:#64748b">' + e(l.at) + '</td>' +
-          '<td class="code">' + badge(l.action === '阶段回退' ? 'warning' : l.action === '作废' ? 'danger' : 'info', e(l.action)) + '</td>' +
-          '<td class="txt" style="font-size:12.5px;color:#334155">' + e(l.note) + '</td>' +
-          '<td class="code" style="font-size:12px;color:#64748b">' + e(l.by) + '</td></tr>';
-      }).join('') + '</tbody></table></div></div>';
-  }
+     每个工作区 = 阶段说明 + 本阶段操作（任务清单 / 阶段留痕已按需求下线）。 */
 
   /* ---------- 阶段 1：建立任务 ---------- */
   function wsTask(t) {
@@ -1796,22 +1766,7 @@
         '<span class="ar-hint">保存后数据准备阶段的取数口径随之更新</span></div>') +
       '</div></div>';
 
-    var checklist = stageChecklist([
-      { ok: !!t.year, title: '确定报告年度', desc: '年度决定取数范围与人口分母' },
-      { ok: !!t.scope && (t.scope !== 'city' || (t.cities || []).filter(function (c) { return c !== 'jx'; }).length > 0), title: '确定覆盖范围', desc: t.scope === 'city' ? '按设区市编制时须至少勾选一个市' : '全省口径覆盖 11 设区市' },
-      { ok: !!t.popCal, title: '选择人口口径', desc: '常住人口 / 户籍人口，影响全部粗率的分母' },
-      { ok: !!t.stdPop, title: '选择标准人口', desc: '中国 2000 年标准人口（中标率）/ Segi 世界标准人口（世标率）' },
-      { ok: !!(tplById(t.templateId)), title: '选定报告模板', desc: '决定章节结构、正文块与统计表预设' },
-      { ok: !!t.title, title: '确认报告标题', desc: '用于导出文件名、上报记录与归档' }
-    ]);
-
-    return form + checklist +
-      '<div class="panel" style="margin-bottom:16px"><div class="panel-header">本阶段产物</div><div class="panel-body">' +
-      '<div class="ar-artifact-grid">' + AR().byId('task').artifacts.map(function (a) {
-        return '<div class="ar-artifact ' + (gate.ok ? 'ok' : 'todo') + '"><span class="ai">' + (gate.ok ? '✓' : '○') + '</span><span>' + a + '</span></div>';
-      }).join('') + '</div>' +
-      '<div class="ar-hint" style="margin-top:12px">口径一经进入「数据准备」即锁定；后续如需变更，须回退到本阶段重新保存，避免数据与正文口径不一致。</div>' +
-      '</div></div>' + stageLogPanel(t, 'task');
+    return form;
   }
 
   /* ---------- 阶段 1 动作：保存编制基准 ---------- */

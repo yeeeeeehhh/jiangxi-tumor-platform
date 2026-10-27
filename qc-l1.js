@@ -52,7 +52,7 @@
       l: i.name, v: S.f1(a.value), unit: unit,
       tone: i.dir === 'down' ? 'info' : (S.l1Pass(i.id, a.value) ? 'up' : 'warn'),
       m: '分子 <b>' + S.fmt(a.num) + '</b> / 分母 <b>' + S.fmt(a.den) + '</b> · 同比 ' +
-        (y >= 0 ? '+' : '') + y + '% · 异常 <b>' + S.fmt(abn) + '</b> 例',
+        (a.den <= 0 || y == null ? '—' : (y >= 0 ? '+' : '') + y + '%') + ' · 异常 <b>' + S.fmt(abn) + '</b> 例',
       action: 'l1:ind:' + i.id
     };
   }
@@ -291,7 +291,7 @@
     var y = S.yoy(i.id, fs, cs);
     var abn = S.abnCount(i.id, ST.cancer || null, fs);
     var scope = (ST.city ? S.cityName(ST.city) : ST.org ? S.org(ST.org).name : '全省') + (ST.cancer ? ' · ' + S.cancer(ST.cancer).name : '');
-    var pass = S.l1Pass(i.id, a.value);
+    var pass = a.den > 0 && S.l1Pass(i.id, a.value);
     var gap = S.l1Gap(i.id, a.value);
     var yoyGood = i.dir === 'down' ? y < 0 : y > 0;
 
@@ -313,7 +313,9 @@
         ? '<span class="up">已达标</span>，' + (gap >= 0 ? '优于' : '低于') + '达标线 <b>' + S.f1(Math.abs(gap)) + '</b> 个百分点。'
         : '<span class="dn">未达标</span>，距达标线差 <b>' + S.f1(Math.abs(gap)) + '</b> 个百分点。') +
         ' 分子 <b>' + S.fmt(a.num) + '</b> / 分母 <b>' + S.fmt(a.den) + '</b>，同比 ' +
-        '<span class="' + (yoyGood ? 'up' : 'dn') + '">' + (y >= 0 ? '+' : '') + y + '%</span>（' + (yoyGood ? '向好' : '回落') + '）。'
+        (y == null
+          ? '<span style="color:#94a3b8">—（上一年度同口径无可比数据）</span>'
+          : '<span class="' + (yoyGood ? 'up' : 'dn') + '">' + (y >= 0 ? '+' : '') + y + '%</span>（' + (yoyGood ? '向好' : '回落') + '）。')
     });
     if (failOrgs.length) {
       var names = failOrgs.slice(0, 3).map(function (r) { return r.name + '（' + S.f1(r.value) + '%）'; }).join('、');
