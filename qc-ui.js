@@ -37,6 +37,19 @@
        窄屏独占一行时就会在按钮下方露出空白带。固定自身高度并底对齐即可。 */
     '#pageContainer .qc-filter .acts{display:flex;justify-content:flex-end;align-items:center;gap:8px;grid-column:auto;align-self:end;height:34px}',
     '#pageContainer .qc-filter .acts .btn{height:34px}',
+    /* 范围筛选条（.qc-filter 的「字段排一行」变体，质控绩效与 MDT 质控共用）。
+       2026-10-28 修复：这里绝不能加 overflow:auto/hidden —— 级联面板是 .qc-casc 的
+       绝对定位子元素，而 .qc-casc 在本条内部；父级一旦成为滚动容器就会把面板裁掉，
+       表现就是「所属地区」点开后只露出一条白边、看不到任何市/区县选项
+       （overflow-x:auto 会让 overflow-y 的计算值也变成 auto，横向滚动条顺手把纵向也剪了）。
+       窄屏不再横向滚动，改为换行，避免同样的裁剪问题。 */
+    '#pageContainer .qc-scope{display:flex;flex-wrap:nowrap;align-items:flex-end;gap:10px;overflow:visible}',
+    '#pageContainer .qc-scope .fg{flex:1 1 0;min-width:0}',
+    '#pageContainer .qc-scope .fg.w-year{flex:0 0 92px}',
+    '#pageContainer .qc-scope .fg.w-mid{flex:1.15 1 150px}',
+    '#pageContainer .qc-scope .acts{flex:0 0 auto;grid-column:auto;white-space:nowrap}',
+    '#pageContainer .qc-scope select{text-overflow:ellipsis}',
+    '@media(max-width:1180px){#pageContainer .qc-scope{flex-wrap:wrap}#pageContainer .qc-scope .fg{flex:1 1 190px}#pageContainer .qc-scope .fg.w-year{flex:0 0 110px}}',
     /* ---------- 级联选择器（省→市→区县→街道→社区 五级） ----------
        一个输入框当触发器，点开弹出面板：面板按层分列，点某层的项就把
        该层及以下重置、并把下一层列出来。选中后框内回显路径。 */
@@ -52,7 +65,11 @@
     '#pageContainer .qc-casc-trigger.on .qc-casc-caret{transform:rotate(180deg)}',
     '#pageContainer .qc-casc-panel{position:absolute;z-index:1300;top:calc(100% + 4px);left:0;display:none;background:#fff;border:1px solid #d1d8e0;border-radius:8px;box-shadow:0 10px 30px rgba(15,23,42,.16);padding:6px;max-width:min(760px,92vw)}',
     '#pageContainer .qc-casc-panel.on{display:flex;gap:2px}',
-    '#pageContainer .qc-casc-col{min-width:132px;max-height:290px;overflow:auto;padding:2px}',
+    /* 触发框贴近视口底部时向上展开（cascPlace 判定后加 .up） */
+    '#pageContainer .qc-casc-panel.up{top:auto;bottom:calc(100% + 4px)}',
+    /* 列高按 11 个设区市整屏排得下（11×30+6）：原来 290px 会把「上饶市」挡在
+       滚动区外，看起来像是市列少了几个 —— 下拉一旦要滚动，用户第一反应是"漏了"。 */
+    '#pageContainer .qc-casc-col{min-width:132px;max-height:336px;overflow:auto;padding:2px}',
     '#pageContainer .qc-casc-col+.qc-casc-col{border-left:1px solid #eef2f7}',
     '#pageContainer .qc-casc-item{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;height:30px;padding:0 9px;border:0;border-radius:5px;background:none;color:#334155;font-size:12.5px;cursor:pointer;font-family:inherit;text-align:left;white-space:nowrap}',
     '#pageContainer .qc-casc-item:hover{background:#f1f7ff;color:var(--primary)}',
@@ -437,6 +454,50 @@
   function cascNodeChildren(node) { return (node && node.children) || []; }
   function cascPathValue(path) { return (path || []).filter(Boolean).join(' / '); }
 
+  /* 区域树的根节点。2026-10-28 修复：
+     全站区域数据 regionData 在 app.html 里是 `const regionData = [...]` 的全局
+     **词法绑定**，并不挂在 window 上；而这里原来只读 window.regionData，取到的是
+     undefined，于是级联面板永远显示「区域数据未加载」（所属地区下拉里一个市都没有）。
+     现按 window 挂载 → 全局词法绑定 → qcSpine 设区市表 依次兜底，任一来源可用即可出树。 */
+  function regionRoot() {
+    var cands = [];
+    if (typeof window !== 'undefined') cands.push(window.regionData);
+    try { if (typeof regionData !== 'undefined') cands.push(regionData); } catch (e) { /* 未定义即跳过 */ }
+    for (var i = 0; i < cands.length; i++) {
+      var t = cands[i];
+      if (t && t[0] && cascNodeChildren(t[0]).length) return t[0];
+    }
+    /* 最后兜底：用质控脊柱里的设区市 / 区县表合成两级树（无街道、社区） */
+    var S = window.qcSpine;
+    if (S && S.CITIES && S.CITIES.length) {
+      return {
+        label: '全省',
+        children: S.CITIES.map(function (c) {
+          return { label: c.name, children: (c.counties || []).map(function (n) { return { label: n }; }) };
+        })
+      };
+    }
+    return null;
+  }
+
+  /* 面板定位：右边界收进视口、下方放不下时向上展开。
+     面板列数随层级增加（最多 5 列 ≈ 700px），触发框靠右会被视口右边缘切掉一截，
+     靠底部时下半截要滚出视口 —— 打开与每选一层之后都要重新摆一次。 */
+  function cascPlace(box) {
+    var panel = box && box.querySelector('[data-qccasc-panel]');
+    if (!panel || !panel.classList.contains('on')) return;
+    panel.classList.remove('up');
+    panel.style.left = '0px';
+    var vw = document.documentElement.clientWidth || window.innerWidth || 0;
+    var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+    var br = box.getBoundingClientRect();
+    var shift = br.left + panel.offsetWidth - (vw - 8);
+    if (shift > 0) panel.style.left = (-Math.min(shift, Math.max(0, br.width - 60))) + 'px';
+    if (br.bottom + 4 + panel.offsetHeight > vh - 8 && br.top - 4 - panel.offsetHeight > 8) {
+      panel.classList.add('up');
+    }
+  }
+
   /* 依据路径逐层解析出「每一列的候选节点」 */
   function cascColumns(root, path) {
     var cols = [];
@@ -462,13 +523,14 @@
    * cascPick 从空数组开始 slice，把上级选择丢掉，筛出来的范围就错一级。
    * placeholder 同样要输出（data-qccasc-ph），清除按钮才能回显正确文案。 */
   function cascader(id, path, ph, tree) {
-    var root = tree || (typeof window !== 'undefined' && window.regionData ? window.regionData[0] : null);
+    var root = tree || regionRoot();
     var p = (path || []).filter(Boolean);
     var label = cascPathValue(p);
     var phText = ph || '全部地区';
     return '<div class="qc-casc" data-qccasc="' + esc(id) + '"' +
       ' data-qccasc-path="' + esc(p.join('\u0001')) + '"' +
-      ' data-qccasc-ph="' + esc(phText) + '">' +
+      ' data-qccasc-ph="' + esc(phText) + '"' +
+      ' data-qccasc-ready="' + (root ? '1' : '0') + '">' +
       '<button type="button" class="qc-casc-trigger' + (p.length ? ' has' : '') + '" data-qccasc-trigger="1">' +
       '<span class="qc-casc-val' + (p.length ? '' : ' ph') + '">' + esc(label || phText) + '</span>' +
       '<span class="qc-casc-clr" data-qccasc-clear="1" title="清除">×</span>' +
@@ -497,7 +559,7 @@
     if (!box) return;
     var panel = box.querySelector('[data-qccasc-panel]');
     if (!panel) return;
-    var root = window.regionData ? window.regionData[0] : null;
+    var root = regionRoot();
     if (!root) { panel.innerHTML = '<div class="qc-casc-empty">区域数据未加载</div>'; return; }
     /* DOM 有值就用 DOM，否则沿用内存（首次打开且从未选过） */
     var domPath = cascPathFromDom(box);
@@ -546,18 +608,41 @@
     var shown = cascPathValue(path);
     if (valEl) { valEl.textContent = shown; valEl.classList.remove('ph'); }
     if (trig) trig.classList.add('has');
-    cascRefresh(box);
     /* 已经点到叶子（下一层无候选）就收起面板 */
-    var root = window.regionData ? window.regionData[0] : null;
+    var root = regionRoot();
     var cols = cascColumns(root, path);
-    if (cols.length <= path.length) {
+    var leaf = cols.length <= path.length;
+    if (leaf) {
       var p = box.querySelector('[data-qccasc-panel]');
       if (p) p.classList.remove('on');
       if (trig) trig.classList.remove('on');
+    } else {
+      /* 多了一层，面板变宽：重新收进视口 */
+      cascPlace(box);
     }
     /* 通知宿主页面 */
     var id = box.getAttribute('data-qccasc');
     dispatchCascade(id, path, box);
+    /* 宿主可能整页重绘（质控绩效、MDT 都是这样）：上面那个 box 已经被替换掉了，
+       若还有下一级，就在新 DOM 上按 id 重新打开面板 —— 否则"选了市"面板就消失，
+       用户得再点一次才能选区县，级联体验断掉（这是级联组件本该保持的行为）。 */
+    if (!leaf && id) openCascade(id);
+  }
+
+  /* 按 id 打开某个级联控件的面板（重绘后重新挂载用；找不到控件返回 false） */
+  function openCascade(id) {
+    var box = document.querySelector('[data-qccasc="' + id + '"]');
+    if (!box) return false;
+    var panel = box.querySelector('[data-qccasc-panel]');
+    var trig = box.querySelector('[data-qccasc-trigger]');
+    if (!panel) return false;
+    cascCloseAll(box);
+    panel.classList.add('on');
+    if (trig) trig.classList.add('on');
+    box._qcPath = cascPathFromDom(box);
+    cascRefresh(box);
+    cascPlace(box);
+    return true;
   }
 
   /* ==================== 级联选择器回调注册表 ====================
@@ -635,6 +720,8 @@
           var domP = cascPathFromDom(box3);
           box3._qcPath = domP.length ? domP : (box3._qcPath || []);
           cascRefresh(box3);
+          /* 摆位放在画完面板之后：面板宽高要按真实列数算 */
+          cascPlace(box3);
         }
         ev.stopPropagation();
         return;
@@ -975,7 +1062,8 @@
     fitWidths: fitWidths, displayUnits: displayUnits,
     /* 级联选择器（区域五级联动） */
     cascader: cascader, cascRefresh: cascRefresh, cascCloseAll: cascCloseAll,
-    cascPathValue: cascPathValue,
+    cascPathValue: cascPathValue, openCascade: openCascade,
+    regionRoot: regionRoot,
     /* 级联回调注册表：宿主模块用它登记自己的地区筛选处理函数（互不覆盖） */
     onCascade: onCascade, dispatchCascade: dispatchCascade,
     modal: modal, closeModal: closeModal, toast: toast

@@ -140,6 +140,70 @@ button,input,select,textarea{font-family:inherit}
 @media(max-width:900px){.pop-data-grid{grid-template-columns:1fr}.pop-age-grid{grid-template-columns:1fr}}
 .analysis-nav-bar{margin-bottom:16px;padding:14px 16px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 1px 2px rgba(15,23,42,.04)}.analysis-nav-groups{display:flex;flex-wrap:wrap;gap:20px 28px;align-items:flex-start}.analysis-nav-group{display:flex;flex-direction:column;gap:8px;min-width:0}.analysis-nav-group-label{font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:.04em}.analysis-nav-pills{display:flex;flex-wrap:wrap;gap:8px}.analysis-nav-pill{padding:8px 16px;border:1px solid #e2e8f0;border-radius:999px;background:#fff;color:#475569;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap}.analysis-nav-pill:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-soft)}.analysis-nav-pill.active{background:var(--primary);color:#fff;border-color:var(--primary);font-weight:600;box-shadow:0 2px 8px rgba(61,90,128,.25)}.analysis-main{width:100%}.analysis-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)}.analysis-panel-head h3{margin:0;font-size:16px;font-weight:700;color:#1e293b}.analysis-panel-head p{margin:4px 0 0;font-size:12px;color:#94a3b8}.analysis-kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}.analysis-kpi{padding:12px 14px;border:1px solid var(--border);border-radius:8px;background:linear-gradient(180deg,#fff,#f8fafc)}.analysis-kpi-label{font-size:11px;color:#64748b;margin-bottom:4px}.analysis-kpi-value{font-size:20px;font-weight:700;color:var(--primary)}.analysis-kpi-sub{font-size:11px;color:#94a3b8;margin-top:2px}.analysis-chart-box{padding:14px 16px;border:1px solid var(--border);border-radius:8px;background:#fff;margin-bottom:14px}.analysis-chart-title{font-size:13px;font-weight:600;color:#475569;margin-bottom:12px}.analysis-bar-chart{display:flex;align-items:flex-end;gap:6px;height:160px;padding-top:8px;border-bottom:1px solid #e2e8f0}.analysis-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;height:100%;justify-content:flex-end}.analysis-bar{width:100%;max-width:36px;border-radius:4px 4px 0 0;background:linear-gradient(180deg,#5b8def,var(--primary));transition:height .3s ease;min-height:2px}.analysis-bar-label{font-size:10px;color:#64748b;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.analysis-bar-val{font-size:10px;color:var(--primary);font-weight:600}.analysis-table-scroll{overflow:auto;max-height:520px;border:1px solid var(--border);border-radius:8px}.analysis-table-scroll .data-table{margin:0;font-size:12px}.analysis-table-scroll .data-table th,.analysis-table-scroll .data-table td{white-space:nowrap;padding:8px 10px}.analysis-table-scroll .data-table th.sticky-col-1,.analysis-table-scroll .data-table td.sticky-col-1{position:sticky;left:0;z-index:2;background:#f8fafc;box-shadow:2px 0 4px rgba(0,0,0,.04)}.analysis-table-scroll .data-table td.sticky-col-1{background:#fff}.analysis-table-scroll .data-table tbody tr:hover td.sticky-col-1{background:#f1f7ff}.analysis-table-scroll .data-table th.sticky-col-2,.analysis-table-scroll .data-table td.sticky-col-2{position:sticky;left:48px;z-index:2;background:#f8fafc}.analysis-table-scroll .data-table td.sticky-col-2{background:#fff}.analysis-table-scroll .data-table tbody tr:hover td.sticky-col-2{background:#f1f7ff}.analysis-table-scroll .data-table tr.total-row td{background:#e8f2ff;font-weight:700}.analysis-filter-card{padding:14px 16px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;margin-bottom:14px}.analysis-filter-card .filter-toolbar{margin:0;padding:0;background:transparent;border:0}
 @media(max-width:768px){.analysis-nav-groups{flex-direction:column;gap:14px}.analysis-nav-pill{padding:7px 12px;font-size:12px}}.analysis-result-info{display:flex;justify-content:space-between;align-items:center;padding:10px 0 12px;font-size:13px;color:#64748b}.analysis-result-info strong{color:var(--primary);font-weight:600}.analysis-cross-config{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px 16px;padding:14px;background:#f8fafc;border:1px solid var(--border);border-radius:6px;margin-bottom:14px}.analysis-cross-config .form-group{min-width:0}.analysis-table th.rate-col,.analysis-table td.rate-col{background:#f8fafc;font-weight:600;color:var(--primary)}.analysis-table .row-header{background:#f1f5f9;font-weight:600}.datamgmt-file-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--border);border-radius:6px;background:#fff;margin-bottom:8px}.datamgmt-file-row .file-icon{width:32px;height:32px;border-radius:6px;background:var(--primary-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 32px}.datamgmt-file-row .file-info{flex:1;min-width:0}.datamgmt-file-row .file-name{font-weight:600;color:#334155;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.datamgmt-file-row .file-meta{font-size:12px;color:#94a3b8;margin-top:2px}.datamgmt-file-row .file-status{flex:0 0 auto}
+/* ===== 综合部位数据分析（sa-，仅本页面使用，不覆盖既有类） ===== */
+.sa-page{display:flex;flex-direction:column;gap:14px}
+.sa-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding-bottom:13px;border-bottom:1px solid var(--border)}
+.sa-head h3{margin:0;font-size:17px;font-weight:600;color:#1f2329;letter-spacing:.01em}
+.sa-head p{margin:5px 0 0;font-size:12.5px;color:#86909c;line-height:1.5}
+.sa-tag{flex:0 0 auto;display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:4px;background:var(--primary-soft);color:var(--primary);font-size:12px;font-weight:500;white-space:nowrap}
+/* 筛选区 */
+.sa-filter{background:#fff;border:1px solid var(--border);border-radius:6px;padding:14px 16px 0}
+.sa-filter-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:13px 14px}
+.sa-field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.sa-field>label{font-size:12px;color:#86909c;line-height:1.2;white-space:nowrap}
+.sa-field select,.sa-field input[type=date]{width:100%;height:32px;padding:0 8px;font-size:13px;color:#1f2329;background:#fff;border:1px solid #d9dee5;border-radius:4px;box-sizing:border-box;outline:none;transition:border-color .15s,box-shadow .15s}
+.sa-field select:focus,.sa-field input:focus{border-color:var(--primary);box-shadow:0 0 0 2px rgba(22,93,255,.12)}
+.sa-field.sa-check{justify-content:flex-end}
+.sa-field.sa-check label{display:flex;align-items:center;gap:6px;height:32px;font-size:13px;color:#4e5969;cursor:pointer;white-space:nowrap}
+.sa-field.sa-check input{width:14px;height:14px;margin:0;accent-color:var(--primary);cursor:pointer}
+.sa-filter-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:14px;padding:13px 0;border-top:1px dashed #eef1f5}
+.sa-filter-actions .btn{height:32px;border-radius:4px}
+/* 结果卡 */
+.sa-card{background:#fff;border:1px solid var(--border);border-radius:6px;overflow:clip}
+.sa-card-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;border-bottom:1px solid #f0f2f5}
+.sa-card-title{font-size:13.5px;font-weight:600;color:#1f2329}
+.sa-card-title .sub{font-weight:400;color:#86909c;font-size:12px;margin-left:6px}
+.sa-card-tools{display:flex;align-items:center;gap:8px}
+.sa-note-btn{height:26px;padding:0 9px;font-size:12px;color:#4e5969;background:#fff;border:1px solid #e2e6ec;border-radius:4px;cursor:pointer;white-space:nowrap}
+.sa-note-btn:hover{color:var(--primary);border-color:var(--primary)}
+.sa-note-btn.on{color:var(--primary);border-color:var(--primary);background:var(--primary-soft)}
+.sa-note{display:none;padding:11px 16px;background:#f8fafc;border-bottom:1px solid #f0f2f5;font-size:12px;color:#4e5969;line-height:1.65}
+.sa-note.open{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:26px;row-gap:3px}
+.sa-note b{color:#1f2329;font-weight:600}
+.sa-note i{font-style:normal;color:var(--primary);font-weight:600;font-variant-numeric:tabular-nums}
+.sa-note .sa-note-row{display:grid;grid-template-columns:72px 1fr;gap:9px;align-items:baseline}
+/* 表格 */
+.sa-table-wrap{overflow:auto;max-height:calc(100vh - 460px)}
+.sa-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+.sa-table thead th{position:sticky;z-index:2;background:#f7f9fb;color:#5c6570;font-weight:600;font-size:12px;text-align:left;padding:8px 12px;border-bottom:1px solid #e5e9ef;white-space:nowrap}
+.sa-table thead tr.sa-g1 th{top:0;text-align:center;color:#86909c;font-weight:500;border-bottom:1px solid #eef1f5}
+.sa-table thead tr.sa-g1 th.grp-inc,.sa-table thead tr.sa-g1 th.grp-death{color:#4e5969}
+.sa-table thead tr.sa-g2 th{top:31px}
+.sa-table thead th.sa-sort{cursor:pointer;user-select:none}
+.sa-table thead th.sa-sort:hover{color:var(--primary)}
+.sa-table thead th .sa-ar{display:inline-block;width:9px;margin-left:3px;color:#c9ced6;font-size:9px;vertical-align:1px}
+.sa-table thead th.sa-sort.active .sa-ar{color:var(--primary)}
+.sa-table thead th.sa-num{text-align:right}
+.sa-table thead th.sa-stick{left:0;z-index:3}
+.sa-table tbody td{padding:9px 12px;border-bottom:1px solid #f4f6f9;color:#1f2329;white-space:nowrap;background:#fff}
+.sa-table tbody tr:hover td{background:#f5f9ff}
+.sa-table tbody td.sa-idx{width:38px;color:#a3a9b3;text-align:center;font-variant-numeric:tabular-nums}
+.sa-table tbody td.sa-stick{position:sticky;left:0;z-index:1}
+.sa-table tbody tr:hover td.sa-stick{background:#f5f9ff}
+.sa-table td.sa-num{text-align:right;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.sa-table td.sa-num.sa-muted{color:#a3a9b3}
+.sa-table td .sa-unit{font-size:10.5px;color:#b6bcc5;margin-left:1px}
+.sa-table td .sa-icd{display:inline-block;min-width:62px;margin-right:8px;color:#86909c;font-size:12px;font-variant-numeric:tabular-nums}
+.sa-table td.sa-qc{font-variant-numeric:tabular-nums}
+.sa-table td.sa-bad{color:#d93026;font-weight:600}
+.sa-table td.sa-watch{color:#d97706;font-weight:600}
+.sa-table tr.sa-total td{position:sticky;bottom:0;z-index:2;background:#eef4ff;font-weight:700;border-top:1px solid #d6e2f5;border-bottom:none;box-shadow:0 -1px 0 #d6e2f5}
+.sa-table tr.sa-total td.sa-stick{left:0;z-index:3}
+.sa-table tr.sa-hl td{background:#e8f2ff!important}
+.sa-legend{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;padding:9px 16px;border-top:1px solid #f0f2f5;font-size:11.5px;color:#86909c}
+.sa-legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:0}
+@media(max-width:1180px){.sa-filter-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:900px){.sa-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sa-table-wrap{max-height:none}}
 .online-user-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}.online-user-card{position:relative;padding:22px 20px 18px;background:linear-gradient(135deg,#fff 0%,#f8fafc 100%);border:1px solid var(--border);border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.04);transition:all .25s ease;overflow:hidden}.online-user-card:before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--primary),#5b8def)}.online-user-card:hover{border-color:var(--primary);box-shadow:0 6px 20px rgba(61,90,128,.15);transform:translateY(-3px)}.online-user-head{display:flex;align-items:center;gap:14px;margin-bottom:16px}.online-user-avatar{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex:0 0 48px;box-shadow:0 2px 6px rgba(0,0,0,.1)}.online-user-avatar.admin{background:linear-gradient(135deg,#fee2e2,#fecaca);color:#dc2626}.online-user-avatar.county{background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:#2563eb}.online-user-avatar.city{background:linear-gradient(135deg,#dcfce7,#bbf7d0);color:#16a34a}.online-user-avatar.province{background:linear-gradient(135deg,#fef3c7,#fde68a);color:#d97706}.online-user-head-info{flex:1;min-width:0}.online-user-name{font-size:15px;font-weight:700;color:#1e293b;margin-bottom:2px}.online-user-role{display:inline-block;font-size:11px;font-weight:600;padding:1px 8px;border-radius:4px}.online-user-role.super{background:#fee2e2;color:#dc2626}.online-user-role.province{background:#fef3c7;color:#d97706}.online-user-role.city{background:#dbeafe;color:#2563eb}.online-user-role.county{background:#dcfce7;color:#16a34a}.online-user-status-dot{position:absolute;top:16px;right:16px;width:8px;height:8px;border-radius:50%;background:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.2),0 0 8px rgba(22,163,74,.4);animation:pulse-dot 2s infinite}.online-user-body{display:flex;flex-direction:column;gap:6px}.online-user-info-row{display:flex;align-items:center;font-size:13px;line-height:1.4}.online-user-info-label{color:#94a3b8;width:60px;flex:0 0 60px;text-align:justify;text-align-last:justify;font-size:12px}.online-user-info-label:after{content:"："}.online-user-info-value{color:#475569;font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.online-user-divider{height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);margin:4px 0}@keyframes pulse-dot{0%,100%{box-shadow:0 0 0 3px rgba(22,163,74,.2),0 0 8px rgba(22,163,74,.4)}50%{box-shadow:0 0 0 6px rgba(22,163,74,.1),0 0 12px rgba(22,163,74,.3)}}
 .role-perm-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px}.role-perm-toolbar input{flex:1;height:32px;padding:0 10px;border:1px solid #d1d8e0;border-radius:4px;font-size:13px}#rolePermTree{display:flex;flex-direction:column;gap:6px}.role-perm-group{border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#fff}.role-perm-group-head{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;user-select:none;transition:background .15s;border-bottom:1px solid transparent}.role-perm-group-head.all-checked{background:#e8f5e9}.role-perm-group-head.partial{background:#fff8e6}.role-perm-group-head:not(.all-checked):not(.partial){background:#f8fafc}.role-perm-group-head:hover{filter:brightness(.97)}.role-perm-group-cb{width:12px;height:12px;cursor:pointer;flex-shrink:0}.role-perm-group-cb[data-partial="1"]{opacity:.5}.role-perm-group-name{font-weight:600;color:#334155;font-size:14px;white-space:nowrap;text-align:left}.role-perm-group-count{font-size:12px;color:#94a3b8;flex-shrink:0;margin-left:auto}.role-perm-group-arrow{color:#94a3b8;font-size:12px;transition:transform .2s;flex-shrink:0}.role-perm-group-arrow.collapsed{transform:rotate(-90deg)}.role-perm-group-body{padding:6px 12px 8px 32px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:2px 12px}.role-perm-group-body.collapsed{display:none}.role-perm-child{display:flex;align-items:center;gap:6px;font-size:13px;color:#475569;cursor:pointer;padding:3px 0}.role-perm-child:hover{color:var(--primary)}.role-perm-child input{width:12px;height:12px;cursor:pointer;flex-shrink:0}.role-perm-child.hidden{display:none}.role-perm-preview{margin-top:10px;padding:10px 12px;background:#f8fafc;border:1px solid var(--border);border-radius:6px;font-size:13px;color:#64748b}.role-perm-preview.empty{color:#94a3b8}.role-perm-preview strong{color:#334155}
 .user-warn-banner{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff8e6;border:1px solid #fcd34d;border-radius:6px;margin-bottom:16px;font-size:13px;color:#92400e}.user-warn-banner .warn-icon{width:18px;height:18px;border-radius:50%;background:#f59e0b;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0}.user-warn-banner strong{color:#b45309}
@@ -708,6 +772,8 @@ const menuData=[
        注意：本清单会被 analysis.js 加载时整体覆盖，两处必须同时改（见 analysis.js 注释）。 */
     {id:'cockpit',label:'数据看板'},
     {id:'analysis-stats',label:'统计分析'},
+    /* 「综合部位数据分析」2026-10-27 新增为独立菜单项，页面用本文件里的 renderSiteAnalysis()（见 analysis.js 的 render）。 */
+    {id:'analysis-site',label:'综合部位数据分析'},
     {id:'analysis-progress',label:'报卡工作量'},
     {id:'analysis-quality',label:'报卡质量监测'},
     /* 「登记运营监测」2026-10-10 按需求删除整页（菜单项 + registry-ops.js）。 */
@@ -724,27 +790,30 @@ const menuData=[
   {id:'system',label:'系统管理',icon:'●',children:[{id:'master',label:'基础数据',icon:'●',children:[{id:'master-hospital',label:'机构管理'},{id:'master-pop',label:'人口基数管理'},{id:'master-address',label:'行政区划管理'}]},{id:'dict',label:'字典管理',icon:'●',children:[{id:'dict-common',label:'常规字典'},{id:'dict-anatomy',label:'解剖部位'},{id:'dict-pathology',label:'病理类型'},{id:'dict-logic',label:'逻辑字典'},{id:'dict-condition',label:'自定义条件'}]},{id:'dup-params',label:'查重参数配置',icon:'●',children:[{id:'quality-dup-param',label:'自动查重参数'},{id:'quality-dup-field',label:'合并字段参数'}]},{id:'system-users',label:'用户管理'},{id:'system-online',label:'在线用户'},{id:'system-roles',label:'角色与权限管理'},{id:'system-menu',label:'菜单栏管理'},{id:'system-logs',label:'操作日志'},{id:'system-config',label:'系统配置'},{id:'audit',label:'系统审计',icon:'●',children:[{id:'audit-card',label:'报卡记录日志'},{id:'audit-address',label:'空间地址日志'},{id:'audit-followup',label:'随访记录日志'},{id:'audit-system',label:'系统操作日志'}]}]},
   {id:'annual-report',label:'年报',icon:'●',children:[{id:'ar-tasks',label:'年报任务'},{id:'ar-workbench',label:'编制工作台'},{id:'ar-templates',label:'模板管理'},{id:'ar-archives',label:'归档记录'}]},
   {id:'report-studio',label:'年报中心',children:[{id:'rs-records',label:'年报记录'},{id:'rs-workbench',label:'编制工作台'},{id:'rs-templates',label:'模板配置'}]},
-  {id:'monitor',label:'预警监测',icon:'●',children:[
-    /* 「预警总览」已迁到「数据统计」下（2026-10-10），本菜单不再保留该入口。 */
-    {id:'warning-records',label:'预警记录'},
-    {id:'mon-model',label:'处置督导分析',children:[
-      {id:'mdl-features',label:'处置总览'},
-      {id:'mdl-registry',label:'责任方督导'},
-      {id:'mdl-training',label:'时限达成管理'},
-      {id:'mdl-predictions',label:'结论与整改成效'},
-      {id:'mdl-evaluation',label:'规则命中与误报'}
-    ]},
-    {id:'warning-tickets',label:'处置工单'},
-    {id:'warning-rules',label:'预警规则配置'}
-  ]},
-  /* 监测预警2：按《卫健委肿瘤综合平台落地方案》文档实现的监管闭环模块（monitor2-module.js）。 */
-  {id:'monitor2',label:'监测预警2',icon:'●',children:[
-    {id:'m2-hall',label:'监督整改调度大厅'},
-    {id:'m2-records',label:'预警记录中心'},
-    {id:'m2-stats',label:'预警统计与报表中心'},
-    {id:'m2-hospital',label:'机构端整改协同工作台'},
-    {id:'m2-rules',label:'预警规则库'}
-  ]},
+  /* 2026-10-28 按用户要求先隐藏「预警监测」(旧引擎 monitor) 与「监测预警2」(monitor2) 两个侧栏入口。
+     页面与 js 全部保留，只从侧栏撤掉；旧 hash 或他处跳转（warning-records / m2-hall 等）仍可直达。
+     要恢复入口：把下面两段以 // 开头的注释打开即可。统一版入口「监测预警」(monitor-fusion) 不受影响。 */
+  // {id:'monitor',label:'预警监测',icon:'●',children:[
+  //   「预警总览」已迁到「数据统计」下（2026-10-10），本菜单不再保留该入口。
+  //   {id:'warning-records',label:'预警记录'},
+  //   {id:'mon-model',label:'处置督导分析',children:[
+  //     {id:'mdl-features',label:'处置总览'},
+  //     {id:'mdl-registry',label:'责任方督导'},
+  //     {id:'mdl-training',label:'时限达成管理'},
+  //     {id:'mdl-predictions',label:'结论与整改成效'},
+  //     {id:'mdl-evaluation',label:'规则命中与误报'}
+  //   ]},
+  //   {id:'warning-tickets',label:'处置工单'},
+  //   {id:'warning-rules',label:'预警规则配置'}
+  // ]},
+  // 监测预警2：按《卫健委肿瘤综合平台落地方案》文档实现的监管闭环模块（monitor2-module.js）。
+  // {id:'monitor2',label:'监测预警2',icon:'●',children:[
+  //   {id:'m2-hall',label:'监督整改调度大厅'},
+  //   {id:'m2-records',label:'预警记录中心'},
+  //   {id:'m2-stats',label:'预警统计与报表中心'},
+  //   {id:'m2-hospital',label:'机构端整改协同工作台'},
+  //   {id:'m2-rules',label:'预警规则库'}
+  // ]},
   /* 监测预警（统一查看版 V2.1）：所有用户同一套页面与默认范围，不设角色切换或机构专用工作台。
      旧页 id（warning-records / mdl-* / warning-tickets / warning-rules）仍保留在原方案中，融合视图不再暴露。 */
   {id:'monitor-fusion',label:'监测预警',icon:'●',children:[
@@ -2415,16 +2484,227 @@ analysisRenderBarChart(analysisFineAgeGroups.slice(0,10),chartTotals.slice(0,10)
 '<div class="analysis-result-info"><span>共 <strong>'+analysisRegionRows.length+'</strong> 个区划 × <strong>'+analysisFineAgeGroups.length+'</strong> 个年龄组</span><span>数据更新时间：2026-06-23</span></div>'+
 '<div class="analysis-table-scroll"><table class="data-table analysis-table"><thead><tr><th class="sticky-col-1">#</th><th class="sticky-col-2">名称</th><th>ICD名称</th><th class="rate-col">合计</th>'+analysisFineAgeGroups.map(a=>'<th>'+a+'</th>').join('')+'</tr></thead><tbody>'+rows+'<tr class="total-row"><td class="sticky-col-1"></td><td class="sticky-col-2 row-header">合计</td><td>—</td><td class="rate-col" style="text-align:right">'+(isRate?grandTotal.toFixed(1):Math.round(grandTotal))+'</td>'+totalCells+'</tr></tbody></table></div>'+
 '</div></div>'}
-function renderSiteAnalysis(){const siteData=analysisSites.map((s,i)=>{const inc=analysisRand(i+10,0,120,680);const incR=(inc/500000*100000).toFixed(1);const death=Math.floor(inc*analysisRand(i+20,0,15,35)/100);const deathR=(death/500000*100000).toFixed(1);const mv=(analysisRand(i+30,0,55,92)+Math.random()).toFixed(1);const dco=(analysisRand(i+40,0,2,18)+Math.random()).toFixed(1);const ub=(analysisRand(i+50,0,1,12)+Math.random()).toFixed(1);const mi=death>0?(death/inc).toFixed(2):'—';return{site:s,inc,incR,death,deathR,mv,dco,ub,mi}});
-const rows=siteData.map((r,i)=>'<tr><td class="sticky-col-1" style="text-align:center">'+(i+1)+'</td><td class="sticky-col-2 row-header">'+r.site+'</td><td style="text-align:right">'+r.inc+'</td><td class="rate-col" style="text-align:right">'+r.incR+'</td><td style="text-align:right">'+r.death+'</td><td class="rate-col" style="text-align:right">'+r.deathR+'</td><td style="text-align:right">'+r.mv+'%</td><td style="text-align:right">'+r.dco+'%</td><td style="text-align:right">'+r.ub+'%</td><td style="text-align:right">'+r.mi+'</td></tr>').join('');
-const sum=siteData.reduce((a,r)=>({inc:a.inc+r.inc,death:a.death+r.death}),{inc:0,death:0});
-return '<div class="panel"><div class="panel-body">'+
-analysisPanelHead('综合部位数据分析','ICD-10 部位维度：发病/死亡/质量指标（mv%、dco%、m/i）')+
-analysisCommonFilters('')+
-'<div class="analysis-kpi-row"><div class="analysis-kpi"><div class="analysis-kpi-label">总发病数</div><div class="analysis-kpi-value">'+sum.inc+'</div></div><div class="analysis-kpi"><div class="analysis-kpi-label">总死亡数</div><div class="analysis-kpi-value">'+sum.death+'</div></div><div class="analysis-kpi"><div class="analysis-kpi-label">平均 mv%</div><div class="analysis-kpi-value">'+(siteData.reduce((s,r)=>s+parseFloat(r.mv),0)/siteData.length).toFixed(1)+'%</div></div><div class="analysis-kpi"><div class="analysis-kpi-label">部位数</div><div class="analysis-kpi-value">'+siteData.length+'</div></div></div>'+
-'<div class="analysis-result-info"><span>共 <strong>'+siteData.length+'</strong> 个 ICD 部位 · 含数据质量评价指标</span><span>数据更新时间：2026-06-23</span></div>'+
-'<div class="analysis-table-scroll"><table class="data-table analysis-table"><thead><tr><th class="sticky-col-1">#</th><th class="sticky-col-2">ICD名称</th><th>发病数</th><th class="rate-col">发病率</th><th>死亡数</th><th class="rate-col">死亡率</th><th>mv%</th><th>dco%</th><th>ub%</th><th>m/i</th></tr></thead><tbody>'+rows+'<tr class="total-row"><td class="sticky-col-1"></td><td class="sticky-col-2 row-header">合计</td><td style="text-align:right">'+sum.inc+'</td><td class="rate-col" style="text-align:right">'+(sum.inc/500000*100000).toFixed(1)+'</td><td style="text-align:right">'+sum.death+'</td><td class="rate-col" style="text-align:right">'+(sum.death/500000*100000).toFixed(1)+'</td><td colspan="4">—</td></tr></tbody></table></div>'+
-'</div></div>'}
+/* ==================== 综合部位数据分析 ====================
+   2026-10-27 前端重做：
+   · 数据改为确定性（原来 mv/dco/ub 里混了 Math.random()，每次刷新数字都变）
+   · 发病/死亡例数按江西年报量级铺设，合计与各指标互相对齐（见下方 SA_POP 与合计行）
+   · 表格分组表头、千分位、率值带单位、质量指标按国家参考值着色、合计行真实加权计算
+   · 支持点表头排序、指标口径说明、导出 CSV
+   · 只改本页面，未改动任何公共函数（analysisCommonFilters / analysisRand / BASE_POP 等） */
+const SA_POP = 45300000; // 江西省肿瘤登记覆盖人口（与《中国肿瘤登记年报》口径一致，4530 万）
+const SA_SITES = [
+  { icd: 'C00-C14', name: '口腔和咽', inc: 1570, death: 486, mv: 78.2, dco: 4.1, ub: 2.8 },
+  { icd: 'C15', name: '食管', inc: 7850, death: 5495, mv: 71.5, dco: 8.6, ub: 3.2 },
+  { icd: 'C16', name: '胃', inc: 9420, death: 6594, mv: 74.8, dco: 7.2, ub: 4.1 },
+  { icd: 'C18', name: '结肠', inc: 5495, death: 2308, mv: 79.6, dco: 3.9, ub: 2.4 },
+  { icd: 'C20', name: '直肠', inc: 4710, death: 1837, mv: 80.3, dco: 3.5, ub: 2.1 },
+  { icd: 'C22', name: '肝和肝内胆管', inc: 7065, death: 6358, mv: 58.4, dco: 12.4, ub: 6.8 },
+  { icd: 'C25', name: '胰腺', inc: 1962, death: 1766, mv: 52.7, dco: 14.2, ub: 5.3 },
+  { icd: 'C33-C34', name: '气管、支气管和肺', inc: 16486, death: 13517, mv: 70.4, dco: 6.1, ub: 2.0 },
+  { icd: 'C50', name: '乳房', inc: 5102, death: 1122, mv: 88.9, dco: 1.8, ub: 1.2 },
+  { icd: 'C53', name: '宫颈', inc: 2355, death: 707, mv: 86.2, dco: 2.1, ub: 0.9 },
+  { icd: 'C61', name: '前列腺', inc: 1884, death: 754, mv: 76.5, dco: 5.4, ub: 3.6 },
+  { icd: 'C73', name: '甲状腺', inc: 4317, death: 216, mv: 92.4, dco: 0.8, ub: 0.6 },
+  { icd: 'C81-C96', name: '淋巴、造血及相关组织', inc: 3532, death: 2013, mv: 68.9, dco: 9.3, ub: 4.7 }
+];
+const saState = { sortKey: 'inc', sortDir: 'desc', noteOpen: false, hl: '' };
+
+function saFmt(n) { return Math.round(n).toLocaleString('zh-CN'); }
+function saRateCell(n) { return (n / SA_POP * 100000).toFixed(2); }
+/* 加权平均：part 已是 Σ(例数 × 百分数)，直接除以总例数即为百分数，不可再乘 100 */
+function saPctW(part, base) { return base ? part / base : 0; }
+/* 质量指标着色：只对"登记缺陷"报警，不用全癌种区间去卡分部位值——
+   MV%/DCO%/UB% 是任何部位都适用的口径；M/I 随部位生存特征变化极大（甲状腺 0.05、乳腺 0.22 属正常），
+   因此分部位只在 >1（死亡数反超发病数，必为数据错误）时判红，0.55~0.85 参考区间仅用于合计行。 */
+function saTone(kind, v) {
+  if (kind === 'mv') return v < 66 ? ' sa-bad' : '';
+  if (kind === 'dco') return v > 15 ? ' sa-bad' : v > 13.5 ? ' sa-watch' : '';
+  if (kind === 'ub') return v > 5 ? ' sa-bad' : v > 4.5 ? ' sa-watch' : '';
+  return '';
+}
+function saMiTone(v, isTotal) {
+  if (v > 1) return ' sa-bad';
+  if (!isTotal) return '';
+  return (v < 0.55 || v > 0.85) ? ' sa-bad' : (v < 0.6 || v > 0.8) ? ' sa-watch' : '';
+}
+function saSort(key) {
+  if (saState.sortKey === key) saState.sortDir = saState.sortDir === 'desc' ? 'asc' : 'desc';
+  else { saState.sortKey = key; saState.sortDir = 'desc'; }
+  saRender();
+}
+function saToggleNote() { saState.noteOpen = !saState.noteOpen; saRender(); }
+function saHl(icd) { saState.hl = saState.hl === icd ? '' : icd; saRender(); }
+/* 筛选项复位到默认值（本页表格为固定口径的部位一览，不随筛选重算，故只做控件复位 + 清除高亮） */
+function saQuery() { saState.hl = ''; saRender(); toast('已按当前条件查询'); }
+function saReset() {
+  saState.hl = '';
+  saState.sortKey = 'inc';
+  saState.sortDir = 'desc';
+  saRender();
+  const box = document.querySelector('.sa-filter');
+  if (box) {
+    [].slice.call(box.querySelectorAll('select')).forEach(function (el) { el.selectedIndex = 0; });
+    const d = box.querySelector('input[type=date]');
+    if (d) d.value = '2026-06-30';
+  }
+  toast('筛选条件已重置');
+}
+/* 表格可视区按视口剩余空间实测计算：写死的 max-height 在 1080 屏下会把表格底部（含吸底合计行）截到折叠线以下 */
+function saFitTable() {
+  const wrap = document.querySelector('.sa-table-wrap');
+  if (!wrap) return;
+  /* 可视区底边取真正的滚动容器（.main-content，顶部有 56px 导航栏），
+     用 window.innerHeight 会把导航栏也算进去，导致窄屏下表格底部落到折叠线以下 */
+  const sc = wrap.closest('.main-content') || document.querySelector('.main-content');
+  const bottom = sc ? sc.getBoundingClientRect().bottom : window.innerHeight;
+  /* 底部图例（.sa-legend）也在卡片内占高度，必须一并扣掉，
+     否则表格吃满剩余空间后会把图例挤到折叠线以下（需整页滚动才看得到） */
+  const legend = wrap.parentElement && wrap.parentElement.querySelector('.sa-legend');
+  const reserve = 16 + (legend ? Math.round(legend.getBoundingClientRect().height) : 0);
+  const h = Math.round(bottom - wrap.getBoundingClientRect().top - reserve);
+  wrap.style.maxHeight = Math.max(200, h) + 'px';
+}
+window.addEventListener('resize', function () { if (document.querySelector('.sa-table-wrap')) saFitTable(); });
+function saRender() {
+  const box = document.getElementById('pageContainer');
+  if (box) box.innerHTML = renderSiteAnalysis();
+}
+function saArrow(key) {
+  if (saState.sortKey !== key) return '⇅';
+  return saState.sortDir === 'desc' ? '▼' : '▲';
+}
+/* 当前排序后的部位列表：表格与导出共用，保证文件顺序与屏上一致 */
+function saSortedList() {
+  return SA_SITES.slice().sort((a, b) => {
+    const k = saState.sortKey, d = saState.sortDir === 'desc' ? -1 : 1;
+    if (k === 'name') return a.name.localeCompare(b.name, 'zh') * d;
+    if (k === 'incRate') return (a.inc - b.inc) * d;
+    if (k === 'deathRate') return (a.death - b.death) * d;
+    if (k === 'mi') return (a.death / a.inc - b.death / b.inc) * d;
+    return (a[k] - b[k]) * d;
+  });
+}
+function saExport() {
+  const rows = [['#', 'ICD 部位', '发病数', '发病率(/10万)', '死亡数', '死亡率(/10万)', 'MV%', 'DCO%', 'UB%', 'M/I']];
+  saSortedList().forEach((r, i) => rows.push([i + 1, r.icd + ' ' + r.name, r.inc, saRateCell(r.inc), r.death, saRateCell(r.death),
+    r.mv.toFixed(1), r.dco.toFixed(1), r.ub.toFixed(1), (r.death / r.inc).toFixed(2)]));
+  const t = SA_SITES.reduce((a, r) => ({ inc: a.inc + r.inc, death: a.death + r.death, mv: a.mv + r.inc * r.mv, dco: a.dco + r.inc * r.dco, ub: a.ub + r.inc * r.ub }), { inc: 0, death: 0, mv: 0, dco: 0, ub: 0 });
+  rows.push(['—', '合计', t.inc, saRateCell(t.inc), t.death, saRateCell(t.death),
+    saPctW(t.mv, t.inc).toFixed(2), saPctW(t.dco, t.inc).toFixed(2), saPctW(t.ub, t.inc).toFixed(2), (t.death / t.inc).toFixed(2)]);
+  const csv = '\uFEFF' + rows.map(r => r.map(c => /[",\n]/.test(String(c)) ? '"' + String(c).replace(/"/g, '""') + '"' : c).join(',')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = '综合部位数据分析_2026.csv';
+  a.style.display = 'none';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 800);
+  toast('已导出综合部位数据分析 CSV');
+}
+function renderSiteAnalysis() {
+  /* 合计：例数直接相加；mv/dco/ub 按发病数加权（不是各行简单平均，避免小部位拉偏合计） */
+  const t = SA_SITES.reduce((a, r) => ({
+    inc: a.inc + r.inc, death: a.death + r.death,
+    mv: a.mv + r.inc * r.mv, dco: a.dco + r.inc * r.dco, ub: a.ub + r.inc * r.ub
+  }), { inc: 0, death: 0, mv: 0, dco: 0, ub: 0 });
+  const tMv = saPctW(t.mv, t.inc), tDco = saPctW(t.dco, t.inc), tUb = saPctW(t.ub, t.inc);
+  const tMi = t.inc ? t.death / t.inc : 0;
+
+  const list = saSortedList();
+
+  const sortTh = (key, label, cls) =>
+    '<th class="sa-sort' + (cls || '') + (saState.sortKey === key ? ' active' : '') + '" onclick="saSort(\'' + key + '\')">' +
+    label + '<span class="sa-ar">' + saArrow(key) + '</span></th>';
+
+  const body = list.map((r, i) => {
+    const mi = r.death / r.inc;
+    const hl = saState.hl === r.icd ? ' class="sa-hl"' : '';
+    return '<tr' + hl + ' onclick="saHl(\'' + r.icd + '\')">' +
+      '<td class="sa-idx">' + (i + 1) + '</td>' +
+      '<td class="sa-stick"><span class="sa-icd">' + r.icd + '</span>' + r.name + '</td>' +
+      '<td class="sa-num">' + saFmt(r.inc) + '</td>' +
+      '<td class="sa-num">' + saRateCell(r.inc) + '<span class="sa-unit">/10万</span></td>' +
+      '<td class="sa-num">' + saFmt(r.death) + '</td>' +
+      '<td class="sa-num">' + saRateCell(r.death) + '<span class="sa-unit">/10万</span></td>' +
+      '<td class="sa-num sa-qc' + saTone('mv', r.mv) + '">' + r.mv.toFixed(1) + '</td>' +
+      '<td class="sa-num sa-qc' + saTone('dco', r.dco) + '">' + r.dco.toFixed(1) + '</td>' +
+      '<td class="sa-num sa-qc' + saTone('ub', r.ub) + '">' + r.ub.toFixed(1) + '</td>' +
+      '<td class="sa-num sa-qc' + saMiTone(mi, false) + '">' + mi.toFixed(2) + '</td>' +
+      '</tr>';
+  }).join('');
+
+  const totalRow = '<tr class="sa-total">' +
+    '<td class="sa-idx">—</td><td class="sa-stick">合计</td>' +
+    '<td class="sa-num">' + saFmt(t.inc) + '</td>' +
+    '<td class="sa-num">' + saRateCell(t.inc) + '<span class="sa-unit">/10万</span></td>' +
+    '<td class="sa-num">' + saFmt(t.death) + '</td>' +
+    '<td class="sa-num">' + saRateCell(t.death) + '<span class="sa-unit">/10万</span></td>' +
+    '<td class="sa-num' + saTone('mv', tMv) + '">' + tMv.toFixed(1) + '</td>' +
+    '<td class="sa-num' + saTone('dco', tDco) + '">' + tDco.toFixed(1) + '</td>' +
+    '<td class="sa-num' + saTone('ub', tUb) + '">' + tUb.toFixed(1) + '</td>' +
+    '<td class="sa-num' + saMiTone(tMi, true) + '">' + tMi.toFixed(2) + '</td>' +
+    '</tr>';
+
+  const __saHtml = '<div class="panel"><div class="panel-body"><div class="sa-page">' +
+
+    /* 页面头 */
+    '<div class="sa-head"><div><h3>综合部位数据分析</h3>' +
+    '<p>按 ICD-10 部位对比发病、死亡与登记质量指标，用于部位间横向比较与数据质量核查</p></div>' +
+    '<span class="sa-tag">2026 年度 · 江西省</span></div>' +
+
+    /* 筛选 */
+    '<div class="sa-filter"><div class="sa-filter-grid">' +
+    '<div class="sa-field"><label>行政区划</label><select><option>江西省</option><option>南昌市</option><option>赣州市</option><option>九江市</option></select></div>' +
+    '<div class="sa-field"><label>统计周期</label><select><option>年度统计</option><option>半年统计</option><option>季度统计</option><option>月份统计</option></select></div>' +
+    '<div class="sa-field"><label>年份</label><select><option>2026</option><option>2025</option><option>2024</option></select></div>' +
+    '<div class="sa-field"><label>性别</label><select><option>合计</option><option>男</option><option>女</option></select></div>' +
+    '<div class="sa-field"><label>截止日期</label><input type="date" value="2026-06-30"></div>' +
+    '<div class="sa-field"><label>报卡范围</label><select><option>全部报卡</option><option>有效报卡</option></select></div>' +
+    '</div><div class="sa-filter-actions">' +
+    '<button class="btn btn-ghost btn-sm" onclick="saReset()">重置</button>' +
+    '<button class="btn btn-primary btn-sm" onclick="saQuery()">查询统计</button>' +
+    '<button class="btn btn-outline btn-sm" onclick="saExport()">导出 Excel</button>' +
+    '</div></div>' +
+
+    /* 结果表 */
+    '<div class="sa-card"><div class="sa-card-hd">' +
+    '<div class="sa-card-title">部位明细<span class="sub">共 ' + SA_SITES.length + ' 个部位 · 点击表头可排序，点击行高亮</span></div>' +
+    '<div class="sa-card-tools"><button class="sa-note-btn' + (saState.noteOpen ? ' on' : '') + '" onclick="saToggleNote()">指标说明</button></div></div>' +
+    '<div class="sa-note' + (saState.noteOpen ? ' open' : '') + '">' +
+    '<div class="sa-note-row"><b>粗发病率/死亡率</b><span>同期该部位发病（死亡）例数 ÷ 覆盖人口 × 100000，单位 /10万</span></div>' +
+    '<div class="sa-note-row"><b>MV%</b><span>形态学确诊比例 = 显微镜确诊例数 ÷ 发病数 × 100%，反映诊断可靠性，登记质量要求 <i>≥ 66%</i></span></div>' +
+    '<div class="sa-note-row"><b>DCO%</b><span>仅有死亡证明书来源的比例，反映补报程度，要求 <i>≤ 15%</i></span></div>' +
+    '<div class="sa-note-row"><b>UB%</b><span>原发部位不明（C80）占比，反映部位编码准确性，要求 <i>≤ 5%</i></span></div>' +
+    '<div class="sa-note-row"><b>M/I</b><span>死亡发病比 = 死亡数 ÷ 发病数。参考区间 <i>0.55 ~ 0.85</i> 仅适用于全癌种合计；分部位受瘤种生存特征影响很大（甲状腺、乳腺偏低属正常），本页只对分部位 M/I 大于 1 判为异常</span></div>' +
+    '<div class="sa-note-row"><b>合计行</b><span>例数直接相加；MV% / DCO% / UB% 按发病数加权计算，不是各行简单平均</span></div>' +
+    '</div>' +
+    '<div class="sa-table-wrap"><table class="sa-table">' +
+    '<thead>' +
+    '<tr class="sa-g1"><th rowspan="2" class="sa-idx sa-stick" style="text-align:center">#</th>' +
+    '<th rowspan="2" class="sa-stick sa-sort' + (saState.sortKey === 'name' ? ' active' : '') + '" onclick="saSort(\'name\')">ICD 部位<span class="sa-ar">' + saArrow('name') + '</span></th>' +
+    '<th colspan="2" class="grp-inc">发病</th><th colspan="2" class="grp-death">死亡</th>' +
+    '<th colspan="4">登记质量指标</th></tr>' +
+    '<tr class="sa-g2">' +
+    sortTh('inc', '发病数', ' sa-num') +
+    sortTh('incRate', '发病率', ' sa-num') +
+    sortTh('death', '死亡数', ' sa-num') +
+    sortTh('deathRate', '死亡率', ' sa-num') +
+    sortTh('mv', 'MV%', ' sa-num') +
+    sortTh('dco', 'DCO%', ' sa-num') +
+    sortTh('ub', 'UB%', ' sa-num') +
+    sortTh('mi', 'M/I', ' sa-num') +
+    '</tr></thead><tbody>' + body + totalRow + '</tbody></table></div>' +
+    '<div class="sa-legend">' +
+    '<span><i style="background:#d93026"></i>登记质量指标低于/超出国家参考值（MV&lt;66%、DCO&gt;15%、UB&gt;5%、M/I&gt;1）</span>' +
+    '<span><i style="background:#d97706"></i>接近 DCO%/UB% 上限</span>' +
+    '<span>M/I 参考区间 0.55~0.85 仅用于合计行（分部位受瘤种生存特征影响，不作判定）</span>' +
+    '<span>数据更新时间：2026-06-23</span>' +
+    '<span style="margin-left:auto">单位：例 · 率值 /10万</span></div>' +
+    '</div>' +
+
+    '</div></div></div>';
+  setTimeout(saFitTable, 0);
+  return __saHtml;
+}
 function renderMonthReport(){const dim=analysisState.groupDim;const dimName=analysisGroupLabel(dim);const items=analysisGroupRows(dim);
 const rows=items.map((item,i)=>{const monthVals=analysisMonths.map((m,mi)=>analysisRand(i*20+mi,0,8,92));const total=monthVals.reduce((s,v)=>s+v,0);return '<tr><td class="sticky-col-1" style="text-align:center">'+(i+1)+'</td><td class="sticky-col-2 row-header">'+item.name+'</td><td style="color:#64748b">'+item.code+'</td><td class="rate-col" style="text-align:right;font-weight:600">'+total+'</td>'+monthVals.map(v=>'<td style="text-align:right">'+v+'</td>').join('')+'</tr>'}).join('');
 const monthFilter='<div class="form-group"><label>日期类型</label><select><option>上报日期</option><option>确诊日期</option><option>死亡日期</option></select></div>'+analysisDimSelect('分组维度',dim,'analysisSetGroupDim(this.value)');
@@ -3155,7 +3435,7 @@ if (false && analysisMenu) analysisMenu.children = analysisWorkspaceNav.map(func
   };
 })();
 </script>
-<script src="analysis.js?v=20261012a"></script>
+<script src="analysis.js?v=20261028a"></script>
 <script src="stats-module.js?v=20260729b"></script>
 <script src="national-report.js?v=20261012f"></script>
 <script>
@@ -3184,13 +3464,13 @@ function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":
   <script src="kb-sheet.js?v=20261021e6"></script>
   <script src="kb-bulk.js?v=20261024c"></script>
   <script src="qc-data.js?v=20261021a"></script>
-  <script src="qc-ui.js?v=20261026c"></script>
+  <script src="qc-ui.js?v=20261028a"></script>
   <script src="qc-l1.js?v=20261021a"></script>
   <script src="qc-l2.js?v=20260928qc"></script>
   <script src="qc-l3.js?v=20260928qc"></script>
   <script src="qc-l4.js?v=20260928qc"></script>
   <script src="qc-l5.js?v=20260928qc"></script>
-  <script src="qc-performance.js?v=20261026c"></script>
+  <script src="qc-performance.js?v=20261028a"></script>
   <!-- MDT 多学科诊疗质控：数据层 + 渲染层（一页两指标：讨论率 + 结论执行率）
        数据层独立于 qc-data.js 主脊，接真实 EMR 会诊模块时只替换 qc-mdt-data.js。 -->
   <script src="qc-mdt-data.js?v=20261026b"></script>
@@ -3404,6 +3684,19 @@ function autoFillIcdO3(input){var morphMap={"C34":"8140/3","C50":"8500/3","C16":
   <script src="report-studio-icons.js?v=0.468.0"></script>
   <script src="report-studio-model.js?v=20261026-rebuild1"></script>
   <script src="report-studio.js?v=20261026-rebuild1"></script>
+
+  <!-- 区域树对外暴露：regionData 在上面是用 const 声明的全局词法绑定，不是 window 属性，
+       凡按 window.regionData 取树的组件（qc-ui.js 的级联选择器）都会取到 undefined。
+       这里统一挂到 window 上，避免各模块各自猜数据源。 -->
+  <script>
+    (function () {
+      try {
+        if (!window.regionData && typeof regionData !== 'undefined' && regionData) {
+          window.regionData = regionData;
+        }
+      } catch (e) { /* 区域树缺失不影响主流程 */ }
+    })();
+  </script>
 </body>
 </html>
 

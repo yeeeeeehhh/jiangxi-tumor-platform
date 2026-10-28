@@ -1907,13 +1907,7 @@
       (srcs.length ? '<div class="table-wrap"><table class="data-table" style="width:100%;min-width:1080px"><colgroup><col><col style="width:100px"><col style="width:120px"><col style="width:150px"><col><col style="width:190px"></colgroup>' +
         '<thead><tr><th class="txt">数据源</th><th class="num">记录数</th><th class="code">接入状态</th><th class="code">最近操作</th><th class="txt">备注</th><th class="ops">操作</th></tr></thead>' +
         '<tbody>' + srcRows + '</tbody></table></div>' : '<div class="ar-empty-inline">尚未登记数据源</div>') +
-      '</div></div>' + dedupPanel + fieldPanel +
-      stageChecklist([
-        { ok: srcs.length > 0 && connected === srcs.length, title: '各数据源完成接入取数', desc: connected + ' / ' + srcs.length + ' 个已接入' },
-        { ok: srcs.length > 0 && ready === srcs.length, title: '接入记录与源端核对一致', desc: ready + ' / ' + srcs.length + ' 个已核对' },
-        { ok: !!dp.dedupDone, title: '执行剔重与多原发识别', desc: '决定有效病例数，是所有率值的分子基础' },
-        { ok: !!dp.fieldsChecked, title: '必填字段齐备性检查', desc: '缺失率超标会直接拉低质控评级' }
-      ]) + stageLogPanel(t, 'data');
+      '</div></div>' + dedupPanel + fieldPanel;
   }
 
   /* ---------- 阶段 3：质量校验 ---------- */
@@ -1977,13 +1971,7 @@
     /* 问题详情弹层同样挂工作台层（见 renderIssueViewer） */
     var issueModal = renderIssueViewer(t);
 
-    return head + issuePanel + issueModal +
-      stageChecklist([
-        { ok: done, title: '执行质量校验', desc: '对标 MV% 66–95 / DCO% ≤15 / M-I 0.6–0.8 / O&U% ≤5 等国家阈值' },
-        { ok: done && kpis.every(function (k) { return k.pass; }), title: '国家考核指标全部达标', desc: kpis.length ? kpis.filter(function (k) { return !k.pass; }).length + ' 项未达标' : '待执行' },
-        { ok: q.openBad === 0, title: '错误级问题全部闭环', desc: q.openBad ? '仍有 ' + q.openBad + ' 项错误未整改' : '无未闭环错误' },
-        { ok: q.openWarn === 0, title: '警告级问题闭环或豁免', desc: q.openWarn ? '仍有 ' + q.openWarn + ' 项警告未处理' : '警告已处理完毕' }
-      ]) + stageLogPanel(t, 'qc');
+    return head + issuePanel + issueModal;
   }
 
   /* ---------- 阶段 4：统计分析 ---------- */
@@ -2043,13 +2031,7 @@
     var vizPanel = s.done ? ('<div class="panel" style="margin-bottom:16px"><div class="panel-header">统计结果可视化</div><div class="panel-body">' + sectionMetrics(t) + '</div></div>') : '';
     var distPanel = s.done ? ('<div class="panel" style="margin-bottom:16px"><div class="panel-header">分设区市分层汇总</div><div class="panel-body">' + sectionOverview(t) + '</div></div>') : '';
 
-    return ratePanel + artifactPanel + vizPanel + distPanel + viewer +
-      stageChecklist([
-        { ok: s.done, title: '执行统计分析生成产物', desc: '输出统计表与图表，固化数据快照' },
-        { ok: s.tableN > 0, title: '统计表清单齐备', desc: s.tableN + ' 张统计表' },
-        { ok: s.chartN > 0, title: '图表清单齐备', desc: s.chartN + ' 张图表' },
-        { ok: s.done && !s.stale, title: '统计快照与当前数据版本一致', desc: s.stale ? '统计数据快照已过期，需重新统计' : '快照版本 ' + (t.dataVersion || '—') }
-      ]) + stageLogPanel(t, 'stats');
+    return ratePanel + artifactPanel + vizPanel + distPanel + viewer;
   }
 
   /* 质控问题详情弹层：工作台级渲染，走到后续阶段也能回看问题处置记录 */
@@ -2352,13 +2334,7 @@
     // 正文编辑区（复用既有章节编辑器）
     var editor = sectionReport(t);
 
-    return panel + checkPanel + '<div class="panel" style="margin-bottom:16px"><div class="panel-header">章节正文编辑</div><div class="panel-body">' + editor + '</div></div>' +
-      stageChecklist([
-        { ok: d.done > 0, title: '生成或人工撰写章节正文', desc: '已完成 ' + d.done + ' / ' + d.total + ' 章' },
-        { ok: d.complete, title: '八章正文齐备', desc: d.complete ? '全部章节已编制' : '尚缺 ' + (d.total - d.done) + ' 章' },
-        { ok: !!t.draftCheck, title: '执行引用一致性核对', desc: t.draftCheck ? (mism.length ? '发现 ' + mism.length + ' 处不符待订正' : '核对通过') : '尚未执行核对' },
-        { ok: !!t.draftCheck && mism.length === 0, title: '引用不一致项全部订正', desc: mism.length ? mism.length + ' 处未订正' : '无待订正项' }
-      ]) + stageLogPanel(t, 'draft');
+    return panel + checkPanel + '<div class="panel" style="margin-bottom:16px"><div class="panel-header">章节正文编辑</div><div class="panel-body">' + editor + '</div></div>';
   }
 
   /* ---------- 阶段 6：审核 ---------- */
@@ -2403,16 +2379,12 @@
     return submitPanel + '<div class="panel" style="margin-bottom:16px"><div class="panel-header">审核意见单' +
       '<span class="ph-sub">' + r.rounds.length + ' 轮审核 · ' + r.pending + ' 条待回复</span></div>' +
       '<div class="panel-body">' + roundsHtml + '</div></div>' +
-      stageChecklist([
-        { ok: r.rounds.length > 0, title: '提交省级审核', desc: r.rounds.length ? '已提交 ' + r.rounds.length + ' 轮' : '尚未提交' },
-        { ok: r.pending === 0 && r.rounds.length > 0, title: '审核意见逐条回复', desc: r.pending ? r.pending + ' 条待回复' : '全部意见已回复' },
-        { ok: r.passed, title: '取得审核通过结论', desc: r.passed ? '最近一轮审核结论为通过' : '尚未通过' }
-      ]) + (t.corrections && t.corrections.length ? '<div class="panel" style="margin-bottom:16px"><div class="panel-header">修订记录</div>' +
+      (t.corrections && t.corrections.length ? '<div class="panel" style="margin-bottom:16px"><div class="panel-header">修订记录</div>' +
         '<div class="panel-body" style="padding-top:8px"><table class="data-table" style="width:100%;min-width:0"><thead><tr><th class="code" style="width:90px">版本</th><th class="code" style="width:150px">时间</th><th class="code" style="width:170px">操作人</th><th class="txt">说明</th></tr></thead><tbody>' +
         t.corrections.map(function (c) {
           return '<tr><td class="code">' + e(c.ver) + '</td><td class="code" style="font-size:12px;color:#64748b">' + e(c.at) + '</td>' +
             '<td class="code" style="font-size:12px;color:#64748b">' + e(c.by) + '</td><td class="txt" style="font-size:12.5px">' + e(c.note) + '</td></tr>';
-        }).join('') + '</tbody></table></div></div>' : '') + stageLogPanel(t, 'review');
+        }).join('') + '</tbody></table></div></div>' : '');
   }
 
   /* ---------- 阶段 7：发布归档 ---------- */
@@ -2466,13 +2438,7 @@
     var exportPanel = sectionExport(t);
 
     return approvePanel + pkgPanel + receiptPanel + archivePanel +
-      stageChecklist([
-        { ok: rel.approved, title: '完成发布审批', desc: '省卫健委主管部门批准发布' },
-        { ok: rel.packageBuilt, title: '生成上报数据包', desc: 'PDF 正文 + CI5/IARC 适配数据' },
-        { ok: !!rel.receiptNo, title: '取得国家平台回执', desc: rel.receiptNo ? '回执号 ' + rel.receiptNo : '无回执不得归档' },
-        { ok: !!rel.archivedAt, title: '归档入库', desc: rel.archivedAt ? '定稿已归档，只读留痕' : '待归档' }
-      ]) + '<div class="panel" style="margin-bottom:16px"><div class="panel-header">导出与上报配置</div><div class="panel-body">' + exportPanel + '</div></div>' +
-      stageLogPanel(t, 'release');
+      '<div class="panel" style="margin-bottom:16px"><div class="panel-header">导出与上报配置</div><div class="panel-body">' + exportPanel + '</div></div>';
   }
 
   /* ---------- 章节内容块引擎 ---------- */

@@ -113,11 +113,16 @@
     /* 街道 / 社区：记录一下，用于界面提示"已按所属区县统计" */
     P.street = p[2] || '';
     P.community = p[3] || '';
-    /* 上级变了 → 机构失效；同级变了但机构不在新范围内 → 也清掉 */
-    if (P.city !== prevCity) P.org = '';
-    else if (P.county !== prevCounty && P.org) {
+    /* 上级变了 → 机构隶属关系失效，必须一起清掉（机构 ⊆ 地区）；
+       否则「地区=南昌市 + 机构=赣州市某院」这种互斥组合会静默按机构算数。
+       清空地区（p 为空）同样视为离开原范围。 */
+    if (P.city !== prevCity) {
+      dropOrgByRegion(P.org ? '已切换所属地区，原医疗机构不在新范围内，机构条件已清空' : '');
+    } else if (P.county !== prevCounty && P.org) {
       var po = S.org(P.org);
-      if (!po || (P.county && po.county !== P.county)) P.org = '';
+      if (!po || (P.county && po.county !== P.county)) {
+        dropOrgByRegion('所选区县不包含原医疗机构，机构条件已清空');
+      }
     }
     rerender();
     return true;
@@ -149,6 +154,42 @@
     if (P.city) return cityOrgIds();
     return null;
   }
+
+  /* ---------- 所属地区 × 医疗机构 的取数规则（2026-10-28 明确并落地） ----------
+     两者不是两个独立维度，而是**层级包含**：一家机构只隶属于一个设区市 / 区县，
+     所以「地区 + 机构」同时选择时，取数是
+        范围 = 该机构（分子分母都只算这家机构）
+        地区 = 该机构必须落在其中的框（等价于 机构 ∈ 地区）
+     由此得到三条硬规则，全部在这里收敛，避免界面写着 A、算的却是 B：
+       1) 只选了机构、地区还是「全部地区」→ 地区自动回填成该机构所属市 / 区县
+          （界面不出现"全省 + 某机构"这种看起来矛盾的组合）；
+       2) 机构不在所选地区内 → 视为无效组合，清空机构并按地区取数，同时提示；
+       3) 地区改到不含当前机构的范围 → 同上，由 onPfCascade 清空并提示。
+     会被 render 的每个入口调用，保证 P 里的状态永远自洽。 */
+  function syncRegionWithOrg(quiet) {
+    if (!P.org) return;
+    var o = S.org(P.org);
+    if (!o) { P.org = ''; return; }
+    var outOfScope = (P.city && (o.city !== P.city || (P.county && o.county !== P.county)));
+    if (outOfScope) {
+      P.org = '';
+      if (!quiet && U.toast) U.toast('所选医疗机构不在当前地区内，已清空机构条件（按地区统计）');
+      return;
+    }
+    /* 地区还没选 → 跟着机构定位，保证界面与取数一致 */
+    if (!P.city) {
+      P.city = o.city || '';
+      P.county = o.county || '';
+    }
+  }
+  /* 级联把地区清空 / 换市时，机构隶属关系变了，同步提示一次 */
+  function dropOrgByRegion(reason) {
+    if (!P.org) return false;
+    P.org = '';
+    if (reason && U.toast) U.toast(reason);
+    return true;
+  }
+
   function scopeName() {
     if (P.org) return (S.org(P.org) || {}).name || P.org;
     if (P.city && P.county) return S.cityName(P.city) + ' · ' + P.county;
@@ -831,6 +872,12 @@
       ? '<span class="qc-pf-hint">已选到' + (P.community ? '社区' : '街道') +
         '，质控数据仅到机构层级，按所属' + (P.county ? P.county : '设区市') + '统计</span>'
       : '';
+    /* 地区 + 机构同时存在时，把取数口径写在界面上（口径见 syncRegionWithOrg）：
+       明细只算这家机构，地区只起"机构必须落在其中"的限定作用。 */
+    if (P.org && P.city) {
+      hint += '<span class="qc-pf-hint" style="color:#244765;background:#f2f7fd;border-color:#d7e5f5">' +
+        '已选地区 + 机构：按<b>该机构</b>取数（机构隶属所选地区，不再叠加地区合计）</span>';
+    }
     var back = (P.org || P.county || P.street || P.city || P.cancer)
       ? '<button class="btn btn-ghost btn-sm" data-qc="pf:upOne">← 返回上一级</button>' +
         '<button class="btn btn-ghost btn-sm" data-qc="filter:reset:pf2">回到全省</button>'
@@ -863,6 +910,9 @@
     if (S.setPeriod) S.setPeriod(P.year || '2026');
     if (pageId && PAGEMAP[pageId]) P.ind = PAGEMAP[pageId];
     if (!P.ind) P.ind = 'NQ-01';
+    /* 渲染前把「地区 × 机构」收敛到自洽状态（详见 syncRegionWithOrg）：
+       静默执行，提示统一在用户操作（选机构 / 换地区）时给一次。 */
+    syncRegionWithOrg(true);
     U.closeModal();
 
     if (pageId === 'qc-pf-detail') return renderDetailPage();
@@ -887,13 +937,12 @@
 
   /* ==================== 样式 ==================== */
   var CSS = [
-    /* 筛选条 flex 单行：四项字段 + 重置/查询挤在同一行，禁止换行。 */
-    '#pageContainer .qc-scope{display:flex;flex-wrap:nowrap;align-items:flex-end;gap:10px;overflow-x:auto}',
-    '#pageContainer .qc-scope .fg{flex:1 1 0;min-width:0}',
-    '#pageContainer .qc-scope .fg.w-year{flex:0 0 92px}',
-    '#pageContainer .qc-scope .fg.w-mid{flex:1.15 1 150px}',
-    '#pageContainer .qc-scope .acts{flex:0 0 auto;grid-column:auto;white-space:nowrap}',
-    '#pageContainer .qc-scope select{text-overflow:ellipsis}',
+    /* 筛选条 flex 单行：四项字段 + 重置/查询挤在同一行。
+       .qc-scope 的通用规则（含「不要 overflow 裁剪」的说明）已上收到 qc-ui.js ——
+       MDT 质控也复用同一个类，规则放这里会因为加载顺序时有时无。
+       2026-10-28：本处原来写的是 overflow-x:auto，父级成了滚动容器后
+       「所属地区」的级联面板被整条裁掉（只剩一条白边），故删除该声明。 */
+    '#pageContainer .qc-scope{display:flex;flex-wrap:nowrap;align-items:flex-end;gap:10px;overflow:visible}',
     /* 下钻指示条：口径面包屑 + 返回上一级 + 明细入口（无「行/列」控件） */
     '#pageContainer .qc-pf-dimbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}',
     '#pageContainer .qc-pf-trail{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:#475569}',
@@ -940,11 +989,9 @@
           var vv = reads[k].value;
           P[kk] = vv === '' || vv === '全部' || vv === '全部机构' || vv === '全部癌种' ? '' : vv;
         }
-        /* 机构变了要校验是否落在当前市/区县内（地区改由级联控件负责） */
-        if (P.org) {
-          var po = S.org(P.org);
-          if (!po || (P.city && po.city !== P.city) || (P.county && po.county !== P.county)) P.org = '';
-        }
+        /* 机构变了要校验是否落在当前市/区县内（地区改由级联控件负责）。
+           取数规则见 syncRegionWithOrg：机构 ⊆ 地区；只选了机构时地区自动跟随机构。 */
+        syncRegionWithOrg();
       }
       rerender();
       return;
@@ -1054,10 +1101,18 @@
       var val = sels[k].value;
       if (val) sc[key] = val;
     }
-    /* 机构必须落在当前市/区县内 */
+    /* 机构必须落在当前市/区县内；没选地区时让地区跟随机构（与考核页同一口径，
+       见 syncRegionWithOrg）—— 否则条件是"全省 + 某机构"，级联框却显示"全部地区"，
+       界面与实际取数对不上。 */
     if (sc.org) {
       var o = S.org(sc.org);
-      if (!o || (sc.city && o.city !== sc.city) || (sc.county && o.county !== sc.county)) delete sc.org;
+      if (!o || (sc.city && o.city !== sc.city) || (sc.county && o.county !== sc.county)) {
+        delete sc.org;
+        if (!o || sc.city) U.toast('所选医疗机构不在当前地区内，已清空机构条件（按地区统计）');
+      } else if (!sc.city) {
+        sc.city = o.city || '';
+        sc.county = o.county || '';
+      }
     }
     P.scope = Object.keys(sc).length ? sc : null;
     P.page = 1;

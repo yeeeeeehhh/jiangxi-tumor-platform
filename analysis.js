@@ -57,14 +57,25 @@
 
   var state = Object.assign({}, DEFAULTS);
 
+  /* 部位主数据（mock）。
+     2026-10-28 需求：ICD 与部位拆成两个字段，统计口径以 ICD 组为准。
+     - icd：ICD-10 组（3 位类目，如 C18），是统计分组键（统计口径），决定一行；
+     - site：解剖部位名称（如「结肠」），只用于展示，不参与分组；
+     - inc/death：该 ICD 组例数；mv/dco/ub：计数，比例一律由分子/分母现算，不对百分数求平均。 */
   var SITES = [
-    { id: 'C50', name: 'C50 乳腺', inc: 1268, death: 218, mv: 1148, dco: 16, ub: 9 },
-    { id: 'C34', name: 'C34 肺', inc: 1562, death: 796, mv: 1132, dco: 101, ub: 21 },
-    { id: 'C16', name: 'C16 胃', inc: 1017, death: 372, mv: 745, dco: 61, ub: 18 },
-    { id: 'C18', name: 'C18 结肠', inc: 846, death: 214, mv: 669, dco: 28, ub: 10 },
-    { id: 'C22', name: 'C22 肝', inc: 734, death: 348, mv: 468, dco: 82, ub: 14 },
-    { id: 'C80', name: 'C80 原发部位不明', inc: 52, death: 44, mv: 6, dco: 18, ub: 28 }
-  ];
+    { icd: 'C50', site: '乳腺', inc: 1268, death: 218, mv: 1148, dco: 16, ub: 9 },
+    { icd: 'C34', site: '肺', inc: 1562, death: 796, mv: 1132, dco: 101, ub: 21 },
+    { icd: 'C16', site: '胃', inc: 1017, death: 372, mv: 745, dco: 61, ub: 18 },
+    { icd: 'C18', site: '结肠', inc: 846, death: 214, mv: 669, dco: 28, ub: 10 },
+    { icd: 'C22', site: '肝', inc: 734, death: 348, mv: 468, dco: 82, ub: 14 },
+    { icd: 'C80', site: '原发部位不明', inc: 52, death: 44, mv: 6, dco: 18, ub: 28 }
+  ].map(function (s) {
+    /* 兼容旧代码：id 用于疾病范围与筛选；name 用于预警规则/工单去重的「ICD 部位」键。
+       新一轮展示请分别读取 icd / site 两个字段，不要再拼串。 */
+    s.id = s.icd;
+    s.name = s.icd + ' ' + s.site;
+    return s;
+  });
   // 国家癌症中心 / IARC 登记质量纳入参考阈值（全部恶性肿瘤合计口径）
   var QC_THRESH = {
     mvMin: 66,
@@ -273,6 +284,15 @@
       '.da-table-wrap td.sticky{background:#fff}',
       '.da-table-wrap .sticky-inc{position:sticky;left:128px;z-index:3;background:#f8fafc;box-shadow:2px 0 0 #eef2f7}',
       '.da-table-wrap td.sticky-inc{background:#fff;font-weight:600}',
+      /* 疾病统计表：ICD 组 + 部位 两列并排冻结（统计口径以 ICD 组为准；两列宽度固定，指标列从 198px 起冻结） */
+      '.da-table-wrap .data-table.da-burden-table th.da-icd-col,.da-table-wrap .data-table.da-burden-table td.da-icd-col{position:sticky;left:0;z-index:3;background:#f8fafc;font-weight:500;text-align:left;padding-left:16px!important;padding-right:12px!important;width:86px!important;min-width:86px;color:#475569;font-variant-numeric:tabular-nums}',
+      '.da-table-wrap .data-table.da-burden-table td.da-icd-col{background:#fff}',
+      '.da-table-wrap .data-table.da-burden-table th.da-site-col,.da-table-wrap .data-table.da-burden-table td.da-site-col{position:sticky;left:86px;z-index:3;background:#f8fafc;font-weight:600;text-align:left;padding-left:12px!important;padding-right:18px!important;width:112px!important;min-width:112px;box-shadow:2px 0 0 #eef2f7}',
+      '.da-table-wrap .data-table.da-burden-table td.da-site-col{background:#fff}',
+      '.da-table-wrap .data-table.da-burden-table th.sticky-inc,.da-table-wrap .data-table.da-burden-table td.sticky-inc{left:198px}',
+      '.da-table-wrap .data-table.da-burden-table tr.row-hl td.da-icd-col,.da-table-wrap .data-table.da-burden-table tr.row-hl td.da-site-col{background:#e8f2ff!important}',
+      '.da-table-wrap .data-table.da-burden-table tr.row-click:hover td.da-icd-col,.da-table-wrap .data-table.da-burden-table tr.row-click:hover td.da-site-col{background:#f1f7ff}',
+      '.da-table-wrap .data-table.da-burden-table tr.total td.da-icd-col,.da-table-wrap .data-table.da-burden-table tr.total td.da-site-col{background:#e8f2ff!important}',
       '.da-table-wrap tr.row-hl td{background:#e8f2ff!important}',
       '.da-table-wrap.compact .data-table{min-width:100%!important}',
       '.da-table-wrap.compact th,.da-table-wrap.compact td{padding:8px 10px!important}',
@@ -414,9 +434,12 @@
 
   function scaleSites() {
     var f = factor();
-    return filteredSites().map(function (s) {
+    return groupSitesByIcd(filteredSites()).map(function (s) {
       return {
-        id: s.id,
+        icd: s.icd,
+        site: s.site,
+        sites: s.sites,
+        id: s.icd,
         name: s.name,
         inc: Math.max(1, Math.round(s.inc * f)),
         death: Math.max(0, Math.round(s.death * f)),
@@ -618,6 +641,35 @@
       }
     });
     return SITES.filter(function (s) { return want[s.id]; });
+  }
+
+  /* 统计口径以 ICD 组为准：无论数据源给的是部位明细（如 C18.0 / C18.9）还是已按组汇总，
+     出表前统一按 icd 归组合并——例数与 mv/dco/ub 计数直接相加，比例指标在展示层用分子/分母重算；
+     部位名按组内出现顺序合并，仅用于展示。因此同组多部位不会拆成多行、也不会重复计入合计。 */
+  function groupSitesByIcd(list) {
+    var order = [];
+    var byIcd = {};
+    list.forEach(function (s) {
+      /* 兜底：非标准数据源可能只带 id/name，仍按 ICD 组码归组 */
+      var code = s.icd || s.id || s.name;
+      var g = byIcd[code];
+      if (!g) {
+        g = byIcd[code] = { icd: code, id: code, sites: [], inc: 0, death: 0, mv: 0, dco: 0, ub: 0 };
+        order.push(g);
+      }
+      g.inc += s.inc;
+      g.death += s.death;
+      g.mv += s.mv;
+      g.dco += s.dco;
+      g.ub += s.ub;
+      if (s.site && g.sites.indexOf(s.site) < 0) g.sites.push(s.site);
+    });
+    order.forEach(function (g) {
+      /* 组内多个部位名时，主名称取第一个（列宽固定，避免长串把冻结列撑开），全量名称留给 title */
+      g.site = g.sites[0] || '';
+      g.name = g.icd + ' ' + g.sites.join('、');
+    });
+    return order;
   }
 
   function groups() {
@@ -989,7 +1041,9 @@
         }
         if (state.highlight === x.site.name) cls += ' row-hl';
         var hl = ' class="' + cls + '"';
-        var siteCell = '<td class="sticky">' + x.site.name + '</td>';
+        /* ICD 组与部位是两个字段、两列展示；行键仍是 ICD 组（x.site.icd） */
+        var siteCell = '<td class="sticky da-icd-col">' + htmlEsc(x.site.icd) + '</td>' +
+          '<td class="da-site-col" title="' + htmlEsc(x.site.name) + '">' + htmlEsc(x.site.site) + '</td>';
         var mid;
         if (isMI) {
           mid = '<td class="num sticky-inc">' + miCellHtml(x.judge, x.slice.inc, x.slice.death) + '</td>';
@@ -1044,10 +1098,12 @@
         totalMid = '<td class="num sticky-inc">' + num(pooled.count) + '</td>';
       }
 
-      return '<div class="da-table-wrap"><table class="data-table tbl-auto"><thead><tr>' +
-        '<th class="sticky txt">ICD 部位</th>' + headMid + ageHead() +
+      return '<div class="da-table-hint">统计口径：按 ICD-10 组（3 位类目）汇总，同一组下的部位明细合并统计；部位名仅用于展示，不参与分组。</div>' +
+        '<div class="da-table-wrap"><table class="data-table tbl-auto da-burden-table"><thead><tr>' +
+        '<th class="sticky txt da-icd-col" title="统计口径：按 ICD-10 组（3 位类目）汇总">ICD 组</th>' +
+        '<th class="txt da-site-col">部位</th>' + headMid + ageHead() +
         '</tr></thead><tbody>' + rows +
-        '<tr class="total"><td class="sticky">合计</td>' + totalMid + ageCells(pooledGetSlice()) +
+        '<tr class="total"><td class="sticky da-icd-col">合计</td><td class="da-site-col">全部部位</td>' + totalMid + ageCells(pooledGetSlice()) +
         '</tr></tbody></table></div>';
     }
 
@@ -1662,6 +1718,13 @@
 
   function render(id) {
     injectStyles();
+    /* 「数据中心 ▸ 综合部位数据分析」独立菜单项（2026-10-27）：直接复用 app.html 里既有的
+       renderSiteAnalysis() 原型页，只是给它接一个能点到的入口，不改动它任何行为。
+       注意：不能走 refresh()，DA 的 state.page 不认识这个 id，会落到报卡工作量。 */
+    if (id === 'analysis-site') {
+      if (typeof window.renderSiteAnalysis === 'function') return window.renderSiteAnalysis();
+      return '<div class="da-empty">综合部位数据分析页面未加载</div>';
+    }
     if (id === 'analysis') id = state.page;
     // 疾病统计并入统计分析「发病与死亡」；旧交叉/地图/JP/生存同页 Tab
     if (id === 'analysis-burden' || id === 'analysis-cross' || id === 'analysis-map' ||
@@ -2105,6 +2168,7 @@
        2026-10-12 更名。页面实现仍在 cockpit-module.js，本模块只负责菜单归属。 */
     { id: 'cockpit', label: '数据看板' },
     { id: 'analysis-stats', label: '统计分析' },
+    { id: 'analysis-site', label: '综合部位数据分析' },
     { id: 'analysis-progress', label: '报卡工作量' },
     { id: 'analysis-quality', label: '报卡质量监测' },
     /* 「登记运营监测」2026-10-10 按需求删除整个页面（菜单项 + registry-ops.js）。

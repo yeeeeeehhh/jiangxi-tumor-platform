@@ -5080,16 +5080,6 @@
       return;
     }
 
-    /* 社区咨询在「咨询会话」里列的科普内容（data-hcs="viewEdu"）：跳到知识的详情页。
-       这里接管的是 hc 页面上的入口，不会与知识库自身的按钮冲突。 */
-    var hcGo = ev.target.closest('[data-hcs="viewEdu"],[data-hcs="pickEdu"]');
-    if (hcGo) {
-      ev.preventDefault();
-      var hcId = hcGo.getAttribute('data-arg');
-      if (hcGo.getAttribute('data-hcs') === 'viewEdu') openDetail(hcId); else pickAsset(hcId);
-      return;
-    }
-
     var cardLink = ev.target.closest('[data-kb="open"]');
     if (cardLink) { ev.preventDefault(); openDetail(cardLink.getAttribute('data-arg')); return; }
 

@@ -4,7 +4,8 @@
 
   var PAGES = {
     'analysis-stats': 1,
-    'analysis-survival': 1
+    'analysis-survival': 1,
+    'analysis-site': 1
   };
 
   /* ========== 标准人口与常量 ========== */
@@ -829,6 +830,14 @@ function renderStats() {
     if (modeByPage[id]) {
       state.mode = modeByPage[id];
       id = 'analysis-stats';
+    }
+    /* 「综合部位数据分析」不在本模块渲染：包装后的 renderPage 不会走到这里，
+       但 KB 链兜底持有的是上一层的 renderPage，这里再挡一次防止落到报卡工作量。 */
+    if (id === 'analysis-site') {
+      if (typeof window.DA !== 'undefined' && window.DA && typeof window.DA.render === 'function') {
+        return window.DA.render('analysis-site');
+      }
+      return '<div class="da-empty">综合部位数据分析页面未加载</div>';
     }
     state.page = id;
     return renderStats();

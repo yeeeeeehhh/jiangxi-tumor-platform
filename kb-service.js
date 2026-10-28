@@ -4,7 +4,7 @@
    侧导航「科普与培训 → 社区咨询」下的二级节点，三级是 10 个业务页面：
 
      在线咨询    咨询会话 / 咨询问题分类 / 分配与处理日志
-     咨询问题分析 咨询问题分类统计（数量、占比、高紧急度、主要话题、科普转化）
+     咨询问题分析 咨询问题分类统计（数量、占比、高紧急度、主要话题）
      互动社区    社区主页（用户侧）/ 社区板块配置 / 社区主帖内容 /
                  社区评论与回复 / 社区用户行为日志 / 社区优质内容推荐配置
 
@@ -22,12 +22,10 @@
      现在分析结果只由会话回复时自动产生。分析类页面只统计、不生产。
    · 分析类三页（智能分析结果 / 热点统计 / 洞察建议）合并为一页：它们本是同一批
      分析数据的三个切面，运营要的维度只有一个——问题分类。热点的话题排行并进
-     「主要话题」列，洞察建议并进「科普转化」列，不再单独维护一套建议状态机。
+     「主要话题」列；统计页只统计、不生产，「科普转化」与行内采纳动作一并下线。
    · 社区主页是唯一面向用户的页面，也是社区各后台页的数据来源：它在浏览器里
      直接读写 DB，与后台页共用同一份内存数据，所以「主页发帖 → 后台审核 →
      主页可见」这条链路是真的通的，不是两套假数据。
-   · 洞察「采纳」直接生成一条知识库科普草稿（下架态、来源 = 咨询洞察），
-     不弹表单：标题按话题套模板，运营到「科普内容」页补齐正文与依据后上架。
 
    对外导出：window.HCService（DB、pageIds、pages、legacy、overview、render、
    pageOf、tabOf、labelOf）——app.html 与 kb-module.js 依赖这些名字，不可改名。
@@ -166,32 +164,11 @@
   function badge(text, tone) { return '<span class="badge badge-' + (tone || TONE[text] || 'neutral') + '">' + esc(text) + '</span>'; }
   function priBadge(p) { return badge(p, p === '高' ? 'danger' : p === '中' ? 'caution' : 'neutral'); }
 
-  /* ---------- 知识库接线（只走 KB 已有对外对象） ---------- */
-  var kbAssets = function () { return ((window.KB && window.KB.assets) || []).filter(function (x) { return !x.track || x.track === '科普'; }); };
-  function kbAdd(rec) {
-    if (window.KB && Array.isArray(window.KB.assets)) { window.KB.assets.unshift(rec); return true; }
-    return false;
-  }
-  function kbOpen(id) {
-    if (!id) return;
-    if (typeof window.navigateTo === 'function') { window.navigateTo('kb-detail|' + id); return; }
-    if (window.KB && typeof window.KB.openDetail === 'function') window.KB.openDetail(id);
-  }
-  function kbSites() {
-    try {
-      var names = ((window.KB && window.KB.dict && window.KB.dict.sites) || [])
-        .filter(function (x) { return x.status !== '禁用'; }).map(function (x) { return x.name; });
-      if (names.length) return names;
-    } catch (e) { }
-    return ['通用'];
-  }
-  function kbAuthors() {
-    try {
-      var n = ((window.KB && window.KB.users) || []).map(function (u) { return u.name; });
-      if (n.length) return n;
-    } catch (e) { }
-    return ['管理员'];
-  }
+  /* ---------- 知识库接线 ----------
+     只保留「读」：社区发帖时可引用知识库已上架科普（见 openPost 里的 eduOpts）。
+     咨询问题分类统计页不再生成科普草稿，所以 kbAdd / kbOpen / kbSites / kbAuthors
+     一并删掉——留着就是永远不会被调用的死代码。 */
+
 
   /* ================= 数据（内存态） ================= */
   var DOCTORS = ['王医生', '李医生', '赵医生', '孙医生', '周医生', '吴医生'];
@@ -216,21 +193,17 @@
       { id: 'CAT-04', name: '心理支持', desc: '情绪疏导与心理关怀', status: '停用', owner: '周医生' }
     ],
     assigns: [
-      { id: 'ASG-5001', session: 'HC-2026-0001', from: '客服组长', to: '王医生', note: '转肿瘤防治组处理', time: '2026-08-27 09:20' },
-      { id: 'ASG-5002', session: 'HC-2026-0002', from: '客服组长', to: '李医生', note: '转康复随访组处理', time: '2026-08-27 10:50' },
-      { id: 'ASG-5003', session: 'HC-2026-0005', from: '客服组长', to: '孙医生', note: '放射性皮肤反应专项', time: '2026-08-26 15:50' },
-      { id: 'ASG-5004', session: 'HC-2026-0006', from: '客服组长', to: '周医生', note: '情绪类转心理支持组', time: '2026-08-26 20:30' }
+      { id: 'ASG-5001', session: 'HC-2026-0001', to: '王医生', note: '转肿瘤防治组处理', time: '2026-08-27 09:20' },
+      { id: 'ASG-5002', session: 'HC-2026-0002', to: '李医生', note: '转康复随访组处理', time: '2026-08-27 10:50' },
+      { id: 'ASG-5003', session: 'HC-2026-0005', to: '孙医生', note: '放射性皮肤反应专项', time: '2026-08-26 15:50' },
+      { id: 'ASG-5004', session: 'HC-2026-0006', to: '周医生', note: '情绪类转心理支持组', time: '2026-08-26 20:30' }
     ],
     analysis: [],
-    /* 分类采纳记录：问题分类 → { eduId, adoptedAt }。
-       原来是按话题生成一批「洞察建议」再让运营逐条采纳/忽略，那是一整套独立的状态机；
-       现在统计页直接按分类列出数据，采不采纳是这个分类上的一个动作，只记结果。 */
-    catAdopt: {},
     boards: [
-      { id: 'BD-01', name: '康复互助圈', desc: '康复期患者经验分享与互助', status: '启用', moderator: '李医生' },
-      { id: 'BD-02', name: '专家讲堂', desc: '权威医生专题科普讲座', status: '启用', moderator: '王医生' },
-      { id: 'BD-03', name: '营养咨询', desc: '营养师在线答疑专区', status: '启用', moderator: '营养师小林' },
-      { id: 'BD-04', name: '心情树洞', desc: '匿名倾诉与心理支持', status: '停用', moderator: '周医生' }
+      { id: 'BD-01', name: '康复互助圈', desc: '康复期患者经验分享与互助', status: '启用' },
+      { id: 'BD-02', name: '专家讲堂', desc: '权威医生专题科普讲座', status: '启用' },
+      { id: 'BD-03', name: '营养咨询', desc: '营养师在线答疑专区', status: '启用' },
+      { id: 'BD-04', name: '心情树洞', desc: '匿名倾诉与心理支持', status: '停用' }
     ],
     posts: [
       { id: 'PT-101', board: '康复互助圈', user: '阿诚', title: '放疗第三周的感受与经验', content: '记录一下这三周放疗的身体变化，给后面的病友一个参考。前两周基本没什么感觉，第三周开始照射区域皮肤发紧、颜色变深，食欲也差了一些。医生说是正常反应，坚持下来了。', views: 1280, likes: 210, status: '已发布', time: '2026-08-24 10:12' },
@@ -240,7 +213,7 @@
       { id: 'PT-105', board: '康复互助圈', user: '海阔天空', title: '复查指标正常，分享我的随访时间表', content: '把这两年的复查项目和时间整理成表格，方便大家对照。术后前两年每 3 个月一次，第 3-5 年每 6 个月一次。', views: 410, likes: 66, status: '待审核', time: '2026-08-27 12:05' }
     ],
     comments: [
-      { id: 'CM-201', post: 'PT-102', user: '刘海', content: '讲解得很详细，收藏了。', like: 15, time: '2026-08-27 10:20', status: '正常', replies: [{ user: '王医生', content: '感谢关注，具体用药请以主治医生意见为准。', time: '2026-08-27 10:40' }] },
+      { id: 'CM-201', post: 'PT-102', user: '刘海', content: '讲解得很详细，收藏了。', like: 15, time: '2026-08-27 10:20', status: '正常', replies: [{ content: '感谢关注，具体用药请以主治医生意见为准。', time: '2026-08-27 10:40' }] },
       { id: 'CM-202', post: 'PT-103', user: '美玲', content: '请问放疗期间可以吃海鲜吗？', like: 6, time: '2026-08-27 11:40', status: '正常', replies: [] },
       { id: 'CM-203', post: 'PT-101', user: '老王', content: '感谢分享，给了我很大信心。', like: 22, time: '2026-08-27 14:02', status: '正常', replies: [] },
       { id: 'CM-204', post: 'PT-103', user: '匿名用户', content: '这里推荐的那个偏方根本没用，别信。', like: 1, time: '2026-08-27 16:15', status: '待审核', replies: [] }
@@ -511,7 +484,7 @@
       s.status = '已回复';
       if (!s.assignee) {
         s.assignee = who;
-        DB.assigns.unshift({ id: nextId('ASG-'), session: id, from: '系统', to: who, note: '回复时自动认领', time: now() });
+        DB.assigns.unshift({ id: nextId('ASG-'), session: id, to: who, note: '回复时自动认领', time: now() });
       }
       var r = aiAnalyze(s.q);
       DB.analysis.push({ id: nextId('AN-'), session: id, topic: s.topic || r.topic, raw: s.q, label: s.cat, intent: r.intent, emotion: r.emotion, urgency: r.urgency, analyzedAt: now() });
@@ -519,11 +492,12 @@
     log(who, '回复咨询', id);
     closeModal(); say('回复已发送至 ' + (s ? s.user : id)); refresh();
   }
+  /* 分配日志只记「谁被分配、为什么」，不记来源：来源在数据里恒为「客服组长」，
+     是同一常量写四行字，既不能筛也不能改，留着只是噪音。 */
   function openAssign(id) {
     var s = find(DB.sessions, id); if (!s) return;
     formModal('分配会话 · ' + id, s.user + ' · ' + s.cat, [
-      { k: 'as-to', label: '处理人', type: 'select', req: true, options: DOCTORS, value: s.assignee || DOCTORS[0] },
-      { k: 'as-from', label: '分配方式', type: 'select', options: ['客服组长', '系统', '科室主任'], value: '客服组长' },
+      { k: 'as-to', label: '处理人', type: 'select', req: true, full: true, options: DOCTORS, value: s.assignee || DOCTORS[0] },
       { k: 'as-note', label: '分配说明', full: true, ph: '例如：转肿瘤防治组处理' }
     ], '确认分配', 'doAssign', id, '分配后会话状态变为「处理中」，并写入分配与处理日志。');
   }
@@ -533,7 +507,7 @@
     if (!to) { say('请选择处理人', 'error'); return; }
     var note = val('hcs-f-as-note') || '人工分配';
     s.assignee = to; s.status = '处理中';
-    DB.assigns.unshift({ id: nextId('ASG-'), session: id, from: val('hcs-f-as-from') || '客服组长', to: to, note: note, time: now() });
+    DB.assigns.unshift({ id: nextId('ASG-'), session: id, to: to, note: note, time: now() });
     pushMsg(id, '系统', '系统', '本会话已分配给 ' + to + '（' + note + '）');
     log(to, '接收分配', id);
     closeModal(); say('已分配给 ' + to); refresh();
@@ -589,63 +563,14 @@
     closeModal(); say('分类已删除'); refresh();
   }
 
-  /* ---- 分析明细：按分类看原始问题 ---- */
-  function openCatTexts(cat) {
-    var all = DB.analysis.filter(function (a) { return (a.label || '未分类') === cat; });
-    modal('分类明细 · ' + cat, '共 ' + all.length + ' 条咨询文本',
-      all.length ? '<div>' + all.map(function (a) {
-        return '<div class="hcs-item"><div class="tt">' + esc(a.raw) + '</div><div class="ds">' + badge(a.urgency) +
-          ' · ' + esc(a.topic) + ' ' + link(a.session, 'openSession', a.session) +
-          ' <span style="color:#94a3b8">' + esc(a.analyzedAt) + '</span></div></div>';
-      }).join('') + '</div>' : '<div class="hcs-empty">暂无数据</div>',
-      '<button class="btn btn-ghost btn-sm" data-hcs="close">关闭</button>');
-  }
-
-  /* ---- 采纳：把某个分类的统计结论生成一条知识库科普草稿 ---- */
-  function adoptCat(cat) {
-    var st = catStat();
-    var row = null;
-    for (var i = 0; i < st.list.length; i++) { if (st.list[i].l === cat) { row = st.list[i]; break; } }
-    if (!row) { say('未找到分类「' + cat + '」的统计数据', 'error'); return; }
-    if (DB.catAdopt[cat] && DB.catAdopt[cat].eduId) { say('该分类已生成过科普草稿', 'error'); return; }
-    if (!window.KB || !Array.isArray(window.KB.assets)) { say('知识库模块未加载，无法生成内容', 'error'); return; }
-    var summary = '「' + cat + '」近 30 天咨询 ' + row.v + ' 次，占比 ' + row.share + '%，其中高紧急度 ' + row.urgent +
-      ' 次，主要集中在「' + row.top + '」。';
-    var title = cat + '：患者最关心的问题解答';
-    var rec = {
-      id: nextId('EDU-'),
-      title: title,
-      summary: summary,
-      body: '<p>' + esc(summary) + '</p>',
-      track: '科普',
-      kind: '文章',
-      sites: [kbSites()[0]],
-      scenes: [],
-      tags: [cat],
-      audiences: [],
-      lib: '省库',
-      org: '',
-      status: '停用',
-      publishedAt: '',
-      createdAt: now(),
-      createdBy: kbAuthors()[0],
-      source: '咨询洞察',
-      evidence: ''
-    };
-    kbAdd(rec);
-    DB.catAdopt[cat] = { eduId: rec.id, adoptedAt: now() };
-    log('运营', '采纳分类统计建议', cat + '→' + rec.id);
-    say('已生成科普草稿《' + title + '》，请到「科普内容」补齐正文后上架');
-    refresh();
-  }
-
-  /* ---- 社区：板块 ---- */
+  /* ---- 社区：板块 ----
+     板块只记名称、说明、状态：版主在原型里没有任何权限差异（谁能审主帖、谁能回复评论
+     都与版主字段无关），填了也只是装饰，故整列与表单字段一并去掉。 */
   function boardPostCount(name) { return cnt(DB.posts, function (p) { return p.board === name; }); }
   function openBoard(id) {
     var b = id ? find(DB.boards, id) : null;
     formModal(b ? '编辑板块 · ' + b.name : '新增板块', '板块是社区内容的顶层归类', [
       { k: 'bd-name', label: '板块名称', req: true, value: b ? b.name : '', ph: '例如：病友家属交流区' },
-      { k: 'bd-mod', label: '版主', type: 'select', options: DOCTORS.concat(['营养师小林']), value: b ? b.moderator : DOCTORS[0] },
       { k: 'bd-desc', label: '板块说明', full: true, value: b ? b.desc : '', ph: '一句话描述板块定位' },
       { k: 'bd-status', label: '状态', type: 'select', options: ['启用', '停用'], value: b ? b.status : '启用' }
     ], '保存', 'doBoard', id || '');
@@ -655,8 +580,8 @@
     var name = val('hcs-f-bd-name');
     if (!name) { say('板块名称不能为空', 'error'); return; }
     if (!b && DB.boards.some(function (x) { return x.name === name; })) { say('板块名称已存在', 'error'); return; }
-    if (b) { b.name = name; b.desc = val('hcs-f-bd-desc'); b.moderator = val('hcs-f-bd-mod'); b.status = val('hcs-f-bd-status'); }
-    else DB.boards.push({ id: nextId('BD-'), name: name, desc: val('hcs-f-bd-desc'), moderator: val('hcs-f-bd-mod'), status: val('hcs-f-bd-status') });
+    if (b) { b.name = name; b.desc = val('hcs-f-bd-desc'); b.status = val('hcs-f-bd-status'); }
+    else DB.boards.push({ id: nextId('BD-'), name: name, desc: val('hcs-f-bd-desc'), status: val('hcs-f-bd-status') });
     log('运营', b ? '编辑社区板块' : '新增社区板块', name);
     closeModal(); say(b ? '板块已更新' : '板块已新增'); refresh();
   }
@@ -825,7 +750,7 @@
       (cs.length ? cs.map(function (c) {
         return '<div class="hcs-item"><div class="tt">' + esc(c.user) + ' <span style="font-weight:400;color:#94a3b8;font-size:11px">' + esc(c.time) + '</span></div>' +
           '<div class="ds">' + esc(c.content) + '</div>' +
-          ((c.replies || []).length ? '<div class="ds" style="color:#244765">' + c.replies.map(function (r) { return '↳ ' + esc(r.user) + '：' + esc(r.content); }).join('<br>') + '</div>' : '') +
+          ((c.replies || []).length ? '<div class="ds" style="color:#244765">' + c.replies.map(function (r) { return '↳ ' + esc(r.content); }).join('<br>') + '</div>' : '') +
           '<div class="ds">' + badge(c.status) + ' ' + act('回复', 'replyForm', c.id) + '</div></div>';
       }).join('') : '<div class="hcs-empty">该主帖暂无评论</div>');
     var ft = '<button class="btn btn-ghost btn-sm" data-hcs="close">关闭</button>';
@@ -841,12 +766,17 @@
     }
     modal('主帖详情 · ' + id, p.board, body, ft);
   }
-  function approvePost(id) {
+  /* 列表里的操作只留一个上下架开关：上架即发布（待审核 / 已驳回 / 已下架都能一步上架），
+     下架即撤出患者端。查看、编辑、驳回、审核通过都收进点标题打开的详情弹窗——
+     列表是"扫一眼批量处理"的地方，一行三个按钮既挤又容易点错。 */
+  function publishPost(id) {
     var p = find(DB.posts, id); if (!p) return;
+    var pending = p.status === '待审核';
     p.status = '已发布'; p.time = now(); p.rejectReason = '';
-    log('运营', '审核通过主帖', id);
-    closeModal(); say('主帖《' + p.title + '》已发布'); refresh();
+    log('运营', pending ? '审核通过主帖' : '上架主帖', id);
+    closeModal(); say(pending ? '主帖《' + p.title + '》已发布' : '主帖《' + p.title + '》已上架'); refresh();
   }
+  function approvePost(id) { publishPost(id); }
   function rejectPost(id) {
     var p = find(DB.posts, id); if (!p) return;
     formModal('驳回主帖 · ' + id, p.title,
@@ -871,10 +801,11 @@
     log('运营', '下架主帖', id);
     closeModal(); say('主帖已下架'); refresh();
   }
+  /* 回复评论只有内容，不记回复人：本模块的官方回复对外就是一个「官方」身份，
+     谁点的回复不改变展示，选一个医生名字只是让同一句话换个署名，没有业务含义。 */
   function openCommentReply(id) {
     var c = find(DB.comments, id); if (!c) return;
     formModal('回复评论 · ' + id, '主帖 ' + c.post, [
-      { k: 'cr-user', label: '回复身份', type: 'select', options: DOCTORS.concat(['运营小编']), value: DOCTORS[0] },
       { k: 'cr-text', label: '回复内容', type: 'textarea', req: true, full: true, ph: '请输入官方回复内容' }
     ], '发送回复', 'doCommentReply', id, '回复展示在评论下方，并把该评论状态置为「正常」。');
     var bd = document.querySelector('.kb-mask .bd');
@@ -884,11 +815,10 @@
     var c = find(DB.comments, id); if (!c) return;
     var text = val('hcs-f-cr-text');
     if (!text) { say('回复内容不能为空', 'error'); return; }
-    var who = val('hcs-f-cr-user') || DOCTORS[0];
     c.replies = c.replies || [];
-    c.replies.push({ user: who, content: text, time: now() });
+    c.replies.push({ content: text, time: now() });
     if (c.status === '待审核') c.status = '正常';
-    log(who, '回复评论', id);
+    log('运营', '回复评论', id);
     closeModal(); say('回复已发布'); refresh();
   }
   function hideComment(id) {
@@ -1304,7 +1234,7 @@
       (cs.length ? cs.map(function (c) {
         return '<div class="hcs-item"><div class="tt">' + esc(c.user) + ' <span style="font-weight:400;color:#94a3b8;font-size:11px">' + esc(c.time) + '</span></div>' +
           '<div class="ds">' + esc(c.content) + '</div>' +
-          ((c.replies || []).length ? '<div class="ds" style="color:#244765">' + c.replies.map(function (r) { return '↳ ' + esc(r.user) + '：' + esc(r.content); }).join('<br>') + '</div>' : '') +
+          ((c.replies || []).length ? '<div class="ds" style="color:#244765">' + c.replies.map(function (r) { return '↳ ' + esc(r.content); }).join('<br>') + '</div>' : '') +
           '</div>';
       }).join('') : '<div class="hcs-empty">还没有评论，来说两句</div>') +
       '<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">' +
@@ -1426,14 +1356,14 @@
     var rows = slice(list, id, 10).map(function (a) {
       return '<tr><td>' + esc(a.id) + '</td>' +
         '<td>' + link(a.session, 'openSession', a.session) + '</td>' +
-        '<td>' + badge(a.from, a.from === '系统' ? 'info' : 'neutral') + '</td><td>' + esc(a.to) + '</td>' +
+        '<td>' + esc(a.to) + '</td>' +
         '<td>' + clip(a.note, 320) + '</td><td>' + esc(a.time) + '</td></tr>';
     });
     return filterBar(id, [
       fkw(id, 'kw', fv(id, 'kw', ''), '会话编号 / 分配说明'),
       fsel(id, 'to', ['全部'].concat(DOCTORS), to)
     ]) + bar('<span style="font-size:12px;color:#64748b">共 ' + list.length + ' 条分配记录</span>', '') +
-      table(['日志编号', '会话编号', '分配来源', '处理人', '分配说明', '时间'], rows, '暂无分配记录') +
+      table(['日志编号', '会话编号', '处理人', '分配说明', '时间'], rows, '暂无分配记录') +
       pager(id, list.length, 10);
   }
 
@@ -1443,26 +1373,22 @@
      原来这里是三页：智能分析结果（话题明细）、热点统计（话题排行）、
      洞察建议（按话题生成的运营建议）。三者其实是同一批分析数据的三个切面，
      而运营真正要看的维度只有一个——问题分类。
-     现在合成一页：按分类统计数量/占比/高紧急度/主要话题，行内可看明细、可采纳。
+     现在合成一页，而且只统计、不生产：按分类给数量/占比/高紧急度/主要话题，
+     行内不带任何动作。分析页的职责是把数据摆出来，采纳、生成科普、看明细
+     都是另一套状态机与另一个页面的事，不该挂在统计表的右边。
      ============================================================ */
   function tAI(pageId) {
     var st = catStat();
     var rows = st.list.map(function (c, i) {
-      var ad = DB.catAdopt[c.l];
       return '<tr><td>' + (i + 1) + '</td>' +
         '<td><strong>' + esc(c.l) + '</strong></td>' +
         '<td>' + c.v + '</td>' +
         '<td>' + c.share + '%</td>' +
         '<td>' + (c.urgent || '—') + '</td>' +
-        '<td>' + esc(c.top) + '</td>' +
-        '<td>' + (ad && ad.eduId
-          ? badge('已生成科普') + '<span class="hcs-sub" style="color:#2e7d32">→ ' + esc(ad.eduId) + '</span>'
-          : '<span style="color:#94a3b8">未处理</span>') + '</td>' +
-        '<td>' + ops(act('查看明细', 'catTexts', c.l),
-          ad && ad.eduId ? act('查看科普', 'viewEdu', ad.eduId) : act('采纳并生成科普', 'adopt', c.l, 'btn-primary')) + '</td></tr>';
+        '<td>' + esc(c.top) + '</td></tr>';
     });
     return bar('<span style="font-size:12px;color:#64748b">统计口径：咨询问题按分类汇总，数量与占比实时计算</span>', '') +
-      table(['排名', '问题分类', '咨询量', '占比', '其中高紧急度', '主要话题', '科普转化', '操作'], rows, '暂无分析数据') +
+      table(['排名', '问题分类', '咨询量', '占比', '其中高紧急度', '主要话题'], rows, '暂无分析数据') +
       (st.total ? '<div style="padding-top:10px;font-size:12px;color:#64748b;text-align:right">合计 ' + st.total + ' 条咨询</div>' : '');
   }
 
@@ -1472,10 +1398,10 @@
   function tBoards(pageId) {
     var rows = DB.boards.map(function (b) {
       return '<tr><td>' + esc(b.id) + '</td><td><strong>' + esc(b.name) + '</strong></td><td>' + clip(b.desc, 320) + '</td>' +
-        '<td>' + esc(b.moderator) + '</td><td>' + boardPostCount(b.name) + '</td><td>' + badge(b.status) + '</td>' +
+        '<td>' + boardPostCount(b.name) + '</td><td>' + badge(b.status) + '</td>' +
         '<td>' + ops(act('编辑', 'editBoard', b.id), act(b.status === '启用' ? '停用' : '启用', 'toggleBoard', b.id)) + '</td></tr>';
     });
-    return table(['板块编号', '板块名称', '板块说明', '版主', '主帖数', '状态', '操作'], rows, '暂无板块');
+    return table(['板块编号', '板块名称', '板块说明', '主帖数', '状态', '操作'], rows, '暂无板块');
   }
 
   function tPosts(pageId) {
@@ -1488,16 +1414,14 @@
       return true;
     });
     var rows = slice(list, id, 8).map(function (p) {
-      return '<tr><td>' + esc(p.id) + '</td><td>' + esc(p.board) + '</td><td>' + esc(p.user) + '</td>' +
+      return '<tr><td>' + esc(p.id) + '</td><td>' + esc(p.board) + '</td>' +
         '<td>' + link(p.title, 'viewPost', p.id) + '</td>' +
         '<td>' + p.views + '</td><td>' + p.likes + '</td><td>' + commentCount(p.id) + ' / ' + replyCount(p.id) + '</td>' +
         '<td>' + badge(p.status) + (p.rejectReason ? '<span class="hcs-sub" style="color:#b42335">' + esc(p.rejectReason) + '</span>' : '') + '</td>' +
         '<td>' + esc(p.time) + '</td>' +
-        '<td>' + ops(p.status === '待审核'
-          ? act('通过', 'approvePost', p.id, 'btn-primary') + act('驳回', 'rejectPost', p.id) + act('编辑', 'editPost', p.id)
-          : p.status === '已发布'
-            ? act('查看', 'viewPost', p.id) + act('下架', 'unpublishPost', p.id)
-            : act('查看', 'viewPost', p.id) + act('编辑', 'editPost', p.id)) + '</td></tr>';
+        '<td>' + ops(p.status === '已发布'
+          ? act('下架', 'unpublishPost', p.id)
+          : act('上架', 'publishPost', p.id, 'btn-primary')) + '</td></tr>';
     });
     return filterBar(id, [
       fkw(id, 'kw', fv(id, 'kw', ''), '标题 / 作者 / 正文'),
@@ -1505,7 +1429,7 @@
       fsel(id, 'status', ['全部', '已发布', '待审核', '已驳回', '已下架'], status)
     ]) + bar('<span style="font-size:12px;color:#64748b">共 ' + list.length + ' 条主帖，待审核 ' + cnt(DB.posts, function (p) { return p.status === '待审核'; }) + ' 条</span>',
       act('+ 新增主帖', 'newPost', '', 'btn-primary')) +
-      table(['主帖编号', '所属板块', '作者', '标题', '浏览', '点赞', '评论/回复', '状态', '发布时间', '操作'], rows, '没有符合条件的主帖') +
+      table(['主帖编号', '所属板块', '标题', '浏览', '点赞', '评论/回复', '状态', '发布时间', '操作'], rows, '没有符合条件的主帖') +
       pager(id, list.length, 8);
   }
 
@@ -1523,7 +1447,7 @@
         '<td>' + link(c.post, 'viewPost', c.post) + '</td>' +
         '<td>' + esc(c.user) + '</td>' +
         '<td>' + clip(c.content, 260) + '</td>' +
-        '<td>' + (rep.length ? rep.map(function (r) { return '<div style="font-size:12px;white-space:normal"><b>' + esc(r.user) + '</b>：' + esc(r.content) + '</div>'; }).join('') : '<span style="color:#94a3b8">未回复</span>') + '</td>' +
+        '<td>' + (rep.length ? rep.map(function (r) { return '<div style="font-size:12px;white-space:normal">' + esc(r.content) + '</div>'; }).join('') : '<span style="color:#94a3b8">未回复</span>') + '</td>' +
         '<td>' + badge(c.status) + '</td><td>' + esc(c.time) + '</td>' +
         '<td>' + ops(act('回复', 'replyForm', c.id, 'btn-primary'),
           act(c.status === '已屏蔽' ? '恢复' : '屏蔽', 'hideComment', c.id),
@@ -1600,7 +1524,7 @@
         { id: 'hc-categories', tab: 'category', label: '咨询问题分类', table: '咨询问题分类体系', acts: '<button class="btn btn-primary btn-sm" data-hcs="newCategory">+ 新增分类</button>' },
         { id: 'hc-assigns', tab: 'assign', label: '分配与处理日志', table: '咨询分配与处理日志' }
       ] },
-    { group: '咨询问题分析', hint: '按问题分类统计咨询量、热点与科普转化',
+    { group: '咨询问题分析', hint: '按问题分类统计咨询量与热点话题',
       items: [
         { id: 'hc-ai', tab: 'ai', label: '咨询问题分类统计', table: '咨询问题分类统计' }
       ] },
@@ -1724,11 +1648,6 @@
       case 'removeCategory': removeCategory(g); return;
       case 'doRemoveCategory': if (mAct === 'doRemoveCategory') doRemoveCategory(mArg); return;
 
-      /* 分析 / 采纳 */
-      case 'catTexts': openCatTexts(g); return;
-      case 'adopt': adoptCat(g); return;
-      case 'viewEdu': kbOpen(g); return;
-
       /* 社区主页（用户侧）：动作都写回后台表 */
       case 'homeBoard': HOME.board = g; S.pageNo['hc-home'] = 1; render('hc-home'); return;
       case 'homeQuery': homeQuery(); return;
@@ -1760,6 +1679,7 @@
       case 'chatNew': CHAT.open = true; chatNew(); return;
       case 'chatOpenSession': openChatSession(g); return;
       case 'chatSend': chatSend(); return;
+      case 'publishPost': publishPost(g); return;
       case 'approvePost': approvePost(g); return;
       case 'rejectPost': rejectPost(g); return;
       case 'doReject': if (mAct === 'doReject') doReject(mArg); return;
