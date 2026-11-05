@@ -6,6 +6,10 @@ let dedupState={subId:'quality-dup-card'};
 let dedupMarkedRegs={};
 /* 列表视图：''=待处理 | 'dup'=重卡 | 'multi'=多原发 | 'indep'=独立卡 */
 let dedupViewState='';
+/* 多原发视图人工合并关系：登记编号 -> 合并组 id（同 id 表示已合并为一组）。
+   模块级，重渲染保持。仅改变查重计数口径，原始报告卡与病灶资料保留，可解除。 */
+let dedupMultiMerged={};
+let dedupMultiMergeSeq=0;
 /* 日期筛选：日期类型 + 起止日期（空字符串=不限） */
 let dedupDateType='确诊日期';
 let dedupDateStart='';
@@ -128,7 +132,8 @@ const cardRows = rowCards.map((c,ci)=>{
  const done=isMarked(c,viewType);
  const ds=(ci===0&&!done)?'master':'suspect';
  const st=done?{text:doneLabel,color:'#475569',bg:'#e2e8f0'}:statusMap[ds];
- const statusCell='<span style="background:'+st.bg+';color:'+st.color+';padding:2px 8px;border-radius:4px;font-size:13px;font-weight:600">'+st.text+'</span>';
+ const mergeTag=(viewType==='multi'&&dedupMultiMerged[c.registr])?' <span style="background:#dcfce7;color:#16a34a;padding:1px 6px;border-radius:4px;font-size:12px;font-weight:600;margin-left:6px;white-space:nowrap" title="人工合并组 #'+dedupMultiMerged[c.registr]+'">已合并</span>':'';
+ const statusCell='<span style="background:'+st.bg+';color:'+st.color+';padding:2px 8px;border-radius:4px;font-size:13px;font-weight:600">'+st.text+'</span>'+mergeTag;
  /* 主卡为组内基准卡，不参与勾选，单元格留空（不渲染置灰复选框）；已判定的卡可勾选用于恢复 */
  const checkboxHtml=done?'<input type="checkbox" class="dedup-card-check dedup-done-check" value="'+c.registr+'" onclick="event.stopPropagation();dedupCardCheckActions('+i+')" style="cursor:pointer">':(ds==='master'||isDoneView)?'':'<input type="checkbox" class="dedup-card-check" value="'+c.registr+'" onclick="event.stopPropagation();dedupCardCheckActions('+i+')" style="cursor:pointer">';
  /* 人口字段：与主卡不同的值标红加粗并标 ✗，与主卡相同则正常显示。
@@ -151,7 +156,7 @@ const cardRows = rowCards.map((c,ci)=>{
  return '<tr'+rowBg+'><td>'+checkboxHtml+'</td><td class="code">'+statusCell+'</td>'+popCells+'<td class="txt">'+c.topo+'</td><td class="code">'+c.morp+'</td><td class="code">'+c.beha+'</td><td class="txt">'+c.basi+'</td><td class="code">'+c.inciden+'</td><td class="txt">'+c.icd10+'</td><td class="txt">'+(c.icdo3||'-')+'</td><td class="txt">'+(c.hosp||'-')+'</td>'+opsCell+'</tr>';
 }).join('');
 const actionsBar=isDoneView
- ?'<div id="dedupCardActions'+i+'" style="display:none;padding:8px 16px;border-top:1px solid #e2e8f0;gap:8px"><button id="dedupCardBtn_'+i+'_restore" class="btn btn-primary btn-sm" style="display:none" onclick="dedupCardRestore()">恢复为疑似重复</button></div>'
+ ?'<div id="dedupCardActions'+i+'" style="display:none;padding:8px 16px;border-top:1px solid #e2e8f0;gap:8px"><button id="dedupCardBtn_'+i+'_restore" class="btn btn-primary btn-sm" style="display:none" onclick="dedupCardRestore()">恢复为疑似重复</button>'+(viewType==='multi'?'<button id="dedupCardBtn_'+i+'_merge" class="btn btn-outline btn-sm dedup-merge-btn" style="display:none" onclick="dedupMultiMerge()">合并选中卡</button><button id="dedupCardBtn_'+i+'_unmerge" class="btn btn-ghost btn-sm dedup-unmerge-btn" style="display:none" onclick="dedupMultiUnmerge()">解除合并</button>':'')+'</div>'
  :'<div id="dedupCardActions'+i+'" style="display:none;padding:8px 16px;border-top:1px solid #e2e8f0;gap:8px"><button id="dedupCardBtn_'+i+'_markDup" class="btn btn-primary btn-sm" style="display:none" onclick="dedupCardMarkDup()">标记重卡</button><button id="dedupCardBtn_'+i+'_markMulti" class="btn btn-primary btn-sm" style="display:none" onclick="dedupCardMarkMulti()">标记多原发</button><button id="dedupCardBtn_'+i+'_markIndep" class="btn btn-outline btn-sm" style="display:none" onclick="dedupCardMarkIndep()">标记独立卡</button></div>';
 return '<div style="border:1px solid '+borderColor+';border-radius:6px;margin-bottom:12px;overflow:hidden"><div style="background:'+headBg+';padding:10px 16px;display:flex;align-items:center;gap:35px;border-bottom:1px solid '+borderColor+';cursor:pointer" onclick="dedupCardToggle('+i+')"><span style="font-weight:600;font-size:14px"><a href="javascript:void(0)" style="color:var(--primary)" onclick="event.stopPropagation();showCardDetail(this.textContent)">'+g.cards[0].registr+'</a> '+g.patient+'</span><span style="color:#667085;font-size:14px">'+g.sex+' / '+g.birth+'</span><span style="color:#667085;font-size:14px">'+g.idNo+'</span>'+(summary?'<span style="color:#667085;font-size:14px">'+summary+'</span>':'')+popHint+'</div><div class="dedup-card-sub" id="dedupCardSub'+i+'" style="padding:0"><div class="table-wrap"><table class="data-table" style="margin:0;min-width:2200px"><thead><tr><th style="width:36px"><input type="checkbox" onclick="toggleAllChecks(this,\'.dedup-card-check\')" style="cursor:pointer"></th><th class="code">状态</th><th class="txt">姓名</th><th class="code">性别</th><th class="code">出生日期</th><th class="txt">身份证号</th><th class="txt">联系电话</th><th class="txt">户籍地址</th><th class="txt">发病部位</th><th class="code">病理类型</th><th class="code">行为</th><th class="txt">诊断依据</th><th class="code">确诊日期</th><th class="txt">ICD10</th><th class="txt">ICD-O-3</th><th class="txt">诊断医院</th><th class="ops sticky-col">操作</th></tr></thead><tbody>'+cardRows+'</tbody></table></div>'+actionsBar+'</div></div>'
 }).join('');
@@ -170,7 +175,7 @@ const sel=(v,l)=>'<option value="'+v+'"'+(dedupViewState===v?' selected':'')+'>'
    日期区间选择器(renderDateRangePicker)确认/清除后会回写 dedupDateStart/End，见 dedupDateRangeApply。 */
 const dateTypeOptions=['确诊日期','报告日期','登记日期'].map(d=>'<option'+(dedupDateType===d?' selected':'')+'>'+d+'</option>').join('');
 const dateRangeHtml=(typeof renderDateRangePicker==='function')?renderDateRangePicker('dr_dedup',dedupDateStart,dedupDateEnd):'<input type="date">';
-return '<div class="page-toolbar"><div class="page-toolbar-title"><span class="icon">●</span>报卡查重</div></div><div class="panel"><div class="panel-body"><div class="filter-toolbar"><div class="form-group region-filter" style="min-width:200px"><label>行政区划</label>'+renderRegionCascader()+'</div><div class="form-group" style="min-width:160px"><label>状态</label><select onchange="dedupViewState=this.value;renderPage(\'quality-dup-card\')">'+sel('','待处理（疑似重复）')+sel('dup','重卡')+sel('multi','多原发')+sel('indep','独立卡')+'</select></div><div class="form-group" style="min-width:140px"><label>日期类型</label><select onchange="dedupDateType=this.value;renderPage(\'quality-dup-card\')">'+dateTypeOptions+'</select></div><div class="form-group date-group" style="min-width:300px"><label>日期</label>'+dateRangeHtml+'</div><div class="form-group search-group"><label>检索内容</label><input type="text" placeholder="姓名 / 身份证号 / 登记编号"></div><div class="filter-actions"><button class="btn btn-primary btn-sm" onclick="toast(\'查询完成\')">查询</button><button class="btn btn-ghost btn-sm" onclick="toast(\'已重置\')">重置</button></div></div>'+(countText?'<div style="margin-bottom:8px;color:#667085;font-size:13px">'+countText+'</div>':'')+groupHtml+'</div></div>'+emptyHtml
+return '<div class="page-toolbar"><div class="page-toolbar-title"><span class="icon">●</span>报卡查重</div><div class="toolbar-actions"><button class="btn btn-outline btn-sm" onclick="dedupShowMultiRule()">📖 多原发判定方法</button></div></div><div class="panel"><div class="panel-body"><div class="filter-toolbar"><div class="form-group region-filter" style="min-width:200px"><label>行政区划</label>'+renderRegionCascader()+'</div><div class="form-group" style="min-width:160px"><label>状态</label><select onchange="dedupViewState=this.value;renderPage(\'quality-dup-card\')">'+sel('','待处理（疑似重复）')+sel('dup','重卡')+sel('multi','多原发')+sel('indep','独立卡')+'</select></div><div class="form-group" style="min-width:140px"><label>日期类型</label><select onchange="dedupDateType=this.value;renderPage(\'quality-dup-card\')">'+dateTypeOptions+'</select></div><div class="form-group date-group" style="min-width:300px"><label>日期</label>'+dateRangeHtml+'</div><div class="form-group search-group"><label>检索内容</label><input type="text" placeholder="姓名 / 身份证号 / 登记编号"></div><div class="filter-actions"><button class="btn btn-primary btn-sm" onclick="toast(\'查询完成\')">查询</button><button class="btn btn-ghost btn-sm" onclick="toast(\'已重置\')">重置</button></div></div>'+(countText?'<div style="margin-bottom:8px;color:#667085;font-size:13px">'+countText+'</div>':'')+groupHtml+'</div></div>'+emptyHtml
 }
 function dedupCardToggle(i){const el=document.getElementById('dedupCardSub'+i);if(el)el.style.display=el.style.display==='none'?'block':'none'}
 /* 日期区间确认/清除后写入筛选状态（renderDateRangePicker 自身只更新显示，不回传业务状态）。
@@ -179,14 +184,62 @@ function dedupDateRangeApply(){const s=document.getElementById('dr_dedup_start')
 function dedupDateRangeClear(){dedupDateStart='';dedupDateEnd='';toast('已清除日期筛选')}
 function toggleAllChecks(src,className){const table=src.closest('table');const checks=table.querySelectorAll(className+':not(:disabled)');checks.forEach(ch=>{if(ch.checked!==src.checked){ch.checked=src.checked;if(className==='.dedup-card-check'){const m=ch.getAttribute('onclick')&&ch.getAttribute('onclick').match(/dedupCardCheckActions\((\d+)\)/);if(m)dedupCardCheckActions(parseInt(m[1]))}else if(className==='.dedup-pop-check'){const m=ch.getAttribute('onclick')&&ch.getAttribute('onclick').match(/dedupPopCheckActions\((\d+)\)/);if(m)dedupPopCheckActions(parseInt(m[1]))}}})}
 /* 选中记录后显示动作按钮：待处理视图=标记重卡/标记多原发/标记独立卡；已判定视图=恢复为疑似重复 */
-function dedupCardCheckActions(i){const sub=document.getElementById('dedupCardSub'+i);if(!sub)return;const checks=sub.querySelectorAll('.dedup-card-check:checked');const actions=document.getElementById('dedupCardActions'+i);if(!actions)return;if(checks.length===0){actions.style.display='none';return}actions.style.display='flex';const btnDup=document.getElementById('dedupCardBtn_'+i+'_markDup');const btnMulti=document.getElementById('dedupCardBtn_'+i+'_markMulti');const btnIndep=document.getElementById('dedupCardBtn_'+i+'_markIndep');const btnRestore=document.getElementById('dedupCardBtn_'+i+'_restore');if(btnDup)btnDup.style.display='';if(btnMulti)btnMulti.style.display='';if(btnIndep)btnIndep.style.display='';if(btnRestore)btnRestore.style.display=''}
+/* 选中记录后显示动作按钮：待处理=标记重卡/多原发/独立卡；已判定=恢复为疑似重复。
+   多原发视图：全局勾选 >=2 张显示「合并选中卡」，勾选含已合并卡显示「解除合并」。 */
+function dedupCardCheckActions(i){
+ const sub=document.getElementById('dedupCardSub'+i);if(!sub)return;
+ const checks=sub.querySelectorAll('.dedup-card-check:checked');
+ const actions=document.getElementById('dedupCardActions'+i);if(!actions)return;
+ actions.style.display=checks.length===0?'none':'flex';
+ const btnDup=document.getElementById('dedupCardBtn_'+i+'_markDup');
+ const btnMulti=document.getElementById('dedupCardBtn_'+i+'_markMulti');
+ const btnIndep=document.getElementById('dedupCardBtn_'+i+'_markIndep');
+ const btnRestore=document.getElementById('dedupCardBtn_'+i+'_restore');
+ if(btnDup)btnDup.style.display='';
+ if(btnMulti)btnMulti.style.display='';
+ if(btnIndep)btnIndep.style.display='';
+ if(btnRestore)btnRestore.style.display='';
+ dedupRefreshMergeButtons();
+}
+/* 所有组的「合并/解除合并」按钮按全局勾选状态统一刷新（允许跨组选择）。 */
+function dedupRefreshMergeButtons(){
+ const vals=Array.from(document.querySelectorAll('.dedup-card-check:checked')).map(ch=>ch.value);
+ const isMulti=dedupViewState==='multi';
+ const canMerge=isMulti&&vals.length>=2;
+ const canUnmerge=isMulti&&vals.some(v=>!!dedupMultiMerged[v]);
+ document.querySelectorAll('.dedup-merge-btn').forEach(b=>{b.style.display=canMerge?'':'none'});
+ document.querySelectorAll('.dedup-unmerge-btn').forEach(b=>{b.style.display=canUnmerge?'':'none'});
+}
+/* 合并：选中 >=2 张判为多原发的卡，归入同一人工合并组（同一原发计数）。 */
+function dedupMultiMerge(){
+ const c=document.querySelectorAll('.dedup-card-check:checked');
+ if(c.length<2){toast('请至少选择 2 张多原发卡进行合并','error');return}
+ const regs=Array.from(c).map(ch=>ch.value);
+ showConfirm('合并多原发卡','确定将选中的 '+regs.length+' 张多原发卡合并为一组吗？合并仅改变查重计数口径，原始报告卡与病灶资料保留，可随时解除合并。',()=>{
+  dedupMultiMergeSeq++;const gid=dedupMultiMergeSeq;
+  regs.forEach(r=>{dedupMultiMerged[r]=gid});
+  toast('已合并 '+regs.length+' 张多原发卡');
+  renderPage('quality-dup-card');
+ });
+}
+/* 解除合并：把选中记录所在合并组整组解散，组内各卡恢复为独立多原发。 */
+function dedupMultiUnmerge(){
+ const regs=Array.from(document.querySelectorAll('.dedup-card-check:checked')).map(ch=>ch.value).filter(r=>!!dedupMultiMerged[r]);
+ if(regs.length===0){toast('请先选择已合并的记录','error');return}
+ showConfirm('解除合并','确定解除选中记录所在的合并组吗？解除后组内各卡恢复为独立多原发。',()=>{
+  const gids={};regs.forEach(r=>{gids[dedupMultiMerged[r]]=1});
+  Object.keys(dedupMultiMerged).forEach(k=>{if(gids[dedupMultiMerged[k]])delete dedupMultiMerged[k]});
+  toast('已解除合并');
+  renderPage('quality-dup-card');
+ });
+}
 function dedupCardAuto(){showConfirm('快速合并','系统将自动批量处理重卡合并，每5秒自动执行一批。确定要开始吗？',()=>{dedupCardAutoRun(5)})}
 function dedupCardAutoRun(sec){const overlay=document.createElement('div');overlay.className='cd-overlay';overlay.style.zIndex='10001';overlay.innerHTML='<div class="cd-dialog" style="max-width:420px;text-align:center"><div class="cd-header"><span>快速合并进行中</span></div><div class="cd-body" style="padding:32px"><div style="font-size:48px;color:var(--primary);margin-bottom:16px">⏳</div><div style="font-size:14px;color:#64748b;margin-bottom:8px">系统正在自动合并重卡，请稍候...</div><div style="font-size:24px;font-weight:700;color:var(--primary)" id="dedupAutoCountdown">'+sec+'</div><div style="font-size:13px;color:#94a3b8;margin-top:8px">秒后自动执行下一批</div><div style="margin-top:24px"><button class="btn btn-ghost btn-sm" onclick="dedupCardAutoStop()">取消</button></div></div></div>';document.body.appendChild(overlay);let count=sec;const timer=setInterval(()=>{count--;const el=document.getElementById('dedupAutoCountdown');if(el)el.textContent=count;if(count<=0){clearInterval(timer);overlay.remove();toast('快速合并完成');renderPage('quality-dup-card')}},1000);window._dedupAutoTimer=timer;window._dedupAutoOverlay=overlay}
 function dedupCardAutoStop(){if(window._dedupAutoTimer){clearInterval(window._dedupAutoTimer)}if(window._dedupAutoOverlay){window._dedupAutoOverlay.remove()}toast('已取消快速合并')}
 /* 记录已标记的登记编号与处理类型，标记后卡片从「待处理」列表移除 */
 function dedupApplyMarked(regs,type){regs.forEach(r=>{dedupMarkedRegs[r]=type})}
 /* 恢复为疑似重复：清除标记，卡片回到原组的待处理列表 */
-function dedupCardRestore(){const c=document.querySelectorAll('.dedup-card-check:checked');if(c.length===0){toast('请先选择要恢复的记录','error');return}const regs=Array.from(c).map(ch=>ch.value).filter(r=>dedupMarkedRegs[r]);if(regs.length===0){toast('请选择已判定为重卡、多原发或独立卡的记录','error');return}const cnt=regs.length;showConfirm('恢复为疑似重复','确定要将选中的 '+cnt+' 条记录恢复为疑似重复吗？恢复后回到待处理列表，可重新标记。',()=>{regs.forEach(r=>{delete dedupMarkedRegs[r]});toast('已恢复 '+cnt+' 条记录为疑似重复');renderPage('quality-dup-card')})}
+function dedupCardRestore(){const c=document.querySelectorAll('.dedup-card-check:checked');if(c.length===0){toast('请先选择要恢复的记录','error');return}const regs=Array.from(c).map(ch=>ch.value).filter(r=>dedupMarkedRegs[r]);if(regs.length===0){toast('请选择已判定为重卡、多原发或独立卡的记录','error');return}const cnt=regs.length;showConfirm('恢复为疑似重复','确定要将选中的 '+cnt+' 条记录恢复为疑似重复吗？恢复后回到待处理列表，可重新标记。',()=>{regs.forEach(r=>{delete dedupMarkedRegs[r];delete dedupMultiMerged[r]});toast('已恢复 '+cnt+' 条记录为疑似重复');renderPage('quality-dup-card')})}
 function dedupCardMarkDup(){const c=document.querySelectorAll('.dedup-card-check:checked');if(c.length===0){toast('请先选择要标记的记录','error');return}const regs=Array.from(c).map(ch=>ch.value);const cnt=regs.length;showConfirm('标记重卡','确定要将选中的 '+cnt+' 条记录标记为重卡吗？标记后可在「重卡」筛选中查看或恢复。',()=>{dedupApplyMarked(regs,'dup');toast('已标记重卡，共 '+cnt+' 条记录');renderPage('quality-dup-card')})}
 function dedupCardMarkMulti(){const c=document.querySelectorAll('.dedup-card-check:checked');if(c.length===0){toast('请先选择要标记的记录','error');return}const regs=Array.from(c).map(ch=>ch.value);const cnt=regs.length;showConfirm('标记多原发','确定要将选中的 '+cnt+' 条记录标记为多原发吗？标记后可在「多原发」筛选中查看或恢复。',()=>{dedupApplyMarked(regs,'multi');toast('已标记为多原发，共 '+cnt+' 条记录');renderPage('quality-dup-card')})}
 /* 判定为「不是同一个人」：该卡与组内其它卡无重复关系，标记后移出重卡列表 */
@@ -577,3 +630,109 @@ function dictConditionDelete(i){showConfirm('确认删除','确定要删除「'+
 
 function dedupPopToggleCond(el){var dd=el.parentElement.querySelector('div[style*="position:absolute"]');if(!dd){var dd=el.nextElementSibling}if(dd){dd.style.display=dd.style.display==='none'?'block':'none';setTimeout(function(){document.addEventListener('click',function(e){if(!el.parentElement.contains(e.target)){dd.style.display='none'}},{once:true})},0)}}
 function dedupPopUpdateCond(cb){var dd=cb.closest('.multi-check-dropdown');if(!dd)return;var checks=dd.querySelectorAll('input[type=checkbox]:checked');var label=dd.querySelector('.multi-check-label');if(!label)return;if(checks.length===0){label.textContent='请选择查重依据';label.style.color='#94a3b8'}else{label.textContent=Array.from(checks).map(function(c){return c.value}).join('，');label.style.color='#1e293b'}}
+
+
+/* ===== 报卡查重：多原发判定提示弹窗 ===== */
+window.dedupShowMultiRule = function () {
+  var steps = [
+    ['① 确认身份', '先核对两张卡是否为同一个人（身份证号 / 姓名 + 出生日期）；身份不能确认的，一律不自动判定。'],
+    ['② 核对编码有效性', '确认 ICD-O-3 解剖学部位、形态学、行为码有效；部位与病理按登记标准的「分组」比较，而不是逐字比对亚部位。'],
+    ['③ 排除非独立原发', '先排除重复报告、复发 / 转移 / 直接蔓延、诊断订正、病理补充、随访或死亡补充等情形，这些都不是新原发。'],
+    ['④ 对照分组给结论', '按下面「三类结论」判断：同组同病理计一个，不同部位组或不同特指病理判多原发，信息不足则留人工复核。']
+  ];
+  var items = [
+    ['结论一：一个原发（可合并计数）', '同一部位组 + 同一特指病理组，且双方行为码均为 /3；重复报告、复发/转移/直接蔓延、诊断订正或病理补充、随访/死亡补充；NOS 被特指细化且唯一对应；同特指病理组的淋巴造血肿瘤或卡波西肉瘤多器官按系统性规则计一个。'],
+    ['结论二：多原发（分别登记）', '须已有明确临床/病理资料证明独立原发，双方均 /3，并排除复发、转移、蔓延、订正；不同部位组，或同一部位组但不同特指病理组；非黑色素瘤皮肤癌 C44 不同明确亚部位的独立病灶。黑色素瘤 C43 不适用。'],
+    ['结论三：人工判断', '身份不能确认、缺病理、双方仅 NOS、部位或行为不明、诊断冲突、不能排除转移/复发、同时可能对应多个既有原发；结直肠不同亚部位同病理「酌情掌握」也归人工。']
+  ];
+  var notes = '前提：已确认同一个人，诊断及编码有效。合并的只是登记计数，原始报告与病灶资料均保留。边界：双侧成对器官、同器官多病灶、亚部位 .9/.8 不拆分、行为码演变、C77/C80.9/C97 不自动判多原发；诊断/报告日期或医院变化均不是新增原发依据。';
+  var tips = '常见误区：把同一肿瘤的多次报告 / 复发 / 转移当成多原发；只看 ICD10 前三位就下结论；忽略行为码 /3；把 .8/.9 重叠部位拆开计数。拿不准时宁可留人工判断，也不要自动合并或拆分。';
+  function ruleBlock(title, list, bg) {
+    return '<div style="margin-bottom:14px">' +
+      '<div style="font-weight:700;color:#1e3a5f;margin:0 0 8px;padding-left:8px;border-left:3px solid #3b82f6">' + title + '</div>' +
+      list.map(function (t) {
+        return '<div style="margin-bottom:8px;padding:9px 12px;border:1px solid #e2e8f0;border-radius:6px;background:' + bg + '">' +
+          '<div style="font-weight:600;color:#1e3a5f;margin-bottom:3px">' + t[0] + '</div>' +
+          '<div>' + t[1] + '</div></div>';
+      }).join('') + '</div>';
+  }
+  var html = '<div style="font-size:13px;line-height:1.7;color:#334155">' +
+    '<p style="margin:0 0 14px;color:#64748b">本页整理「重卡 / 多原发」的判断方法，供登记与查重人员学习参考。按步骤判断即可，最终结论以人工复核为准。</p>' +
+    ruleBlock('一、判断步骤', steps, '#f8fafc') +
+    ruleBlock('二、三类结论', items, '#f1f6fc') +
+    '<div style="margin-bottom:14px;padding:10px 12px;border-left:3px solid #3b82f6;background:#eff6ff;color:#334155"><b>三、前提与边界</b><br>' + notes + '</div>' +
+    '<div style="padding:10px 12px;border-left:3px solid #f59e0b;background:#fffbeb;color:#334155"><b>四、常见误区（学习要点）</b><br>' + tips + '</div>' +
+    '</div>';
+  var overlay = document.createElement('div');
+  overlay.className = 'cd-overlay';
+  overlay.style.zIndex = '10002';
+  overlay.innerHTML = '<div class="cd-dialog" style="max-width:720px"><div class="cd-header"><span>多原发判定方法（学习参考）</span><span class="cd-close" onclick="this.closest(\'.cd-overlay\').remove()">×</span></div><div class="cd-body" style="padding:20px 24px;max-height:70vh;overflow-y:auto">' + html + '</div><div class="cd-header" style="border-top:1px solid #e2e8f0;border-bottom:none;justify-content:flex-end"><button class="btn btn-ghost btn-sm" onclick="this.closest(\'.cd-overlay\').remove()">关闭</button></div></div>';
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+};
+
+/* ===== 执行随访：按患者聚合报告卡全部电话与户籍地址 ===== */
+window.followupPatientContact = function (name, idNo, cardId) {
+  var phones = [], addrs = [];
+  function norm(v) { return (v == null ? '' : String(v)).trim(); }
+  function addPhone(v) {
+    v = norm(v);
+    if (!v || v === '-' || v.indexOf('*') >= 0) return; /* 跳过脱敏 / 占位号码 */
+    if (phones.indexOf(v) < 0) phones.push(v);
+  }
+  function addAddr(v) { v = norm(v); if (v && v !== '-' && addrs.indexOf(v) < 0) addrs.push(v); }
+  function keysOf(c) { return [c.id, c.registr, c.reportCardId, c.cardId, c.reportCardNo, c.tid]; }
+  function idNoOf(c) { return norm(c.idNo || c.indno || c.idcard || c.identityNo); }
+  function nameOf(c) { return norm(c.name || c.patient); }
+  function collectPhones(c) {
+    [c.phone, c.cphone, c.contactPhone, c.pphone, c.mobile, c.tel, c.phone2,
+      c['联系人电话'], c['联系电话'], c['手机号码']].forEach(addPhone);
+  }
+  function collectAddrs(c) {
+    /* 只取户籍地址：主地址 + 门牌/详细地址合并成一条，不混入常住地址 */
+    var main = norm(c.household || c.paddress || c['户籍地址']);
+    var detail = norm(c.addressdet || c['户籍详细地址']);
+    if (!main && detail) main = norm(c.address); /* dedupCardDB 用 address/addressdet 表示户籍 */
+    addAddr([main, detail].filter(function (x) { return x && x !== '-'; }).join(' '));
+  }
+  var pools = [window.reportCardListData, window.followupData, dedupCardDB,
+    window.followupTaskData, window.followupPlanData];
+  var all = [];
+  pools.forEach(function (arr) {
+    if (Array.isArray(arr)) arr.forEach(function (c) { if (c && typeof c === 'object') all.push(c); });
+  });
+  /* 第一遍：按卡片编号 / 身份证号 / 姓名定位锚点记录，收集其身份证号与姓名 */
+  var realIdNo = /^[0-9]{17}[0-9Xx]$/.test(norm(idNo));
+  var anchorIds = {}, anchorNames = {};
+  all.forEach(function (c) {
+    var ks = keysOf(c), cno = idNoOf(c), hit = false;
+    if (cardId && ks.indexOf(cardId) >= 0) hit = true;
+    if (idNo) {
+      if (!realIdNo && ks.indexOf(norm(idNo)) >= 0) hit = true;
+      if (realIdNo && (cno === norm(idNo) || ks.indexOf(norm(idNo)) >= 0)) hit = true;
+    }
+    if (name && nameOf(c) === norm(name)) hit = true; /* 姓名兜底始终生效：同一患者多卡 id/idNo 可能不同 */
+    if (hit) { if (cno) anchorIds[cno] = 1; var nm = nameOf(c); if (nm) anchorNames[nm] = 1; }
+  });
+  if (!Object.keys(anchorIds).length && name) anchorNames[norm(name)] = 1;
+  var hasIds = Object.keys(anchorIds).length > 0;
+  /* 第二遍：按「同一身份证号」聚合该患者全部报告卡（含不同手机号）；
+     无身份证号的记录用姓名兜底；有身份证号但不属于锚点的疑似同名他人跳过。 */
+  all.forEach(function (c) {
+    var cno = idNoOf(c), nm = nameOf(c);
+    var byId = !!(cno && anchorIds[cno]);
+    var byName = !!(nm && anchorNames[nm] && (!cno || anchorIds[cno] || !hasIds));
+    if (byId || byName) { collectPhones(c); collectAddrs(c); }
+  });
+  return { phones: phones, addresses: addrs };
+};
+window.followupContactLine = function (name, idNo, cardId) {
+  if (typeof window.followupPatientContact !== 'function') return '';
+  var info = window.followupPatientContact(name, idNo, cardId);
+  var esc = function (x) { return String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+  var phoneTxt = info.phones.length ? info.phones.map(esc).join(' / ') : '未登记';
+  var addrTxt = info.addresses.length ? info.addresses.map(esc).join('；') : '未登记';
+  return '<div style="margin-bottom:10px;padding:8px 10px;background:#f8fafc;border:1px solid #e8eef4;border-radius:6px;font-size:13px;color:#475569;line-height:1.7">' +
+    '<div>患者电话：<strong style="color:#1e293b">' + phoneTxt + '</strong>' + (info.phones.length > 1 ? ' <span style="color:#94a3b8">（共 ' + info.phones.length + ' 个号码，含联系人电话）</span>' : '') + '</div>' +
+    '<div>户籍地址：<strong style="color:#1e293b">' + addrTxt + '</strong></div></div>';
+};

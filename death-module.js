@@ -408,7 +408,7 @@
       '<button type="button" class="step-btn done" disabled title="请在报告卡登记中填写"><span class="step-index">2</span><span>肿瘤报告信息</span></button>' +
       '<button type="button" class="step-btn active"><span class="step-index">3</span><span>随访报告信息</span></button>' +
       '</div></div>' +
-      summary + formBody +
+      summary + (isFu && window.followupContactLine ? window.followupContactLine(pre.name, pre.idNo, ctx.followupId) : '') + formBody +
       '<div class="form-actions">' +
       '<button class="btn btn-primary" onclick="deathEntrySubmit()">' + submitLabel + '</button>' +
       '<button class="btn btn-ghost" onclick="deathEntryReset()">重置</button>' +
@@ -521,9 +521,9 @@
       if (!/^\d{17}[\dXx]$/.test(editRow.idNo)) {
         editRow.validation = '错误';
         editRow.error = '身份证号格式不正确';
-      } else if (!data.deathDate || !data.causeIcd) {
+      } else if (!data.deathDate || (data.cause !== '死因不详' && !data.causeIcd)) {
         editRow.validation = '错误';
-        editRow.error = '死亡结局须填写死亡日期与死因 ICD10';
+        editRow.error = data.deathDate ? '死亡结局须填写死因 ICD10' : '死亡结局须填写死亡日期与死因 ICD10';
       } else {
         editRow.validation = '通过';
         editRow.error = '';

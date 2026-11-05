@@ -57,6 +57,8 @@ node_modules/
 # ==== QA 产物与审查快照（截图、日志、结果表、审查文档，非运行时资源）====
 /annual-center-qa/
 /report-studio-qa/
+/portrait-cost-qa/
+/portrait-overview-qa/
 /audit/
 /specs/
 /缺什么总清单*.html

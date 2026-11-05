@@ -1,28 +1,16 @@
-/* 肿瘤专科画像 V8 — 患者画像 / 指标汇总 / 配置质控 三层架构
-   01 患者专科画像：四维画像（患者基础/肿瘤特征/诊疗过程/随访与结局）+ 画像时间线
-      患者基础：脱敏主索引、出生日期（年龄由系统推导，不双写）、性别、医保类型、区县+机构层级
-      肿瘤特征：原发部位 ICD-10、形态学 ICD-O-3、诊断依据、临床分期+分期确认日期、
-                分子标志物（项目名+结果+检测日期三要素，缺一不可）
-      诊疗过程：MDT、首次治疗日期、是否发生转诊、治疗方式（手术/放疗/化疗）
-      随访与结局：末次随访日期、生存状态、疾病状态（RECIST+评价日期）、
-                  ECOG+评估日期、死亡日期/原因
-      派生规则：ICD-O-3 部位码/形态学码由部位与病理文本自动映射，ICD-10 取部位码主码；
-               出生日期由身份证号 7–14 位推导；治疗线数由"方案+起止日期"记录推算；
-               生存时间由确诊日期与死亡/末次随访日期自动推算。以上均不额外采集。
-      注：被移出画像的字段（既往史、吸烟饮酒、家族史、分化程度、多原发、
-          住院次数天数费用、TNM 独立项等）数据仍保留在患者记录中，
-          供患者列表与指标汇总页使用；详见版本 V8.0 变更记录。
-   02 患者群体总览：范围筛选 → 事实摘要 → 八项核心概况 → 五组分析与指标明细
-      按患者/瘤例分别去重，比例提供有效分母、不详及不适用，历史状态需日期或快照证据。
-      五组：人群与病情构成 / 发现与诊断 / 诊疗过程 / 随访与结局 / 就医与可及性。
-      记录占比不替代正式质量、生存或筛查成效指标；费用未接入时不生成估算值。
-      总览、CSV与患者下钻使用同一纳入范围及统计结果。
-      患者列表列：患者/性别/年龄/户籍地市/就诊医院/瘤种/部位/病理/分期/随访状态
-      列表筛选：关键字 / 瘤种 / 分期 / 地市 / 医院 / 随访状态（条件为「与」关系）
-   03 画像配置：要素元数据 / 映射规则 / 智能校验 / 质控报告 / 预警 / 版本 / 归档
-   当前使用内置样例记录，不代表已经接入生产数据 */
+/* 肿瘤专科画像 V14.8
+   患者详情、画像指标总览、字段核对和导出共用 SP_PROFILE_FIELDS / spProfileRead。
+   36 个显示字段按患者基础、肿瘤特征、诊疗过程、随访与结局组织。
+   患者字段按患者标识去重且冲突单列；瘤例字段逐份统计，缺失不补零。
+   当前使用内置样例记录；医保费用通过 SPCost 独立接入，单瘤例净额与画像相加对账。
+   列表筛选不含分期：分期是肿瘤特征的分析维度，不是列表查询条件。
+   列表关键字检索报告卡编号 / 姓名 / 身份证号，瘤种、地市、医院各有独立下拉。
+   患者基础块「筛查信息」展示筛查机构、项目、时间、结果、建议五项。
+   肿瘤特征块不含分期确认日期：stageDate 仅用于截止日过滤、时间线与瘤例排序。
+   多原发瘤例切换键在顶部患者条，切换后四块画像同步变化。
+*/
 (function(){ 'use strict';
-var SP_BUILD='V13.0-overview-statistics@20261025a';
+var SP_BUILD='V14.8-examtitle@20261103';
 if(typeof console!=='undefined')console.log('[specialty-portrait] '+SP_BUILD+' loaded');
 
 /* ===================== 样式 ===================== */
@@ -33,6 +21,15 @@ spStyle.textContent=`
 .sp-filter-bar .form-group.wide{width:240px}
 .sp-filter-actions{margin-left:auto;display:flex;gap:8px}
 .sp-table-wrap{overflow-x:auto}
+/* 列表首列「报告卡编号」：等宽数字 + 主题色下划线，明确是可点的跳转入口 */
+.sp-card-no{color:var(--color-primary);font-family:var(--font-num);font-weight:600;text-decoration:none;white-space:nowrap}
+.sp-card-no:hover{text-decoration:underline}
+/* 就诊机构：多家时「主机构 + 等 N 家」，虚线下划线暗示可悬浮；浮层用 fixed 定位避免被表格滚动容器裁切 */
+.sp-hosp{cursor:help;border-bottom:1px dashed rgba(15,23,42,.28);white-space:nowrap}
+.sp-hosp-more{font-style:normal;margin-left:4px;color:var(--color-primary);font-size:11px;font-weight:600}
+.sp-hosp-tip{position:fixed;z-index:1500;display:none;max-width:360px;background:var(--surface);border:1px solid var(--color-border);border-radius:8px;box-shadow:0 10px 28px rgba(15,23,42,.18);padding:9px 12px 9px 10px;pointer-events:none}
+.sp-hosp-tip-t{font-size:11px;color:var(--color-text-muted);margin-bottom:4px}
+.sp-hosp-tip ol{margin:0;padding-left:18px;font-size:12px;line-height:1.75;color:var(--color-text-title)}
 .sp-stat-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;margin-bottom:18px}
 .sp-stat-card{background:var(--surface);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:14px 16px;box-shadow:var(--shadow-xs)}
 .sp-stat-label{font-size:var(--fs-sm);color:var(--color-text-muted)}
@@ -92,7 +89,8 @@ spStyle.textContent=`
 /* ---- 01 患者详情：摘要条 + 四块画像 + 时间线 ---- */
 .sp-detail-shell{min-width:0}
 .sp-detail-back{display:flex;align-items:center;margin-bottom:10px}
-.sp-patient-strip{display:grid;grid-template-columns:auto minmax(240px,1fr);align-items:center;gap:14px;padding:12px 16px;margin-bottom:14px;background:var(--surface);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-xs)}
+.sp-patient-strip{display:flex;align-items:center;flex-wrap:wrap;gap:12px 14px;padding:12px 16px;margin-bottom:14px;background:var(--surface);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-xs)}
+.sp-patient-id{flex:1 1 240px;min-width:0}
 .sp-patient-avatar{width:42px;height:42px;border-radius:50%;background:var(--color-primary-soft);color:var(--color-primary);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700}
 .sp-patient-name{display:flex;align-items:baseline;gap:10px;min-width:0;font-size:var(--fs-h2);font-weight:700;color:var(--color-text-title);flex-wrap:wrap}
 .sp-patient-meta{font-size:var(--fs-xs);font-weight:500;color:var(--color-text-muted);white-space:nowrap}
@@ -102,7 +100,7 @@ spStyle.textContent=`
 .sp-block-idx{width:22px;height:22px;border-radius:6px;background:var(--color-primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:0 0 22px}
 .sp-block-title{font-size:var(--fs-body);font-weight:700;color:var(--color-text-title)}
 .sp-block-body{padding:12px 14px}
-/* 多原发瘤例切换键：位于「肿瘤特征」块头右侧，分段按钮形态，选中项当前瘤例高亮 */
+/* 多原发瘤例切换键：位于顶部患者条右侧，分段按钮形态，选中项当前瘤例高亮 */
 .sp-tumor-switch{display:flex;align-items:center;gap:2px;margin-left:auto;flex-wrap:wrap;padding:2px;background:var(--color-bg-subtle);border:1px solid var(--color-border);border-radius:var(--radius-sm)}
 .sp-tumor-switch-label{display:inline-flex;align-items:baseline;gap:4px;padding:0 7px 0 5px;font-size:var(--fs-2xs);color:var(--color-text-muted);white-space:nowrap;border-right:1px solid var(--color-border);margin-right:2px;height:22px;line-height:22px}
 .sp-tumor-switch-label em{font-style:normal;font-family:var(--font-num);font-weight:700;color:var(--color-text-body)}
@@ -120,6 +118,7 @@ spStyle.textContent=`
 .sp-kv-grid.sp-cols-1{grid-template-columns:1fr}
 .sp-kv-grid.sp-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
 .sp-sub-head{font-size:var(--fs-xs);font-weight:700;color:var(--color-primary);letter-spacing:.4px;margin:12px 0 6px;padding-left:8px;border-left:3px solid var(--color-primary)}
+.sp-note-inline{margin-top:8px;font-size:var(--fs-xs);color:var(--color-text-muted);line-height:1.6}
 .sp-kv-grid + .sp-sub-head{margin-top:14px}
 .sp-block-body .sp-sub-head:first-child{margin-top:0}
 .sp-kv-item{display:flex;flex-direction:column;gap:2px;padding:7px 0;border-bottom:1px dashed var(--color-border);min-width:0}
@@ -170,6 +169,11 @@ tr.sp-lab-abn>td{color:var(--color-danger-fg)}
 .sp-kpi-sub .up{color:var(--color-danger-fg)}
 .sp-kpi-sub .down{color:var(--color-success-fg)}
 .sp-kpi-sub .flat{color:var(--color-text-muted)}
+/* 指标达标状态标签：达标绿 / 预警琥珀 / 未达标红 */
+.sp-kpi-tag{margin-left:auto;flex:0 0 auto;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.02em;white-space:nowrap}
+.sp-kpi-success{background:rgba(16,185,129,.12);color:#047857}
+.sp-kpi-caution{background:rgba(245,158,11,.14);color:#b45309}
+.sp-kpi-danger{background:rgba(239,68,68,.12);color:#b91c1c}
 /* 一句话摘要条 */
 .sp-gp-summary{display:flex;align-items:flex-start;gap:12px;padding:13px 16px;background:var(--color-primary-soft);border:1px solid var(--color-border);border-left:3px solid var(--color-primary);border-radius:var(--radius-md);margin-bottom:16px}
 .sp-gp-summary-ico{width:26px;height:26px;border-radius:7px;background:var(--color-primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex:0 0 26px}
@@ -199,7 +203,7 @@ tr.sp-lab-abn>td{color:var(--color-danger-fg)}
 .sp-fn-gap-loss.ok{color:var(--color-text-muted)}
 @media(max-width:900px){.sp-fn-node{min-width:104px}.sp-fn-gap{flex-basis:34px}}
 @media(max-width:1280px){.sp-stat-row{grid-template-columns:repeat(3,1fr)}.sp-ov-grid{grid-template-columns:1fr}}
-@media(max-width:900px){.sp-2col{grid-template-columns:1fr}.sp-3col{grid-template-columns:1fr}.sp-profile-blocks{grid-template-columns:1fr}.sp-patient-strip{grid-template-columns:auto 1fr}}
+@media(max-width:900px){.sp-2col{grid-template-columns:1fr}.sp-3col{grid-template-columns:1fr}.sp-profile-blocks{grid-template-columns:1fr}}
 @media(max-width:768px){.sp-stat-row{grid-template-columns:repeat(2,1fr)}.sp-filter-bar{flex-direction:column}.sp-filter-bar .form-group,.sp-filter-bar .form-group.wide{width:100%}.sp-filter-actions{margin-left:0;width:100%}.sp-mini-grid{grid-template-columns:repeat(2,1fr)}}
 `;
 document.head.appendChild(spStyle);
@@ -220,77 +224,77 @@ var SP_HOSPITALS=(function(){
 })();
 
 var tumorEvents=[
-{id:'TE001',patient:'陈建国',sex:'男',age:63,idNo:'360102196305121234',region:'南昌市东湖区',city:'南昌市',insurance:'职工医保',firstHosp:'东湖区董家窑街道社区卫生服务中心',firstDate:'2026-01-18',hospital:'南昌市第一医院',
+{id:'TE001',reportCardNo:'JX-2026-000318',patient:'陈建国',sex:'男',age:63,idNo:'360102196305121234',region:'南昌市东湖区',city:'南昌市',insurance:'职工医保',firstHosp:'东湖区董家窑街道社区卫生服务中心',firstDate:'2026-01-18',hospital:'南昌市第一医院',
  site:'肺',laterality:'右肺上叶',path:'腺癌',grade:'中分化',tNm:'cT2aN2M0',stage:'III期',stageDate:'2026-01-28',multiPrimary:true,tumorSeq:1,
  treatMode:['手术','化疗'],mdt:true,
  symptom:'偶有干咳',pain:'轻度疼痛',nutrition:'中度营养风险',physical:'ECOG 1',complication:'无严重并发症',ae:'I度骨髓抑制',rehab:'康复中',supportive:'营养支持',
- lastFu:'2026-08-25',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'高血压 8 年、2 型糖尿病 5 年',smoke:'吸烟 30 年，20 支/日（未戒）',drink:'偶饮酒',family:'父亲患肺癌',diagBasis:'胸部 CT 增强 + 经皮肺穿刺病理 + 免疫组化',diagDate:'2026-02-02',tConfirm:'2026-02-02',metastasis:'区域淋巴结转移',treatMode:['手术','化疗'],referral:true,curPhase:'辅助化疗中',phaseTimeline:'手术(2026-02-05)→辅助化疗中(第3/6周期)',tFirst:'2026-01-18',tTreat:'2026-02-05',admCount:5,admDays:26,marker:'EGFR 19del 阳性；TTF-1(+)；PD-L1 TPS 35%',recurrence:false,recist:'SD',screenType:"低剂量螺旋 CT 肺癌筛查",screenDate:"2025-11-20",screenResult:"右肺上叶结节 8mm",screenAdvice:"建议年度复查 CT，必要时穿刺活检",treatments:[{"mode":"手术","date":"2026-02-05","end":"2026-02-12","plan":"右肺上叶切除术 + 系统性淋巴结清扫","note":"术后病理 pT2aN2M0"},{"mode":"化疗","start":"2026-03-01","end":"2026-06-20","plan":"培美曲塞 + 顺铂（辅助化疗 4 周期）","note":"末次给药 2026-06-20，第 3/6 周期随访中"}],markerDate:'2026-02-02',recistDate:'2026-08-20',ecogDate:'2026-08-20',metaProgress:'无',diseaseProgress:false},
+ lastFu:'2026-08-25',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'高血压 8 年、2 型糖尿病 5 年',smoke:'吸烟 30 年，20 支/日（未戒）',drink:'偶饮酒',family:'父亲患肺癌',diagBasis:'胸部 CT 增强 + 经皮肺穿刺病理 + 免疫组化',diagDate:'2026-02-02',tConfirm:'2026-02-02',metastasis:'区域淋巴结转移',treatMode:['手术','化疗'],referral:true,curPhase:'辅助化疗中',phaseTimeline:'手术(2026-02-05)→辅助化疗中(第3/6周期)',tFirst:'2026-01-18',tTreat:'2026-02-05',admCount:5,admDays:26,marker:'EGFR 19del 阳性；TTF-1(+)；PD-L1 TPS 35%',recurrence:false,recist:'SD',screenType:"低剂量螺旋 CT 肺癌筛查",screenDate:"2025-11-20",screenResult:"右肺上叶结节 8mm",screenOrg:'东湖区董家窑街道社区卫生服务中心',screenAdvice:"建议年度复查 CT，必要时穿刺活检",treatments:[{"mode":"手术","date":"2026-02-05","end":"2026-02-12","plan":"右肺上叶切除术 + 系统性淋巴结清扫","note":"术后病理 pT2aN2M0"},{"mode":"化疗","start":"2026-03-01","end":"2026-06-20","plan":"培美曲塞 + 顺铂（辅助化疗 4 周期）","note":"末次给药 2026-06-20，第 3/6 周期随访中"}],markerDate:'2026-02-02',recistDate:'2026-08-20',ecogDate:'2026-08-20',metaProgress:'无',diseaseProgress:false},
 /* 同一患者（陈建国）第二原发：异时性多原发，由「肿瘤特征」块内切换键切换查看 */
-{id:'TE001B',patient:'陈建国',sex:'男',age:64,idNo:'360102196305121234',region:'南昌市东湖区',city:'南昌市',insurance:'职工医保',firstHosp:'东湖区董家窑街道社区卫生服务中心',firstDate:'2026-09-10',hospital:'江西省肿瘤医院',
+{id:'TE001B',reportCardNo:'JX-2026-000902',patient:'陈建国',sex:'男',age:64,idNo:'360102196305121234',region:'南昌市东湖区',city:'南昌市',insurance:'职工医保',firstHosp:'东湖区董家窑街道社区卫生服务中心',firstDate:'2026-09-10',hospital:'江西省肿瘤医院',
  site:'结直肠',laterality:'升结肠',path:'腺癌',grade:'中分化',tNm:'pT2N0M0',stage:'I期',stageDate:'2026-09-18',multiPrimary:true,tumorSeq:2,tumorPattern:'异时性',
  treatMode:['手术'],mdt:true,
  symptom:'便潜血阳性，偶有腹胀',pain:'无痛',nutrition:'轻度营养风险',physical:'ECOG 0',complication:'无严重并发症',ae:'无',rehab:'康复良好',supportive:'无',
- lastFu:'2026-10-20',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'高血压 8 年、2 型糖尿病 5 年、原发性肺癌（2026 年）',smoke:'吸烟 30 年，20 支/日（未戒）',drink:'偶饮酒',family:'父亲患肺癌、哥哥患结肠癌',diagBasis:'结肠镜 + 活检病理 + 术后病理',diagDate:'2026-09-15',tConfirm:'2026-09-15',metastasis:'无远处转移',referral:false,curPhase:'术后随访中',phaseTimeline:'肠镜发现(2026-09-10)→手术(2026-09-22)→术后随访中',tFirst:'2026-09-10',tTreat:'2026-09-22',admCount:2,admDays:11,marker:'MSI-H（dMMR）；RAS/BRAF 野生型；MLH1/PMS2 缺失',recurrence:false,recist:'CR',screenType:"结肠镜（肺癌随访期间机会性筛查）",screenDate:"2026-09-10",screenResult:"升结肠 3.0cm 隆起型占位",screenAdvice:"建议活检明确病理并手术切除",treatments:[{"mode":"手术","date":"2026-09-22","end":"2026-09-29","plan":"腹腔镜右半结肠切除术 + D3 淋巴结清扫","note":"术后病理 pT2N0M0，MSI-H"}],markerDate:'2026-09-15',recistDate:'2026-10-20',ecogDate:'2026-10-20',metaProgress:'无',diseaseProgress:false},
-{id:'TE002',patient:'刘雅琴',sex:'女',age:47,idNo:'360702197808152345',region:'赣州市章贡区',city:'赣州市',insurance:'职工医保',firstHosp:'章贡区南外街道社区卫生服务中心',firstDate:'2026-03-20',hospital:'江西省肿瘤医院',
+ lastFu:'2026-10-20',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'高血压 8 年、2 型糖尿病 5 年、原发性肺癌（2026 年）',smoke:'吸烟 30 年，20 支/日（未戒）',drink:'偶饮酒',family:'父亲患肺癌、哥哥患结肠癌',diagBasis:'结肠镜 + 活检病理 + 术后病理',diagDate:'2026-09-15',tConfirm:'2026-09-15',metastasis:'无远处转移',referral:false,curPhase:'术后随访中',phaseTimeline:'肠镜发现(2026-09-10)→手术(2026-09-22)→术后随访中',tFirst:'2026-09-10',tTreat:'2026-09-22',admCount:2,admDays:11,marker:'MSI-H（dMMR）；RAS/BRAF 野生型；MLH1/PMS2 缺失',recurrence:false,recist:'CR',screenType:"结肠镜（肺癌随访期间机会性筛查）",screenDate:"2026-09-10",screenResult:"升结肠 3.0cm 隆起型占位",screenOrg:'江西省肿瘤医院',screenAdvice:"建议活检明确病理并手术切除",treatments:[{"mode":"手术","date":"2026-09-22","end":"2026-09-29","plan":"腹腔镜右半结肠切除术 + D3 淋巴结清扫","note":"术后病理 pT2N0M0，MSI-H"}],markerDate:'2026-09-15',recistDate:'2026-10-20',ecogDate:'2026-10-20',metaProgress:'无',diseaseProgress:false},
+{id:'TE002',reportCardNo:'JX-2026-000356',patient:'刘雅琴',sex:'女',age:47,idNo:'360702197808152345',region:'赣州市章贡区',city:'赣州市',insurance:'职工医保',firstHosp:'章贡区南外街道社区卫生服务中心',firstDate:'2026-03-20',hospital:'江西省肿瘤医院',
  site:'乳腺',laterality:'左乳',path:'浸润性导管癌',grade:'II级',tNm:'cT2N1M0',stage:'II期',stageDate:'2026-03-27',multiPrimary:false,
  treatMode:['手术','化疗','内分泌'],mdt:true,
  symptom:'无',pain:'无痛',nutrition:'无营养风险',physical:'ECOG 0',complication:'无严重并发症',ae:'无',rehab:'康复良好',supportive:'无',
- lastFu:'2026-08-24',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'甲状腺功能减退 3 年',smoke:'不吸烟',drink:'不饮酒',family:'母亲患乳腺癌',diagBasis:'乳腺钼靶 + 彩超 + 空芯针穿刺病理 + 免疫组化',diagDate:'2026-03-27',tConfirm:'2026-03-27',metastasis:'同侧腋窝淋巴结转移',treatMode:['手术','化疗','内分泌'],referral:true,curPhase:'内分泌维持中',phaseTimeline:'手术(2026-04-08)→化疗完成(2026-08-24)→内分泌维持中',tFirst:'2026-03-20',tTreat:'2026-04-08',admCount:8,admDays:23,marker:'ER 80%(+)；PR 60%(+)；HER2 2+ FISH 阴性；Ki-67 15%；Luminal B 型',recurrence:false,recist:'CR',screenType:"两癌筛查（乳腺钼靶 + 超声）",screenDate:"2026-03-18",screenResult:"左乳结节伴簇状钙化，BI-RADS 5",screenAdvice:"建议空芯针穿刺活检",treatments:[{"mode":"手术","date":"2026-04-08","end":"2026-04-15","plan":"左乳癌改良根治术 + 前哨淋巴结活检","note":"术后病理浸润性导管癌 II 级"},{"mode":"化疗","start":"2026-04-28","end":"2026-08-24","plan":"AC-T 方案（表柔比星+环磷酰胺序贯多西他赛）","note":"化疗已结束"},{"mode":"内分泌","start":"2026-08-24","end":"","plan":"他莫昔芬（内分泌维持）","note":"Luminal B 型，维持治疗中"}],markerDate:'2026-03-27',recistDate:'2026-08-24',ecogDate:'2026-08-24',metaProgress:'无',diseaseProgress:false},
-{id:'TE003',patient:'赵德顺',sex:'男',age:74,idNo:'360402195502283456',region:'九江市浔阳区',city:'九江市',insurance:'城乡居民',firstHosp:'浔阳区甘棠街道卫生院',firstDate:'2026-07-08',hospital:'九江市第一人民医院',
+ lastFu:'2026-08-24',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'甲状腺功能减退 3 年',smoke:'不吸烟',drink:'不饮酒',family:'母亲患乳腺癌',diagBasis:'乳腺钼靶 + 彩超 + 空芯针穿刺病理 + 免疫组化',diagDate:'2026-03-27',tConfirm:'2026-03-27',metastasis:'同侧腋窝淋巴结转移',treatMode:['手术','化疗','内分泌'],referral:true,curPhase:'内分泌维持中',phaseTimeline:'手术(2026-04-08)→化疗完成(2026-08-24)→内分泌维持中',tFirst:'2026-03-20',tTreat:'2026-04-08',admCount:8,admDays:23,marker:'ER 80%(+)；PR 60%(+)；HER2 2+ FISH 阴性；Ki-67 15%；Luminal B 型',recurrence:false,recist:'CR',screenType:"两癌筛查（乳腺钼靶 + 超声）",screenDate:"2026-03-18",screenResult:"左乳结节伴簇状钙化，BI-RADS 5",screenOrg:'章贡区南外街道社区卫生服务中心',screenAdvice:"建议空芯针穿刺活检",treatments:[{"mode":"手术","date":"2026-04-08","end":"2026-04-15","plan":"左乳癌改良根治术 + 前哨淋巴结活检","note":"术后病理浸润性导管癌 II 级"},{"mode":"化疗","start":"2026-04-28","end":"2026-08-24","plan":"AC-T 方案（表柔比星+环磷酰胺序贯多西他赛）","note":"化疗已结束"},{"mode":"内分泌","start":"2026-08-24","end":"","plan":"他莫昔芬（内分泌维持）","note":"Luminal B 型，维持治疗中"}],markerDate:'2026-03-27',recistDate:'2026-08-24',ecogDate:'2026-08-24',metaProgress:'无',diseaseProgress:false},
+{id:'TE003',reportCardNo:'JX-2026-000781',patient:'赵德顺',sex:'男',age:74,idNo:'360402195502283456',region:'九江市浔阳区',city:'九江市',insurance:'城乡居民',firstHosp:'浔阳区甘棠街道卫生院',firstDate:'2026-07-08',hospital:'九江市第一人民医院',
  site:'胃',laterality:'胃窦',path:'低分化腺癌',grade:'低分化',tNm:'cT4aN2M1',stage:'IV期',stageDate:'2026-07-10',multiPrimary:false,
  treatMode:['化疗'],mdt:true,
  symptom:'上腹隐痛',pain:'中度疼痛',nutrition:'高度营养风险',physical:'ECOG 2',complication:'不全肠梗阻',ae:'II度骨髓抑制',rehab:'支持治疗为主',supportive:'肠外营养+安宁疗护',
- lastFu:'2026-08-26',followStatus:'随访中',vitalStatus:'存活（带瘤）',deathCause:'',lostFollow:false,pastHistory:'慢性萎缩性胃炎 10 年、幽门螺杆菌感染史',smoke:'吸烟 45 年，15 支/日（未戒）',drink:'饮白酒 30 年',family:'无肿瘤家族史',diagBasis:'胃镜 + 活检病理 + 全腹 CT 增强分期',diagDate:'2026-07-10',tConfirm:'2026-07-10',metastasis:'腹膜转移',treatMode:['化疗'],referral:true,curPhase:'姑息治疗中',phaseTimeline:'MDT评估(2026-07-12)→姑息一线化疗中(第3/6周期)',tFirst:'2026-07-08',tTreat:'2026-07-12',admCount:4,admDays:31,marker:'HER2 阴性；MSI-H（dMMR）；PD-L1 CPS 10',recurrence:false,recist:'PD',screenType:"上消化道癌机会性筛查（胃镜）",screenDate:"2026-06-30",screenResult:"胃窦黏膜萎缩伴肠化",screenAdvice:"建议胃镜下多点活检",treatments:[{"mode":"化疗","start":"2026-07-12","end":"","plan":"XELOX + 纳武利尤单抗（姑息一线）","note":"MSI-H/dMMR，第 3/6 周期中"}],markerDate:'2026-07-10',recistDate:'2026-08-26',ecogDate:'2026-08-26',metaProgress:'腹膜转移',diseaseProgress:true},
-{id:'TE004',patient:'王秀兰',sex:'女',age:54,idNo:'361100198006125871',region:'上饶市信州区',city:'上饶市',insurance:'职工医保',firstHosp:'信州区西市街道社区卫生服务中心',firstDate:'2026-02-15',hospital:'上饶市肿瘤医院',
+ lastFu:'2026-08-26',followStatus:'随访中',vitalStatus:'存活（带瘤）',deathCause:'',lostFollow:false,pastHistory:'慢性萎缩性胃炎 10 年、幽门螺杆菌感染史',smoke:'吸烟 45 年，15 支/日（未戒）',drink:'饮白酒 30 年',family:'无肿瘤家族史',diagBasis:'胃镜 + 活检病理 + 全腹 CT 增强分期',diagDate:'2026-07-10',tConfirm:'2026-07-10',metastasis:'腹膜转移',treatMode:['化疗'],referral:true,curPhase:'姑息治疗中',phaseTimeline:'MDT评估(2026-07-12)→姑息一线化疗中(第3/6周期)',tFirst:'2026-07-08',tTreat:'2026-07-12',admCount:4,admDays:31,marker:'HER2 阴性；MSI-H（dMMR）；PD-L1 CPS 10',recurrence:false,recist:'PD',screenType:"上消化道癌机会性筛查（胃镜）",screenDate:"2026-06-30",screenResult:"胃窦黏膜萎缩伴肠化",screenOrg:'浔阳区甘棠街道卫生院',screenAdvice:"建议胃镜下多点活检",treatments:[{"mode":"化疗","start":"2026-07-12","end":"","plan":"XELOX + 纳武利尤单抗（姑息一线）","note":"MSI-H/dMMR，第 3/6 周期中"}],markerDate:'2026-07-10',recistDate:'2026-08-26',ecogDate:'2026-08-26',metaProgress:'腹膜转移',diseaseProgress:true},
+{id:'TE004',reportCardNo:'JX-2026-000342',patient:'王秀兰',sex:'女',age:54,idNo:'361100198006125871',region:'上饶市信州区',city:'上饶市',insurance:'职工医保',firstHosp:'信州区西市街道社区卫生服务中心',firstDate:'2026-02-15',hospital:'上饶市肿瘤医院',
  site:'肝',laterality:'右肝后叶',path:'肝细胞癌',grade:'中分化',tNm:'cT3N0M0',stage:'III期',stageDate:'2026-02-20',multiPrimary:false,
  treatMode:['手术','介入'],mdt:true,
  symptom:'无',pain:'无痛',nutrition:'无营养风险',physical:'ECOG 0',complication:'无严重并发症',ae:'无',rehab:'康复良好',supportive:'无',
- lastFu:'2026-07-20',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'乙型肝炎 20 年、肝硬化 5 年',smoke:'不吸烟',drink:'已戒酒 5 年',family:'哥哥患肝癌',diagBasis:'上腹部 MRI 增强（LI-RADS 5）+ 术后病理',diagDate:'2026-02-20',tConfirm:'2026-02-20',metastasis:'无远处转移',treatMode:['手术','介入'],referral:true,curPhase:'术后随访中',phaseTimeline:'手术(2026-03-02)→TACE介入(2026-06-15)→术后随访中',tFirst:'2026-02-15',tTreat:'2026-03-02',admCount:4,admDays:19,marker:'AFP 412.5；DCP 156；HBsAg 阳性；HBV-DNA 2.3×10⁴',recurrence:false,recist:'CR',screenType:"肝癌高危人群筛查（超声 + AFP）",screenDate:"2026-01-10",screenResult:"右肝后叶低回声结节，AFP 升高",screenAdvice:"建议增强 MRI 明确诊断",treatments:[{"mode":"手术","date":"2026-03-02","end":"2026-03-12","plan":"右肝后叶切除术","note":"术后病理肝细胞癌，MVI M1"},{"mode":"介入","start":"2026-06-15","end":"2026-06-18","plan":"TACE 经导管肝动脉化疗栓塞","note":"术后 CT 复查疗效 CR"}],markerDate:'2026-02-20',recistDate:'2026-07-18',ecogDate:'2026-07-18',metaProgress:'无',diseaseProgress:false},
-{id:'TE005',patient:'李志强',sex:'男',age:66,idNo:'361000196011152330',region:'宜春市袁州区',city:'宜春市',insurance:'职工医保',firstHosp:'袁州区化成街道社区卫生服务中心',firstDate:'2026-04-12',hospital:'宜春市人民医院',
+ lastFu:'2026-07-20',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'乙型肝炎 20 年、肝硬化 5 年',smoke:'不吸烟',drink:'已戒酒 5 年',family:'哥哥患肝癌',diagBasis:'上腹部 MRI 增强（LI-RADS 5）+ 术后病理',diagDate:'2026-02-20',tConfirm:'2026-02-20',metastasis:'无远处转移',treatMode:['手术','介入'],referral:true,curPhase:'术后随访中',phaseTimeline:'手术(2026-03-02)→TACE介入(2026-06-15)→术后随访中',tFirst:'2026-02-15',tTreat:'2026-03-02',admCount:4,admDays:19,marker:'AFP 412.5；DCP 156；HBsAg 阳性；HBV-DNA 2.3×10⁴',recurrence:false,recist:'CR',screenType:"肝癌高危人群筛查（超声 + AFP）",screenDate:"2026-01-10",screenResult:"右肝后叶低回声结节，AFP 升高",screenOrg:'信州区西市街道社区卫生服务中心',screenAdvice:"建议增强 MRI 明确诊断",treatments:[{"mode":"手术","date":"2026-03-02","end":"2026-03-12","plan":"右肝后叶切除术","note":"术后病理肝细胞癌，MVI M1"},{"mode":"介入","start":"2026-06-15","end":"2026-06-18","plan":"TACE 经导管肝动脉化疗栓塞","note":"术后 CT 复查疗效 CR"}],markerDate:'2026-02-20',recistDate:'2026-07-18',ecogDate:'2026-07-18',metaProgress:'无',diseaseProgress:false},
+{id:'TE005',reportCardNo:'JX-2026-000488',patient:'李志强',sex:'男',age:66,idNo:'361000196011152330',region:'宜春市袁州区',city:'宜春市',insurance:'职工医保',firstHosp:'袁州区化成街道社区卫生服务中心',firstDate:'2026-04-12',hospital:'宜春市人民医院',
  site:'肺',laterality:'左肺下叶',path:'鳞状细胞癌',grade:'中分化',tNm:'cT2bN2M0',stage:'III期',stageDate:'2026-04-18',multiPrimary:false,
  treatMode:['手术','放疗','化疗'],mdt:true,
  symptom:'偶有胸闷',pain:'轻度疼痛',nutrition:'无营养风险',physical:'ECOG 1',complication:'无严重并发症',ae:'II度放射性食管炎',rehab:'康复中',supportive:'营养支持',
- lastFu:'2026-08-30',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'慢性阻塞性肺疾病 6 年、肺结核史',smoke:'吸烟 40 年，20 支/日（已戒 2 年）',drink:'偶饮酒',family:'无肿瘤家族史',diagBasis:'胸部 CT 增强 + 支气管镜活检病理',diagDate:'2026-04-18',tConfirm:'2026-04-18',metastasis:'区域淋巴结转移',treatMode:['手术','放疗','化疗'],referral:true,curPhase:'同步放化疗中',phaseTimeline:'手术(2026-05-10)→同步放化疗中(第4/6周期)',tFirst:'2026-04-12',tTreat:'2026-05-10',admCount:6,admDays:28,marker:'PD-L1 TPS 60%；p40(+)；未见 EGFR/ALK 突变',recurrence:false,recist:'PR',screenType:"低剂量螺旋 CT 肺癌筛查",screenDate:"2026-03-25",screenResult:"左肺下叶占位 3.1cm",screenAdvice:"建议支气管镜检查及病理确诊",treatments:[{"mode":"手术","date":"2026-05-10","end":"2026-05-18","plan":"左肺下叶切除术 + 淋巴结清扫","note":"术后病理鳞状细胞癌"},{"mode":"放疗","start":"2026-06-15","end":"","plan":"胸部调强放疗（IMRT）","note":"同步放化疗，第 4/6 周期"},{"mode":"化疗","start":"2026-06-15","end":"","plan":"依托泊苷 + 顺铂（同步）","note":"同步放化疗，第 4/6 周期"}],markerDate:'2026-04-18',recistDate:'2026-08-30',ecogDate:'2026-08-30',metaProgress:'无',diseaseProgress:false},
-{id:'TE006',patient:'周桂香',sex:'女',age:69,idNo:'360300196509120826',region:'景德镇市珠山区',city:'景德镇市',insurance:'城镇居民',firstHosp:'珠山区里村街道社区卫生服务中心',firstDate:'2026-05-06',hospital:'景德镇市第一医院',
+ lastFu:'2026-08-30',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'慢性阻塞性肺疾病 6 年、肺结核史',smoke:'吸烟 40 年，20 支/日（已戒 2 年）',drink:'偶饮酒',family:'无肿瘤家族史',diagBasis:'胸部 CT 增强 + 支气管镜活检病理',diagDate:'2026-04-18',tConfirm:'2026-04-18',metastasis:'区域淋巴结转移',treatMode:['手术','放疗','化疗'],referral:true,curPhase:'同步放化疗中',phaseTimeline:'手术(2026-05-10)→同步放化疗中(第4/6周期)',tFirst:'2026-04-12',tTreat:'2026-05-10',admCount:6,admDays:28,marker:'PD-L1 TPS 60%；p40(+)；未见 EGFR/ALK 突变',recurrence:false,recist:'PR',screenType:"低剂量螺旋 CT 肺癌筛查",screenDate:"2026-03-25",screenResult:"左肺下叶占位 3.1cm",screenOrg:'袁州区化成街道社区卫生服务中心',screenAdvice:"建议支气管镜检查及病理确诊",treatments:[{"mode":"手术","date":"2026-05-10","end":"2026-05-18","plan":"左肺下叶切除术 + 淋巴结清扫","note":"术后病理鳞状细胞癌"},{"mode":"放疗","start":"2026-06-15","end":"","plan":"胸部调强放疗（IMRT）","note":"同步放化疗，第 4/6 周期"},{"mode":"化疗","start":"2026-06-15","end":"","plan":"依托泊苷 + 顺铂（同步）","note":"同步放化疗，第 4/6 周期"}],markerDate:'2026-04-18',recistDate:'2026-08-30',ecogDate:'2026-08-30',metaProgress:'无',diseaseProgress:false},
+{id:'TE006',reportCardNo:'JX-2026-000563',patient:'周桂香',sex:'女',age:69,idNo:'360300196509120826',region:'景德镇市珠山区',city:'景德镇市',insurance:'城镇居民',firstHosp:'珠山区里村街道社区卫生服务中心',firstDate:'2026-05-06',hospital:'景德镇市第一医院',
  site:'宫颈',laterality:'宫颈',path:'鳞状细胞癌',grade:'中分化',tNm:'cT2bN1M0',stage:'II期',stageDate:'2026-05-11',multiPrimary:false,
  treatMode:['手术','放疗'],mdt:false,
  symptom:'偶有接触性出血',pain:'轻度疼痛',nutrition:'无营养风险',physical:'ECOG 1',complication:'无严重并发症',ae:'I度骨髓抑制',rehab:'康复中',supportive:'无',
- lastFu:'2026-08-25',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'子宫肌瘤手术史、高血压 5 年',smoke:'不吸烟',drink:'不饮酒',family:'无肿瘤家族史',diagBasis:'宫颈活检病理 + 盆腔 MRI 分期',diagDate:'2026-05-11',tConfirm:'2026-05-11',metastasis:'区域淋巴结转移',treatMode:['手术','放疗'],referral:true,curPhase:'根治性放疗中',phaseTimeline:'手术(2026-05-20)→根治性放疗中(第3/6周期)',tFirst:'2026-05-06',tTreat:'2026-05-20',admCount:5,admDays:24,marker:'p16 阳性；HPV 16 型阳性；PD-L1 CPS 5',recurrence:false,recist:'CR',screenType:"两癌筛查（TCT + HPV）",screenDate:"2026-05-06",screenResult:"TCT 示 HSIL",screenAdvice:"HPV16 阳性，建议阴道镜活检",treatments:[{"mode":"手术","date":"2026-05-20","end":"2026-05-27","plan":"广泛性子宫切除术 + 盆腔淋巴结清扫","note":"术后病理宫颈鳞癌"},{"mode":"放疗","start":"2026-06-20","end":"","plan":"盆腔外照射 + 后装腔内放疗","note":"根治性放疗，第 3/6 周期"}],markerDate:'2026-05-11',recistDate:'2026-08-25',ecogDate:'2026-08-25',metaProgress:'无',diseaseProgress:false},
-{id:'TE007',patient:'吴建国',sex:'男',age:58,idNo:'360500198108203456',region:'萍乡市安源区',city:'萍乡市',insurance:'职工医保',firstHosp:'安源区后埠街道社区卫生服务中心',firstDate:'2026-06-20',hospital:'南昌市第一医院',
+ lastFu:'2026-08-25',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'子宫肌瘤手术史、高血压 5 年',smoke:'不吸烟',drink:'不饮酒',family:'无肿瘤家族史',diagBasis:'宫颈活检病理 + 盆腔 MRI 分期',diagDate:'2026-05-11',tConfirm:'2026-05-11',metastasis:'区域淋巴结转移',treatMode:['手术','放疗'],referral:true,curPhase:'根治性放疗中',phaseTimeline:'手术(2026-05-20)→根治性放疗中(第3/6周期)',tFirst:'2026-05-06',tTreat:'2026-05-20',admCount:5,admDays:24,marker:'p16 阳性；HPV 16 型阳性；PD-L1 CPS 5',recurrence:false,recist:'CR',screenType:"两癌筛查（TCT + HPV）",screenDate:"2026-05-06",screenResult:"TCT 示 HSIL",screenOrg:'珠山区里村街道社区卫生服务中心',screenAdvice:"HPV16 阳性，建议阴道镜活检",treatments:[{"mode":"手术","date":"2026-05-20","end":"2026-05-27","plan":"广泛性子宫切除术 + 盆腔淋巴结清扫","note":"术后病理宫颈鳞癌"},{"mode":"放疗","start":"2026-06-20","end":"","plan":"盆腔外照射 + 后装腔内放疗","note":"根治性放疗，第 3/6 周期"}],markerDate:'2026-05-11',recistDate:'2026-08-25',ecogDate:'2026-08-25',metaProgress:'无',diseaseProgress:false},
+{id:'TE007',reportCardNo:'JX-2026-000712',patient:'吴建国',sex:'男',age:58,idNo:'360500198108203456',region:'萍乡市安源区',city:'萍乡市',insurance:'职工医保',firstHosp:'安源区后埠街道社区卫生服务中心',firstDate:'2026-06-20',hospital:'南昌市第一医院',
  site:'结直肠',laterality:'直肠',path:'腺癌',grade:'中分化',tNm:'cT3N1M0',stage:'III期',stageDate:'2026-06-25',multiPrimary:false,
  treatMode:['手术','化疗'],mdt:true,
  symptom:'无',pain:'无痛',nutrition:'无营养风险',physical:'ECOG 0',complication:'无严重并发症',ae:'无',rehab:'康复良好',supportive:'无',
- lastFu:'2026-09-05',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'胆囊结石 6 年',smoke:'吸烟 25 年，10 支/日（未戒）',drink:'饮啤酒 20 年',family:'无肿瘤家族史',diagBasis:'结肠镜 + 活检病理 + 全腹 CT 分期',diagDate:'2026-06-25',tConfirm:'2026-06-25',metastasis:'区域淋巴结转移',treatMode:['手术','化疗'],referral:true,curPhase:'辅助化疗中',phaseTimeline:'手术(2026-07-02)→辅助化疗中(第2/6周期)',tFirst:'2026-06-20',tTreat:'2026-07-02',admCount:3,admDays:16,marker:'RAS 野生型；MSI-L（pMMR）；CEA 8.6',recurrence:false,recist:'SD',screenType:"结直肠癌筛查（便潜血 + 结肠镜）",screenDate:"2026-06-10",screenResult:"便潜血阳性，结肠镜见距肛门 7cm 占位",screenAdvice:"建议活检明确病理",treatments:[{"mode":"手术","date":"2026-07-02","end":"2026-07-11","plan":"腹腔镜直肠癌根治术（Dixon）","note":"术后病理直肠腺癌 T3"},{"mode":"化疗","start":"2026-08-01","end":"","plan":"XELOX 方案（辅助化疗）","note":"第 2/6 周期中"}],markerDate:'2026-06-25',recistDate:'2026-09-05',ecogDate:'2026-09-05',metaProgress:'无',diseaseProgress:false},
-{id:'TE008',patient:'胡爱莲',sex:'女',age:61,idNo:'360800198209165234',region:'抚州市临川区',city:'抚州市',insurance:'城镇居民',firstHosp:'临川区青云街道社区卫生服务中心',firstDate:'2026-07-25',hospital:'江西省肿瘤医院',
+ lastFu:'2026-09-05',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'胆囊结石 6 年',smoke:'吸烟 25 年，10 支/日（未戒）',drink:'饮啤酒 20 年',family:'无肿瘤家族史',diagBasis:'结肠镜 + 活检病理 + 全腹 CT 分期',diagDate:'2026-06-25',tConfirm:'2026-06-25',metastasis:'区域淋巴结转移',treatMode:['手术','化疗'],referral:true,curPhase:'辅助化疗中',phaseTimeline:'手术(2026-07-02)→辅助化疗中(第2/6周期)',tFirst:'2026-06-20',tTreat:'2026-07-02',admCount:3,admDays:16,marker:'RAS 野生型；MSI-L（pMMR）；CEA 8.6',recurrence:false,recist:'SD',screenType:"结直肠癌筛查（便潜血 + 结肠镜）",screenDate:"2026-06-10",screenResult:"便潜血阳性，结肠镜见距肛门 7cm 占位",screenOrg:'安源区后埠街道社区卫生服务中心',screenAdvice:"建议活检明确病理",treatments:[{"mode":"手术","date":"2026-07-02","end":"2026-07-11","plan":"腹腔镜直肠癌根治术（Dixon）","note":"术后病理直肠腺癌 T3"},{"mode":"化疗","start":"2026-08-01","end":"","plan":"XELOX 方案（辅助化疗）","note":"第 2/6 周期中"}],markerDate:'2026-06-25',recistDate:'2026-09-05',ecogDate:'2026-09-05',metaProgress:'无',diseaseProgress:false},
+{id:'TE008',reportCardNo:'JX-2026-000836',patient:'胡爱莲',sex:'女',age:61,idNo:'360800198209165234',region:'抚州市临川区',city:'抚州市',insurance:'城镇居民',firstHosp:'临川区青云街道社区卫生服务中心',firstDate:'2026-07-25',hospital:'江西省肿瘤医院',
  site:'乳腺',laterality:'右乳',path:'浸润性导管癌',grade:'III级',tNm:'cT2N2M1',stage:'IV期',stageDate:'2026-07-28',multiPrimary:false,
  treatMode:['化疗','靶向'],mdt:true,
  symptom:'骨转移灶疼痛',pain:'重度疼痛',nutrition:'中度营养风险',physical:'ECOG 2',complication:'病理性骨折(肋骨)',ae:'II度骨髓抑制',rehab:'支持治疗为主',supportive:'镇痛治疗',
- lastFu:'2026-09-02',followStatus:'随访中',vitalStatus:'存活（带瘤）',deathCause:'',lostFollow:false,pastHistory:'2 型糖尿病 10 年、骨质疏松',smoke:'不吸烟',drink:'不饮酒',family:'姐姐患乳腺癌',diagBasis:'钼靶/彩超 + 穿刺病理 + PET-CT 分期',diagDate:'2026-07-28',tConfirm:'2026-07-28',metastasis:'骨转移/肝转移',treatMode:['化疗','靶向'],referral:true,curPhase:'一线治疗中',phaseTimeline:'MDT评估(2026-07-30)→化疗+靶向治疗中(第2/6周期)',tFirst:'2026-07-25',tTreat:'2026-07-30',admCount:4,admDays:22,marker:'HER2 阴性；ER 40%(+)；BRCA1 未突变；PD-L1 CPS 20',recurrence:false,recist:'PR',screenType:"两癌筛查（乳腺钼靶 + 超声）",screenDate:"2026-07-18",screenResult:"右乳肿块伴多发钙化，BI-RADS 5",screenAdvice:"建议空芯针穿刺活检及免疫组化",treatments:[{"mode":"化疗","start":"2026-07-30","end":"","plan":"多西他赛 + 卡铂（一线）","note":"第 2/6 周期，疗效评价 PR"},{"mode":"靶向","start":"2026-08-10","end":"","plan":"曲妥珠单抗 + 帕妥珠单抗（抗 HER2）","note":"LVEF 58%，基线正常"}],markerDate:'2026-07-28',recistDate:'2026-09-01',ecogDate:'2026-09-01',metaProgress:'骨转移/肝转移',diseaseProgress:true},
-{id:'TE009',patient:'欧阳明轩',sex:'男',age:52,idNo:'362400197403121243',region:'吉安市吉州区',city:'吉安市',insurance:'城镇居民',firstHosp:'吉州区古南镇卫生院',firstDate:'2026-08-01',hospital:'吉安市中心医院',
+ lastFu:'2026-09-02',followStatus:'随访中',vitalStatus:'存活（带瘤）',deathCause:'',lostFollow:false,pastHistory:'2 型糖尿病 10 年、骨质疏松',smoke:'不吸烟',drink:'不饮酒',family:'姐姐患乳腺癌',diagBasis:'钼靶/彩超 + 穿刺病理 + PET-CT 分期',diagDate:'2026-07-28',tConfirm:'2026-07-28',metastasis:'骨转移/肝转移',treatMode:['化疗','靶向'],referral:true,curPhase:'一线治疗中',phaseTimeline:'MDT评估(2026-07-30)→化疗+靶向治疗中(第2/6周期)',tFirst:'2026-07-25',tTreat:'2026-07-30',admCount:4,admDays:22,marker:'HER2 阴性；ER 40%(+)；BRCA1 未突变；PD-L1 CPS 20',recurrence:false,recist:'PR',screenType:"两癌筛查（乳腺钼靶 + 超声）",screenDate:"2026-07-18",screenResult:"右乳肿块伴多发钙化，BI-RADS 5",screenOrg:'临川区青云街道社区卫生服务中心',screenAdvice:"建议空芯针穿刺活检及免疫组化",treatments:[{"mode":"化疗","start":"2026-07-30","end":"","plan":"多西他赛 + 卡铂（一线）","note":"第 2/6 周期，疗效评价 PR"},{"mode":"靶向","start":"2026-08-10","end":"","plan":"曲妥珠单抗 + 帕妥珠单抗（抗 HER2）","note":"LVEF 58%，基线正常"}],markerDate:'2026-07-28',recistDate:'2026-09-01',ecogDate:'2026-09-01',metaProgress:'骨转移/肝转移',diseaseProgress:true},
+{id:'TE009',reportCardNo:'JX-2026-000874',patient:'欧阳明轩',sex:'男',age:52,idNo:'362400197403121243',region:'吉安市吉州区',city:'吉安市',insurance:'城镇居民',firstHosp:'吉州区古南镇卫生院',firstDate:'2026-08-01',hospital:'吉安市中心医院',
  site:'食管',laterality:'胸中段食管',path:'鳞状细胞癌',grade:'中分化',tNm:'cT3N1M0',stage:'III期',stageDate:'2026-08-05',multiPrimary:false,
  treatMode:['放疗','化疗'],mdt:true,
  symptom:'进食梗阻感',pain:'轻度疼痛',nutrition:'中度营养风险',physical:'ECOG 1',complication:'无严重并发症',ae:'II度放射性食管炎',rehab:'康复中',supportive:'营养支持',
- lastFu:'2026-09-08',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'长期饮酒史、反流性食管炎',smoke:'吸烟 30 年，20 支/日（未戒）',drink:'饮白酒 25 年',family:'父亲患食管癌',diagBasis:'胃镜 + 活检病理 + 胸腹 CT 分期',diagDate:'2026-08-05',tConfirm:'2026-08-05',metastasis:'区域淋巴结转移',treatMode:['放疗','化疗'],referral:true,curPhase:'根治性同步放化疗中',phaseTimeline:'确诊(2026-08-05)→根治性同步放化疗中(第3/6周期)',tFirst:'2026-08-01',tTreat:'2026-08-08',admCount:3,admDays:18,marker:'PD-L1 CPS 15；p53 过表达；HER2 阴性',recurrence:false,recist:'PR',screenType:"上消化道癌机会性筛查（钡餐 + 胃镜）",screenDate:"2026-07-25",screenResult:"食管中段充盈缺损 6cm",screenAdvice:"建议胃镜活检明确病理",treatments:[{"mode":"放疗","start":"2026-08-08","end":"","plan":"食管癌根治性放疗（IMRT）","note":"同步放化疗，第 3/6 周期"},{"mode":"化疗","start":"2026-08-08","end":"","plan":"紫杉醇 + 顺铂（同步）","note":"同步放化疗，第 3/6 周期"}],markerDate:'2026-08-05',recistDate:'2026-09-08',ecogDate:'2026-09-08',metaProgress:'无',diseaseProgress:false},
-{id:'TE010',patient:'邓三妹',sex:'女',age:63,idNo:'360800196306128475',region:'抚州市临川区',city:'抚州市',insurance:'城镇居民',firstHosp:'临川区青云街道社区卫生服务中心',firstDate:'2026-06-01',hospital:'抚州市第一医院',
+ lastFu:'2026-09-08',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'长期饮酒史、反流性食管炎',smoke:'吸烟 30 年，20 支/日（未戒）',drink:'饮白酒 25 年',family:'父亲患食管癌',diagBasis:'胃镜 + 活检病理 + 胸腹 CT 分期',diagDate:'2026-08-05',tConfirm:'2026-08-05',metastasis:'区域淋巴结转移',treatMode:['放疗','化疗'],referral:true,curPhase:'根治性同步放化疗中',phaseTimeline:'确诊(2026-08-05)→根治性同步放化疗中(第3/6周期)',tFirst:'2026-08-01',tTreat:'2026-08-08',admCount:3,admDays:18,marker:'PD-L1 CPS 15；p53 过表达；HER2 阴性',recurrence:false,recist:'PR',screenType:"上消化道癌机会性筛查（钡餐 + 胃镜）",screenDate:"2026-07-25",screenResult:"食管中段充盈缺损 6cm",screenOrg:'吉州区古南镇卫生院',screenAdvice:"建议胃镜活检明确病理",treatments:[{"mode":"放疗","start":"2026-08-08","end":"","plan":"食管癌根治性放疗（IMRT）","note":"同步放化疗，第 3/6 周期"},{"mode":"化疗","start":"2026-08-08","end":"","plan":"紫杉醇 + 顺铂（同步）","note":"同步放化疗，第 3/6 周期"}],markerDate:'2026-08-05',recistDate:'2026-09-08',ecogDate:'2026-09-08',metaProgress:'无',diseaseProgress:false},
+{id:'TE010',reportCardNo:'JX-2026-000621',patient:'邓三妹',sex:'女',age:63,idNo:'360800196306128475',region:'抚州市临川区',city:'抚州市',insurance:'城镇居民',firstHosp:'临川区青云街道社区卫生服务中心',firstDate:'2026-06-01',hospital:'抚州市第一医院',
  site:'宫颈',laterality:'宫颈',path:'鳞状细胞癌',grade:'中分化',tNm:'cT2bN1M0',stage:'II期',stageDate:'2026-06-05',multiPrimary:false,
  treatMode:['手术','化疗'],mdt:true,
  symptom:'无',pain:'无痛',nutrition:'无营养风险',physical:'ECOG 1',complication:'无严重并发症',ae:'I度骨髓抑制',rehab:'康复良好',supportive:'无',
- lastFu:'2026-08-20',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'高血压 12 年',smoke:'不吸烟',drink:'不饮酒',family:'无肿瘤家族史',diagBasis:'宫颈活检病理 + 盆腔 MRI 分期',diagDate:'2026-06-05',tConfirm:'2026-06-05',metastasis:'区域淋巴结转移',treatMode:['手术','化疗'],referral:true,curPhase:'辅助化疗中',phaseTimeline:'手术(2026-06-12)→辅助化疗中(第2/6周期)',tFirst:'2026-06-01',tTreat:'2026-06-12',admCount:4,admDays:17,marker:'HPV 18 型阳性；p16 阳性；PD-L1 CPS 8',recurrence:false,recist:'CR',screenType:"两癌筛查（TCT + HPV）",screenDate:"2026-05-22",screenResult:"TCT 示 ASC-H",screenAdvice:"HPV18 阳性，建议阴道镜活检",treatments:[{"mode":"手术","date":"2026-06-12","end":"2026-06-20","plan":"广泛性子宫切除术 + 盆腔淋巴结清扫","note":"术后病理宫颈鳞癌"},{"mode":"化疗","start":"2026-07-10","end":"","plan":"顺铂 + 紫杉醇（辅助化疗）","note":"第 2/6 周期中"}],markerDate:'2026-06-05',recistDate:'2026-08-20',ecogDate:'2026-08-20',metaProgress:'无',diseaseProgress:false},
-{id:'TE011',patient:'赵梅英',sex:'女',age:59,idNo:'360200196602056578',region:'鹰潭市月湖区',city:'鹰潭市',insurance:'职工医保',firstHosp:'月湖区交通街道社区卫生服务中心',firstDate:'2026-05-18',hospital:'鹰潭市人民医院',
+ lastFu:'2026-08-20',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'高血压 12 年',smoke:'不吸烟',drink:'不饮酒',family:'无肿瘤家族史',diagBasis:'宫颈活检病理 + 盆腔 MRI 分期',diagDate:'2026-06-05',tConfirm:'2026-06-05',metastasis:'区域淋巴结转移',treatMode:['手术','化疗'],referral:true,curPhase:'辅助化疗中',phaseTimeline:'手术(2026-06-12)→辅助化疗中(第2/6周期)',tFirst:'2026-06-01',tTreat:'2026-06-12',admCount:4,admDays:17,marker:'HPV 18 型阳性；p16 阳性；PD-L1 CPS 8',recurrence:false,recist:'CR',screenType:"两癌筛查（TCT + HPV）",screenDate:"2026-05-22",screenResult:"TCT 示 ASC-H",screenOrg:'临川区青云街道社区卫生服务中心',screenAdvice:"HPV18 阳性，建议阴道镜活检",treatments:[{"mode":"手术","date":"2026-06-12","end":"2026-06-20","plan":"广泛性子宫切除术 + 盆腔淋巴结清扫","note":"术后病理宫颈鳞癌"},{"mode":"化疗","start":"2026-07-10","end":"","plan":"顺铂 + 紫杉醇（辅助化疗）","note":"第 2/6 周期中"}],markerDate:'2026-06-05',recistDate:'2026-08-20',ecogDate:'2026-08-20',metaProgress:'无',diseaseProgress:false},
+{id:'TE011',reportCardNo:'JX-2026-000589',patient:'赵梅英',sex:'女',age:59,idNo:'360200196602056578',region:'鹰潭市月湖区',city:'鹰潭市',insurance:'职工医保',firstHosp:'月湖区交通街道社区卫生服务中心',firstDate:'2026-05-18',hospital:'鹰潭市人民医院',
  site:'结直肠',laterality:'乙状结肠',path:'腺癌',grade:'中分化',tNm:'cT3N1M0',stage:'III期',stageDate:'2026-05-22',multiPrimary:false,
  treatMode:['手术','化疗'],mdt:false,
  symptom:'无',pain:'无痛',nutrition:'无营养风险',physical:'ECOG 0',complication:'无严重并发症',ae:'无',rehab:'康复良好',supportive:'无',
- lastFu:'2026-09-01',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'缺铁性贫血、结肠息肉切除史',smoke:'不吸烟',drink:'不饮酒',family:'母亲患结直肠癌',diagBasis:'结肠镜 + 活检病理 + 腹盆腔 CT 分期',diagDate:'2026-05-22',tConfirm:'2026-05-22',metastasis:'区域淋巴结转移',treatMode:['手术','化疗'],referral:true,curPhase:'术后随访中',phaseTimeline:'手术(2026-06-01)→辅助化疗完成(2026-08-28)→术后随访中',tFirst:'2026-05-18',tTreat:'2026-06-01',admCount:3,admDays:15,marker:'MSI-H（dMMR）；RAS/BRAF 野生型；CEA 6.2',recurrence:false,recist:'CR',screenType:"结直肠癌筛查（结肠镜）",screenDate:"2026-05-10",screenResult:"乙状结肠环周占位",screenAdvice:"建议活检明确病理",treatments:[{"mode":"手术","date":"2026-06-01","end":"2026-06-10","plan":"腹腔镜乙状结肠癌根治术","note":"术后病理腺癌 T3"},{"mode":"化疗","start":"2026-06-28","end":"2026-08-28","plan":"XELOX 方案（辅助化疗 4 周期）","note":"辅助化疗已完成"}],markerDate:'2026-05-22',recistDate:'2026-09-01',ecogDate:'2026-09-01',metaProgress:'无',diseaseProgress:false},
-{id:'TE012',patient:'章含韵',sex:'女',age:45,idNo:'360502198301125628',region:'新余市渝水区',city:'新余市',insurance:'职工医保',firstHosp:'渝水区城北街道社区卫生服务中心',firstDate:'2026-06-08',hospital:'新余市人民医院',
+ lastFu:'2026-09-01',followStatus:'随访中',vitalStatus:'存活',deathCause:'',lostFollow:false,pastHistory:'缺铁性贫血、结肠息肉切除史',smoke:'不吸烟',drink:'不饮酒',family:'母亲患结直肠癌',diagBasis:'结肠镜 + 活检病理 + 腹盆腔 CT 分期',diagDate:'2026-05-22',tConfirm:'2026-05-22',metastasis:'区域淋巴结转移',treatMode:['手术','化疗'],referral:true,curPhase:'术后随访中',phaseTimeline:'手术(2026-06-01)→辅助化疗完成(2026-08-28)→术后随访中',tFirst:'2026-05-18',tTreat:'2026-06-01',admCount:3,admDays:15,marker:'MSI-H（dMMR）；RAS/BRAF 野生型；CEA 6.2',recurrence:false,recist:'CR',screenType:"结直肠癌筛查（结肠镜）",screenDate:"2026-05-10",screenResult:"乙状结肠环周占位",screenOrg:'月湖区交通街道社区卫生服务中心',screenAdvice:"建议活检明确病理",treatments:[{"mode":"手术","date":"2026-06-01","end":"2026-06-10","plan":"腹腔镜乙状结肠癌根治术","note":"术后病理腺癌 T3"},{"mode":"化疗","start":"2026-06-28","end":"2026-08-28","plan":"XELOX 方案（辅助化疗 4 周期）","note":"辅助化疗已完成"}],markerDate:'2026-05-22',recistDate:'2026-09-01',ecogDate:'2026-09-01',metaProgress:'无',diseaseProgress:false},
+{id:'TE012',reportCardNo:'JX-2026-000634',patient:'章含韵',sex:'女',age:45,idNo:'360502198301125628',region:'新余市渝水区',city:'新余市',insurance:'职工医保',firstHosp:'渝水区城北街道社区卫生服务中心',firstDate:'2026-06-08',hospital:'新余市人民医院',
  site:'乳腺',laterality:'左乳',path:'浸润性导管癌',grade:'II级',tNm:'cT1N0M0',stage:'I期',stageDate:'2026-06-12',multiPrimary:false,
  treatMode:['手术','放疗'],mdt:false,
  symptom:'无',pain:'无痛',nutrition:'无营养风险',physical:'ECOG 0',complication:'无严重并发症',ae:'无',rehab:'康复良好',supportive:'无',
- lastFu:'2026-06-21',followStatus:'失访',vitalStatus:'失访',deathCause:'',lostFollow:true,pastHistory:'无特殊既往史',smoke:'不吸烟',drink:'不饮酒',family:'无肿瘤家族史',diagBasis:'钼靶/彩超 + 穿刺病理 + 免疫组化',diagDate:'2026-06-12',tConfirm:'2026-06-12',metastasis:'无',treatMode:['手术'],referral:false,curPhase:'术后随访中',phaseTimeline:'手术(2026-06-20)→术后随访中',tFirst:'2026-06-08',tTreat:'2026-06-20',admCount:2,admDays:9,marker:'ER 90%(+)；PR 85%(+)；HER2 阴性；Ki-67 10%；Luminal A 型',recurrence:false,recist:'SD',screenType:"两癌筛查（乳腺超声）",screenDate:"2026-06-05",screenResult:"左乳结节 1.4cm，BI-RADS 5",screenAdvice:"建议空芯针穿刺活检",treatments:[{"mode":"手术","date":"2026-06-20","end":"2026-06-26","plan":"左乳保乳手术 + 前哨淋巴结活检","note":"术后放疗计划因失访未执行"}],markerDate:'2026-06-12',recistDate:'2026-06-21',ecogDate:'2026-06-08',metaProgress:'无',diseaseProgress:false},
-{id:'TE013',patient:'陈爱国',sex:'男',age:78,idNo:'360103194805121237',region:'南昌市西湖区',city:'南昌市',insurance:'职工医保',firstHosp:'浙江大学医学院附属第一医院',provOut:true,firstDate:'2024-12-15',hospital:'南昌市第一医院',
+ lastFu:'2026-06-21',followStatus:'失访',vitalStatus:'失访',deathCause:'',lostFollow:true,pastHistory:'无特殊既往史',smoke:'不吸烟',drink:'不饮酒',family:'无肿瘤家族史',diagBasis:'钼靶/彩超 + 穿刺病理 + 免疫组化',diagDate:'2026-06-12',tConfirm:'2026-06-12',metastasis:'无',treatMode:['手术'],referral:false,curPhase:'术后随访中',phaseTimeline:'手术(2026-06-20)→术后随访中',tFirst:'2026-06-08',tTreat:'2026-06-20',admCount:2,admDays:9,marker:'ER 90%(+)；PR 85%(+)；HER2 阴性；Ki-67 10%；Luminal A 型',recurrence:false,recist:'SD',screenType:"两癌筛查（乳腺超声）",screenDate:"2026-06-05",screenResult:"左乳结节 1.4cm，BI-RADS 5",screenOrg:'渝水区城北街道社区卫生服务中心',screenAdvice:"建议空芯针穿刺活检",treatments:[{"mode":"手术","date":"2026-06-20","end":"2026-06-26","plan":"左乳保乳手术 + 前哨淋巴结活检","note":"术后放疗计划因失访未执行"}],markerDate:'2026-06-12',recistDate:'2026-06-21',ecogDate:'2026-06-08',metaProgress:'无',diseaseProgress:false},
+{id:'TE013',reportCardNo:'JX-2024-001127',patient:'陈爱国',sex:'男',age:78,idNo:'360103194805121237',region:'南昌市西湖区',city:'南昌市',insurance:'职工医保',firstHosp:'浙江大学医学院附属第一医院',provOut:true,firstDate:'2024-12-15',hospital:'南昌市第一医院',
  site:'肝',laterality:'右肝后叶',path:'肝细胞癌',grade:'中分化',tNm:'pT3N0M0',stage:'III期',stageDate:'2024-12-20',multiPrimary:false,
  treatMode:['手术'],mdt:false,
  symptom:'无',pain:'无痛',nutrition:'未填',physical:'ECOG 1',complication:'无严重并发症',ae:'无',rehab:'康复良好',supportive:'无',
- lastFu:'2026-06-10',deathDate:'2026-06-10',followStatus:'死亡结案',vitalStatus:'死亡',deathCause:'肝功能衰竭',lostFollow:false,pastHistory:'乙型肝炎 30 年、肝硬化 10 年',smoke:'已戒烟 15 年',drink:'已戒酒 15 年',family:'弟弟患肝癌',diagBasis:'外院 MRI + 术后病理（外省手术）',diagDate:'2024-12-20',tConfirm:'2024-12-20',metastasis:'无远处转移',treatMode:['手术'],referral:true,curPhase:'术后随访中',phaseTimeline:'外省手术(2024-12-28)→回赣随访',tFirst:'2024-12-15',tTreat:'2024-12-28',admCount:6,admDays:38,marker:'AFP 268；HBsAg 阳性；术后病理 MVI M1',recurrence:false,recist:'PD',screenType:"肝癌高危人群筛查（超声 + AFP）",screenDate:"2024-11-28",screenResult:"右肝后叶占位 6.1cm",screenAdvice:"建议增强 MRI 明确诊断并评估手术",treatments:[{"mode":"手术","date":"2024-12-28","end":"2025-01-08","plan":"右肝后叶切除术（外省）","note":"术后病理肝细胞癌，MVI M0"}],markerDate:'2024-12-20',recistDate:'2026-05-20',ecogDate:'2026-06-10',metaProgress:'无',diseaseProgress:false}
+ lastFu:'2026-06-10',deathDate:'2026-06-10',followStatus:'死亡结案',vitalStatus:'死亡',deathCause:'肝功能衰竭',lostFollow:false,pastHistory:'乙型肝炎 30 年、肝硬化 10 年',smoke:'已戒烟 15 年',drink:'已戒酒 15 年',family:'弟弟患肝癌',diagBasis:'外院 MRI + 术后病理（外省手术）',diagDate:'2024-12-20',tConfirm:'2024-12-20',metastasis:'无远处转移',treatMode:['手术'],referral:true,curPhase:'术后随访中',phaseTimeline:'外省手术(2024-12-28)→回赣随访',tFirst:'2024-12-15',tTreat:'2024-12-28',admCount:6,admDays:38,marker:'AFP 268；HBsAg 阳性；术后病理 MVI M1',recurrence:false,recist:'PD',screenType:"肝癌高危人群筛查（超声 + AFP）",screenDate:"2024-11-28",screenResult:"右肝后叶占位 6.1cm",screenOrg:'西湖区桃源街道社区卫生服务中心',screenAdvice:"建议增强 MRI 明确诊断并评估手术",treatments:[{"mode":"手术","date":"2024-12-28","end":"2025-01-08","plan":"右肝后叶切除术（外省）","note":"术后病理肝细胞癌，MVI M0"}],markerDate:'2024-12-20',recistDate:'2026-05-20',ecogDate:'2026-06-10',metaProgress:'无',diseaseProgress:false}
 ];
 
 /* 检查检验记录（按患者ID）。检查=所见+结论；检验=明细指标（↑↓+ 异常标红） */
@@ -484,48 +488,28 @@ TE013:[
   j:'肝脏表面不光滑，回声增粗不均，未见明确占位；腹腔中量液性暗区；脾厚5.8cm，门静脉主干内径1.7cm。',
   y:'肝硬化失代偿期、脾大、门静脉高压、中量腹水。（2026-06-10 患者死于肝功能衰竭）'}]
 };
-/* 转院/转诊就诊记录（按患者ID） */
-var SP_REFERRALS={
-TE001:[
- {d:'2026-01-19',dir:'上转',from:'东湖区董家窑街道社区卫生服务中心',to:'南昌市第一医院',reason:'胸部DR发现右上肺结节性质待定，需增强CT及病理确诊',mat:'DR影像报告、社区筛查记录',status:'已接诊，2026-01-28完成增强CT评估'},
- {d:'2026-06-20',dir:'下转',from:'南昌市第一医院',to:'东湖区董家窑街道社区卫生服务中心',reason:'术后辅助化疗期，转回社区协同随访与症状监测',mat:'手术记录、化疗方案单',status:'社区已接收，每2周协同随访'}],
-TE002:[
- {d:'2026-03-21',dir:'上转',from:'章贡区南外街道社区卫生服务中心',to:'江西省肿瘤医院',reason:'两癌筛查发现左乳结节BI-RADS 5，需穿刺确诊并规范治疗',mat:'钼靶影像、两癌筛查单',status:'已接诊，完成穿刺确诊'}],
-TE003:[
- {d:'2026-07-08',dir:'上转',from:'浔阳区甘棠街道卫生院',to:'九江市第一人民医院',reason:'上腹隐痛伴纳差2月，需胃镜及腹部CT评估',mat:'卫生院门诊记录',status:'已接诊，完成胃镜确诊'}],
-TE004:[
- {d:'2026-02-15',dir:'上转',from:'信州区西市街道社区卫生服务中心',to:'上饶市肿瘤医院',reason:'腹部超声发现肝占位，需增强MRI确诊并评估手术',mat:'超声报告',status:'已接诊，完成分期评估'}],
-TE005:[
- {d:'2026-04-12',dir:'上转',from:'袁州区化成街道社区卫生服务中心',to:'宜春市人民医院',reason:'胸闷伴干咳加重，胸部CT见左下肺占位，需专科确诊',mat:'社区首诊记录',status:'已接诊，完成气管镜活检'}],
-TE006:[
- {d:'2026-05-06',dir:'上转',from:'珠山区里村街道社区卫生服务中心',to:'景德镇市第一医院',reason:'两癌筛查TCT示HSIL、HPV16阳性，需阴道镜评估活检',mat:'TCT/HPV报告',status:'已接诊，完成阴道镜活检'}],
-TE007:[
- {d:'2026-06-20',dir:'跨市上转',from:'萍乡市安源区后埠街道社区卫生服务中心',to:'南昌市第一医院',reason:'便血伴排便习惯改变，粪隐血阳性，需肠镜及结直肠专科诊治',mat:'隐血检验单、社区首诊记录',status:'已接诊，完成根治性手术'},
- {d:'2026-08-10',dir:'下转',from:'南昌市第一医院',to:'萍乡市安源区后埠街道社区卫生服务中心',reason:'辅助化疗期返回萍乡居住，转回社区协同随访管理',mat:'手术病理、化疗记录单',status:'社区已接收，远程随访'}],
-TE008:[
- {d:'2026-07-25',dir:'跨市上转',from:'抚州市临川区青云街道社区卫生服务中心',to:'江西省肿瘤医院',reason:'右乳肿块可疑恶性伴骨痛，需穿刺确诊、HER2检测及全身治疗',mat:'钼靶报告',status:'已接诊，确诊IV期后收入院'}],
-TE009:[
- {d:'2026-08-01',dir:'上转',from:'吉州区古南镇卫生院',to:'吉安市中心医院',reason:'进行性吞咽梗阻，钡餐见食管中段狭窄，需胃镜及分期评估',mat:'钡餐报告',status:'已接诊，完成活检及MDT'}],
-TE010:[
- {d:'2026-06-01',dir:'上转',from:'临川区青云街道社区卫生服务中心',to:'抚州市第一医院',reason:'两癌筛查TCT示ASC-H、HPV18阳性，需阴道镜活检',mat:'TCT/HPV报告',status:'已接诊，完成活检确诊'}],
-TE011:[
- {d:'2026-05-18',dir:'上转',from:'月湖区交通街道社区卫生服务中心',to:'鹰潭市人民医院',reason:'排便习惯改变伴粪隐血阳性，需肠镜检查',mat:'隐血检验单',status:'已接诊，完成肠镜活检'}],
-TE012:[],
-TE013:[
- {d:'2025-01-06',dir:'跨省转入',from:'浙江大学医学院附属第一医院（浙江省）',to:'南昌市第一医院',reason:'肝癌外省术后回赣，转入参保地进行术后随访与慢病管理',mat:'外省术后病理、出院小结、影像光盘',status:'已接诊建档，纳入回赣随访管理'}]
+/* 演示数据的治疗执行机构。明确补在每条治疗记录上，不从转诊记录或报告机构推断。 */
+var SP_DEMO_TREATMENT_ORGS={
+ TE001:['南昌市第一医院','南昌市第一医院'],TE001B:['江西省肿瘤医院'],
+ TE002:['江西省肿瘤医院','赣州市人民医院','赣州市人民医院'],TE003:['九江市第一人民医院'],
+ TE004:['上饶市肿瘤医院','江西省肿瘤医院'],TE005:['宜春市人民医院','江西省肿瘤医院','江西省肿瘤医院'],
+ TE006:['景德镇市第一医院','江西省肿瘤医院'],TE007:['南昌市第一医院','萍乡市人民医院'],
+ TE008:['江西省肿瘤医院','江西省肿瘤医院'],TE009:['吉安市中心医院','吉安市中心医院'],
+ TE010:['抚州市第一医院','江西省肿瘤医院'],TE011:['鹰潭市人民医院','鹰潭市人民医院'],
+ TE012:['新余市人民医院'],TE013:['浙江大学医学院附属第一医院']
 };
-
-
-/* 病种费用参数（诊疗路径·费用面） */
-var SP_SITE_COST={
- '肺':{ip:52000,drug:38,ins:58},'乳腺':{ip:46000,drug:42,ins:61},'肝':{ip:58000,drug:35,ins:55},
- '胃':{ip:49000,drug:40,ins:57},'结直肠':{ip:44000,drug:36,ins:60},'宫颈':{ip:36000,drug:31,ins:64},'食管':{ip:41000,drug:33,ins:59}
-};
-var SP_MODE_COST=[
- {mode:'手术',cost:46000,unit:'次'},{mode:'放疗',cost:33000,unit:'全程'},{mode:'化疗',cost:21000,unit:'年累计'},
- {mode:'靶向',cost:86000,unit:'年累计'},{mode:'免疫',cost:92000,unit:'年累计'},{mode:'内分泌',cost:12000,unit:'年累计'},{mode:'介入',cost:38000,unit:'次'}
+tumorEvents.forEach(function(e){
+ (e.treatments||[]).forEach(function(t,i){
+  t.hospital=SP_DEMO_TREATMENT_ORGS[e.id][i];t.recordId=e.id+'-TX-'+(i+1);t.source='治疗执行记录（示例）';
+ });
+});
+/* 分次执行记录展示 A→B→A；与疗程起止记录分别保留，按实际执行日排序。 */
+tumorEvents[0].treatmentVisits=[
+ {recordId:'TE001-EXEC-2',date:'2026-04-01',hospital:'江西省肿瘤医院',mode:'化疗',plan:'辅助化疗第2次执行',source:'治疗执行记录（示例）'},
+ {recordId:'TE001-EXEC-3',date:'2026-05-04',hospital:'南昌市第一医院',mode:'化疗',plan:'辅助化疗第3次执行',source:'治疗执行记录（示例）'},
+ {recordId:'TE001-EXEC-4',date:'2026-06-20',hospital:'南昌市第一医院',mode:'化疗',plan:'辅助化疗第4次执行',source:'治疗执行记录（示例）'}
 ];
-
+/* 费用分析由 SPCost 提供，演示与真实接入状态明确区分。 */
 
 /* ===================== 二、工具与聚合引擎 ===================== */
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
@@ -543,7 +527,7 @@ function spBool(v){
   if(v===false||v===0||v==='0'||v==='否'||v==='无'||v==='false')return false;
   return null;
 }
-function spCutoff(){return spDate(_spScope&&_spScope.cutoff)||spToday()}
+function spCutoff(){return (_spSub!=='overview'&&!_wbOverviewSelection)?spToday():(spDate(_spScope&&_spScope.cutoff)||spToday())}
 function spDiagnosisDate(e){return spDate(e.diagDate)||spDate(e.tConfirm)}
 var _spAnonymousKeys=new WeakMap(),_spAnonymousIndex=0;
 function spAnonymousKey(e){
@@ -554,6 +538,70 @@ function spPatientKey(e){
   return String([e.empi,e.patientId,e.idNo].find(spKnown)||('record:'+(spKnown(e.id)?e.id:spAnonymousKey(e))));
 }
 function spTumorKey(e){return spPatientKey(e)+'|'+String([e.tumorId,e.id].find(spKnown)||spAnonymousKey(e))}
+/* 报告卡编号：一个瘤例对应一张登记报告卡（同一患者多原发按瘤例分别编号），
+   列表首列用它做跳转详情的主键；数据侧未登记时显示「—」，不臆造编号 */
+function spReportCardNo(e){return e&&spKnown(e.reportCardNo)?String(e.reportCardNo).trim():'—'}
+
+/* ==================== 就诊机构（患者层面合并 + 悬浮展开全部） ====================
+   一个患者可能在多家医院登记/就诊（多原发在不同医院确诊、外省术后转回、转诊链），
+   列表只显示「主机构 + 等 N 家」，鼠标悬浮时用浮层列出全部机构。
+   口径：只统计医院（名称含「医院」），社区卫生服务中心/卫生院等基层首诊机构不混进来，
+   避免几乎每个患者都变成「等 2 家」而失去信息量。 */
+function spIsHospitalOrg(name){
+  var s=String(name==null?'':name).trim();
+  return !!s&&/医院/.test(s)&&!/卫生院|社区卫生服务中心|社区卫生服务站|疾病预防控制|疾控/.test(s);
+}
+/* 机构名归一：去掉结尾的省份括注（「浙江大学医学院附属第一医院（浙江省）」→「…第一医院」），
+   否则同一家医院在首诊机构与转诊记录里写法不同，会被当成两家 */
+function spNormHospital(name){
+  return String(name==null?'':name).trim().replace(/[（(](?:[^（）()]*省|北京市|天津市|上海市|重庆市)[）)]\s*$/,'');
+}
+/* 患者全部就诊医院：当前瘤例的报告机构排第一，再按瘤例/转诊顺序补齐 */
+function spPatientHospitals(e){
+  var out=[],add=function(h){
+    var s=spNormHospital(h);
+    if(!spIsHospitalOrg(s)||out.indexOf(s)>=0)return;
+    out.push(s);
+  };
+  add(e&&spRecordValue(e,'hospital',['hospitalDate']));
+  spPatientTumors(e).forEach(function(t){
+    add(spRecordValue(t,'hospital',['hospitalDate']));add(spRecordValue(t,'firstHosp',['firstDate']));
+    spTreatmentEntries(t).forEach(function(r){add(r.hospital)});
+  });
+  return out;
+}
+/* 单元格/键值共用：单家直接显示；多家显示「主机构 + 等 N 家」并挂悬浮浮层 */
+function spHospSpan(e){
+  var list=spPatientHospitals(e);
+  if(!list.length)return '—';
+  if(list.length===1)return esc(list[0]);
+  return '<span class="sp-hosp" data-sp-hosp="'+esc(list.join('|'))+'" onmouseenter="window._spHospTipShow(this)" onmouseleave="window._spHospTipHide()">'+
+    esc(list[0])+'<em class="sp-hosp-more">等'+list.length+'家</em></span>';
+}
+var _spHospTipEl=null;
+function spHospTipEl(){
+  if(!_spHospTipEl){
+    _spHospTipEl=document.createElement('div');
+    _spHospTipEl.className='sp-hosp-tip';
+    document.body.appendChild(_spHospTipEl);
+  }
+  return _spHospTipEl;
+}
+window._spHospTipShow=function(el){
+  var list=String(el.getAttribute('data-sp-hosp')||'').split('|').filter(Boolean);
+  if(!list.length)return;
+  var tip=spHospTipEl();
+  tip.innerHTML='<div class="sp-hosp-tip-t">就诊机构 · 共 '+list.length+' 家</div>'+
+    '<ol>'+list.map(function(h){return '<li>'+esc(h)+'</li>'}).join('')+'</ol>';
+  tip.style.display='block';
+  var r=el.getBoundingClientRect(),tw=tip.offsetWidth,th=tip.offsetHeight;
+  var left=Math.max(8,Math.min(r.left,window.innerWidth-tw-12));
+  /* 默认挂在元素下方（不遮挡表头），下方放不下再翻到上方 */
+  var top=r.bottom+8;
+  if(top+th>window.innerHeight-8)top=Math.max(8,r.top-th-8);
+  tip.style.left=left+'px';tip.style.top=top+'px';
+};
+window._spHospTipHide=function(){if(_spHospTipEl)_spHospTipEl.style.display='none'};
 function spUpdatedDate(e){return spDate(String(e.updatedAt||'').slice(0,10))}
 function spRecordValue(e,key,dateFields){
   var fields=(dateFields||[]).concat(['updatedAt']),dated=fields.find(function(f){return spKnown(e[f])});
@@ -574,7 +622,7 @@ function spUnique(list,key){
 }
 function spPersons(list){return spUnique(list,spPatientKey)}
 function spStage(e){
-  var v=spRecordValue(e,spKnown(e.initialStage)?'initialStage':'stage',['initialStageDate','stageDate']);
+  var v=spRecordValue(e,'stage',['stageDate']);
   if(v===null)return '不详';
   if(spBool(e.stageApplicable)===false||v==='不适用')return '不适用';
   var s=String(v||'').trim().replace(/Ⅳ/g,'IV').replace(/Ⅲ/g,'III').replace(/Ⅱ/g,'II').replace(/Ⅰ/g,'I');
@@ -589,7 +637,6 @@ function spGeoClass(e){
   return hc===e.city?'市域内':'跨市';
 }
 function spOutCity(e){return spGeoClass(e)==='跨市'}
-function spDistant(e){return spBool(e.distantAtDiagnosis)===true}
 function spVital(e){
   var cut=spCutoff(),fu=spDate(e.lastFu),death=spDate(e.deathDate),diag=spDiagnosisDate(e);
   if((death&&diag&&death<diag)||(fu&&diag&&fu<diag))return '不详';
@@ -638,9 +685,9 @@ function spPercentile(values,p){
 }
 function spTreatmentEntries(e){
   var diagnosis=spDiagnosisDate(e),death=spDate(e.deathDate),cut=spCutoff();
-  return (Array.isArray(e.treatments)?e.treatments:[]).filter(function(t){
-    var d=spDate(t.start)||spDate(t.date);
-    return d&&d<=cut&&(!diagnosis||d>=diagnosis)&&(!death||d<=death);
+  return (Array.isArray(e.treatments)?e.treatments:[]).concat(Array.isArray(e.treatmentVisits)?e.treatmentVisits:[]).filter(function(t){
+    var d=spDate(String(t.executedAt||t.date||t.start||'').slice(0,10));
+    return !/^(planned|cancelled|canceled|pending|not_performed|计划|已撤销|未执行)$/.test(t.status||'')&&d&&d<=cut&&(!diagnosis||d>=diagnosis)&&(!death||d<=death);
   });
 }
 function spTreatmentModes(e){
@@ -673,7 +720,13 @@ function spEmpi(e){return 'MPI-'+String(e.idNo||'').slice(-8)}
 /* ICD-O-3 部位码 / 形态学码：复用登记报告卡既有推导口径（report-card-detail.js），不额外采集 */
 var SP_TOPO_CODE={'肺':'C34.9','支气管':'C34.9','胃':'C16.9','肝':'C22.0','乳腺':'C50.9','乳房':'C50.9','宫颈':'C53.9','结直肠':'C18.9','结肠':'C18.9','直肠':'C20.9','食管':'C15.9','前列腺':'C61','甲状腺':'C73.9'};
 var SP_MORPH_CODE={'鳞状细胞癌':'8070/3','腺癌':'8140/3','小细胞癌':'8041/3','浸润性导管癌':'8500/3','导管癌':'8500/3','肝细胞癌':'8170/3'};
-function spTopoCode(e){return SP_TOPO_CODE[e.site]||''}
+/* 「结直肠」是分组癌种，编码要按具体原发部位分流：直肠/肛管 C20，结肠各段 C18。
+   原来只按 site 取码，直肠道病例一律给 C18 - 列表把 ICD-10 摆在原发部位旁边后就会露馅。 */
+function spTopoCode(e){
+  var s=e.site||'',lat=e.laterality||'';
+  if(s==='结直肠'||s==='结肠'||s==='直肠'||/直肠|肛管/.test(lat))return /直肠|肛管/.test(lat)||s==='直肠'?'C20.9':'C18.9';
+  return SP_TOPO_CODE[s]||'';
+}
 function spMorphCode(e){
   if(SP_MORPH_CODE[e.path])return SP_MORPH_CODE[e.path];
   if(/腺癌/.test(e.path||''))return '8140/3';
@@ -691,23 +744,32 @@ function spMorphCode(e){
   if(/^(原发|继发|转移)/.test(p))return s+p;
   return s+p;
 }
-/* 治疗方式分项：手术/放疗/化疗 分别标注 有/无——用于计算治疗方案规范率
-   区分「无」与「未记录」：无 = 已确认未开展；未记录 = 数据缺失，不计入分母 */
-var SP_MODES=['手术','放疗','化疗'];
+/* 治疗方式分项：按画像口径分六类（手术/放疗/化疗/靶向/免疫/内分泌）分别标注
+   有 / 明确无 / 未记录——六类独立判定，存在一种不代表其他已开展或未开展；
+   「明确无」必须有明确未开展记录（e.modesNotDone），仅有实施记录缺失时只能标「未记录」 */
+var SP_MODES=['手术','放疗','化疗','靶向','免疫','内分泌'];
 function spModeFlags(e){
-  var modes=spTreatmentModes(e),known=modes.length>0;
   return SP_MODES.map(function(m){
-    var has=modes.indexOf(m)>=0;
-    var cls=has?'badge-success':'badge-neutral';
+    var state=spModeState(e,m),has=state==='有',no=state==='明确无';
     return '<div class="sp-kv-item sp-inline"><span class="k">'+esc(m)+'</span><span class="v">'+
-      (has?badge('有',cls):(known?badge('未见记录','badge-neutral'):badge('未记录','badge-caution')))+'</span></div>';
+      (has?badge('有','badge-success'):no?badge('明确无','badge-neutral'):badge(state||'未记录','badge-caution'))+'</span></div>';
   }).join('');
+}
+function spModeState(e,mode){
+  var has=spHasMode(e,mode),no=spRecordValue(e,'modesNotDone',['modesNotDoneDate']);
+  no=Array.isArray(no)&&no.indexOf(mode)>=0;
+  return has&&no?'记录冲突':has?'有':no?'明确无':null;
+}
+/* 六类以外的治疗记录（如介入、消融）：按实际记录展示，不并入六类统计 */
+function spOtherModes(e){
+  return spTreatmentModes(e).filter(function(m){return SP_MODES.indexOf(m)<0});
 }
 /* 首次治疗日期：取全部治疗明细中最早的起始日 */
 function spFirstTreat(e){
-  var list=Array.isArray(e.treatments)?e.treatments:null;
-  var ds=list?list.map(function(t){return spDate(t.start)||spDate(t.date)}).filter(Boolean).sort():[];
-  return list?(ds[0]||''):(spDate(e.tTreat)||'');
+  var ds=spTreatmentEntries(e).map(function(t){return spDate(String(t.executedAt||t.date||t.start||'').slice(0,10))}).sort();
+  if(Array.isArray(e.treatments)||Array.isArray(e.treatmentVisits))return ds[0]||'';
+  var d=spDate(e.tTreat),diag=spDiagnosisDate(e),death=spDate(e.deathDate);
+  return d&&d<=spCutoff()&&(!diag||d>=diag)&&(!death||d<=death)?d:'';
 }
 /* ICD-10：由 ICD-O-3 部位码截取主码（C34.9 → C34），与病案/影像口径一致 */
 function spIcd10(e){var c=spTopoCode(e);return c?c.split('.')[0]:''}
@@ -716,12 +778,13 @@ function spScreenStatus(e){
   var participated=spRecordValue(e,'screenParticipated',['screenDate']);
   var type=spRecordValue(e,'screenType',['screenDate']);
   if(spBool(participated)===false)return '未参与';
-  if((spDate(e.screenDate)&&e.screenDate<=spCutoff())||spKnown(type))return '有筛查记录';
+  if(spBool(participated)===true||(spDate(e.screenDate)&&e.screenDate<=spCutoff())||spKnown(type))return '有筛查记录';
   return '不详';
 }
 /* 病理类型：去掉与病理名重复的分化描述（如「低分化腺癌（低分化）」→「低分化腺癌」） */
 function spPathText(e){
   var p=e.path||'',g=e.grade||'';
+  if(!spKnown(p))return '';
   if(!g)return p;
   if(p.indexOf(g)>=0)return p;          /* 病理名已含分化程度，不再追加 */
   if(/^[中低高]分化$/.test(g))return p+(/分化/.test(p)?'':'（'+g+'）');
@@ -743,15 +806,11 @@ function spGradeText(e){
 }
 /* 生存时间：确诊日期 → 死亡日期（已死亡）或末次随访日期（存活/失访），自动推算，不手工录入 */
 function spSurvival(e){
-  var start=e.diagDate||e.stageDate||e.tConfirm;
-  var end=e.vitalStatus==='死亡'?(e.deathDate||e.lastFu):e.lastFu;
-  if(!start||!end)return {text:'—',n:null,alive:null};
-  var d1=new Date(start),d2=new Date(end);
-  if(isNaN(d1)||isNaN(d2)||d2<d1)return {text:'—',n:null,alive:null};
-  var months=Math.max(1,Math.round((d2-d1)/(1000*60*60*24*30.44)));
-  var dead=e.vitalStatus==='死亡';
-  var lost=e.lostFollow||e.vitalStatus==='失访';
-  return {text:dead?('生存 '+months+' 个月（死亡）'):lost?('随访 '+months+' 个月（失访）'):(months>=12?('生存 '+(months/12).toFixed(1)+' 年'):('生存 '+months+' 个月')),n:months,alive:!dead};
+  var start=spDiagnosisDate(e),dead=spVital(e)==='死亡';
+  var end=dead?spDate(e.deathDate):spDate(e.lastFu);
+  if(!start||!end||start>end||end>spCutoff()||(e.vitalStatus==='死亡'&&!dead))return {text:'—',n:null,alive:null};
+  var months=+((Date.parse(end+'T00:00:00Z')-Date.parse(start+'T00:00:00Z'))/(86400000*30.44)).toFixed(1);
+  return {text:months+' 个月（截至'+(dead?'死亡':'末次随访')+'）',n:months,alive:dead?false:/^存活/.test(spVital(e))?true:null};
 }
 function spScopeEvents(sc){
   sc=sc||{};
@@ -764,10 +823,218 @@ function spScopeEvents(sc){
     if(sc.to&&(!d||d>sc.to))return false;
     if(sc.city&&e.city!==sc.city)return false;
     if(sc.site&&e.site!==sc.site)return false;
-    if(sc.hospital&&e.hospital!==sc.hospital)return false;
+    if(sc.hospital&&spPatientHospitals(e).indexOf(spNormHospital(sc.hospital))<0)return false;
     return true;
   });
 }
+/* V14：详情、总览、证据明细和 CSV 共用字段读取器，不以管理指标名替代记录事实。 */
+function spProfileDate(e,key){
+  var d=key==='diagDate'?spDiagnosisDate(e):spDate(e[key]);
+  return d&&d<=spCutoff()?d:null;
+}
+function spFollowState(e){
+  if(spVital(e)==='死亡')return '死亡结案';
+  if(spRecordValue(e,'followStatus',['followStatusDate','lastFu'])==='死亡结案')return null;
+  var lost=spLost(e);
+  return lost===true?'失访':lost===false?'随访中':null;
+}
+var SP_PROFILE_FIELDS=[];
+function spDefineField(key,label,dim,read,source,rule,unit,kind){
+  SP_PROFILE_FIELDS.push({key:key,label:label,dim:dim,read:read,source:source,rule:rule||'按画像同名字段逐条统计；未记录单列',unit:unit||'瘤例',kind:kind||'category'});
+}
+spDefineField('sex','性别','患者基础',function(e){return /^(男|女)$/.test(e.sex)?e.sex:null},'sex','按患者去重；同一患者多瘤例记录不一致时单列待核对','患者');
+spDefineField('age','确诊时年龄','患者基础',spAge,'birthDate / idNo + diagDate','出生日期至当前瘤例确诊日期的周岁；一个患者多个原发可有不同确诊年龄','瘤例','number');
+spDefineField('region','户籍地','患者基础',function(e){return e.region},'region','按画像户籍地统计；同一患者多条不同地址不合并为确定值','患者');
+spDefineField('hospital','就诊机构','患者基础',function(e){return spPatientHospitals(e)},'hospital / firstHosp + treatments.hospital + treatmentVisits.hospital','与画像列出的全部就诊机构一致；一人可计入多家机构，人数不可相加','患者','multiple');
+spDefineField('insurance','医保类型','患者基础',function(e){return e.insurance},'insurance','按患者去重；同一患者不同险种记录单列待核对','患者');
+/* 筛查机构取筛查记录本身的实施机构；未记录时不回退到就诊机构，避免把「在哪治病」当成「在哪筛查」 */
+spDefineField('screenorg','筛查机构','患者基础',function(e){return spRecordValue(e,'screenOrg',['screenDate'])},'筛查管理数据-筛查记录的医疗机构','与画像筛查记录的实施机构一致；缺失单列未记录，不用就诊机构替代','瘤例');
+[['screentype','筛查项目','screenType'],['screendate','筛查时间','screenDate'],['screenresult','筛查结果','screenResult'],['screenadvice','筛查建议','screenAdvice']].forEach(function(f){
+  spDefineField(f[0],f[1],'患者基础',function(e){return f[2]==='screenDate'?spProfileDate(e,f[2]):spRecordValue(e,f[2],['screenDate'])},f[2],'与画像筛查记录一致；统计截止日以后的记录不纳入','瘤例',f[2]==='screenDate'?'date':f[0]==='screentype'?'category':'text');
+});
+spDefineField('site','原发部位','肿瘤特征',function(e){return e.laterality},'laterality','采用画像的具体原发部位；不以癌种分组 site 替代');
+spDefineField('path','病理类型','肿瘤特征',spPathText,'path + grade','与画像病理类型展示文本一致；分级另列');
+spDefineField('icd10','ICD-10','肿瘤特征',spIcd10,'spIcd10(site, laterality)','沿用画像编码映射结果，不从 TNM 或分级推断');
+spDefineField('icdo3topo','ICD-O-3 部位码','肿瘤特征',spTopoCode,'spTopoCode(site, laterality)');
+spDefineField('icdo3morph','ICD-O-3 形态码','肿瘤特征',spMorphCode,'spMorphCode(path)');
+spDefineField('grade','分级','肿瘤特征',spGradeText,'grade','直接读取分级，与分期期别分别统计');
+spDefineField('tnm','TNM','肿瘤特征',function(e){return spBool(e.stageApplicable)===false?'不适用':spRecordValue(e,'tNm',['stageDate'])},'tNm + stageDate','检查 TNM 字段本身是否有记录；不使用分期期别代替 TNM');
+spDefineField('stage','分期期别','肿瘤特征',spStage,'stage + stageDate','I / II / III / IV 期为记录构成；不能直接当作早诊率或远处转移率');
+spDefineField('diagdate','确诊日期','肿瘤特征',function(e){return spProfileDate(e,'diagDate')},'diagDate / tConfirm',null,'瘤例','date');
+spDefineField('diag_basis','诊断依据','肿瘤特征',function(e){return spKnown(spRecordValue(e,'diagBasisType',['diagDate']))||spKnown(spRecordValue(e,'diagBasis',['diagDate']))?spDiagBasisType(e):null},'diagBasisType / diagBasis','明确病理或临床诊断依据的记录构成；不使用推导编码反推病理证实');
+spDefineField('tfirst','首次治疗日期','诊疗过程',spFirstTreat,'treatments / treatmentVisits / tTreat','取截止日前实际执行且时序有效的最早治疗日期；排除计划、撤销和未执行记录','瘤例','date');
+spDefineField('diag_to_treat','确诊至首次治疗','诊疗过程',function(e){return spInterval(e,'diagDate','tTreat').value},'diagDate + 首次治疗日期','按同一瘤例有效日期相减，单位天；日期缺失或冲突不计入中位数','瘤例','number');
+spDefineField('referral','治疗机构变化','诊疗过程',function(e){var r=spInstitutionChanges(e,spCutoff());return r.state===null?null:r.state?'有变化':'未观察到变化'},'患者全部 treatments / treatmentVisits','按患者全部有效治疗的时间序列判断；一人多瘤例仅计一次','患者');
+spDefineField('mdt','MDT','诊疗过程',function(e){var b=spBool(spRecordValue(e,'mdt',['mdtRecordedDate','mdtDate']));return b===null?null:b?'已开展':'明确未开展'},'mdt + mdtRecordedDate / mdtDate','区分已开展、明确未开展、未记录；记录构成不替代符合适应证的覆盖率');
+SP_MODES.forEach(function(mode,i){spDefineField('mode'+i,mode,'诊疗过程',function(e){return spModeState(e,mode)},'治疗执行记录 + modesNotDone','只依据本项治疗记录：有、明确无、未记录；其他治疗存在不能证明本项未开展')});
+spDefineField('vital','生存状态','随访与结局',spVital,'vitalStatus + lastFu + deathDate','按当前瘤例的随访记录统计；失访属于随访状态，不等于死亡');
+spDefineField('followstate','随访状态','随访与结局',spFollowState,'followStatus / lostFollow + lastFu + deathDate','将随访状态与生存状态分开；未记录不推断为随访中');
+spDefineField('lastfu','末次随访日期','随访与结局',function(e){var d=spProfileDate(e,'lastFu'),diag=spDiagnosisDate(e);return d&&(!diag||d>=diag)?d:null},'lastFu','有效日期不早于当前瘤例确诊日期、不晚于截止日','瘤例','date');
+spDefineField('survival','观察时长（推算）','随访与结局',function(e){return spSurvival(e).n},'diagDate + deathDate / lastFu','确诊至死亡或末次随访的月数；不代表 1 / 3 / 5 年生存率','瘤例','number');
+function spDeathFieldApplies(e){return spVital(e)==='死亡'||spRecordValue(e,'vitalStatus',['lastFu'])==='死亡'}
+spDefineField('deathdate','死亡日期','随访与结局',function(e){return spDeathFieldApplies(e)?spProfileDate(e,'deathDate'):'不适用'},'deathDate','仅对有死亡记录的瘤例适用，日期缺失或冲突单列','瘤例','date');
+spDefineField('death','死亡原因','随访与结局',function(e){return spDeathFieldApplies(e)?e.deathCause:'不适用'},'deathCause','仅对有死亡记录的瘤例适用；不详死因保留为缺失','瘤例','text');
+/* 分区、详情字段和总览选项集中定义，避免两端各自维护不同字段。 */
+var SP_PROFILE_SECTIONS=[
+  {key:'burden',label:'患者基础',groups:[
+    {keys:['sex','age','region','hospital','insurance']},
+    {title:'筛查信息',keys:['screenorg','screentype','screendate','screenresult','screenadvice']}
+  ],charts:[
+    {keys:['sex','insurance','screentype'],layout:'sp-compact-rounds'},
+    {keys:['age','region']},
+    {keys:['hospital','screenorg']}
+  ],records:{title:'筛查记录',keys:['screenorg','screentype','screendate','screenresult','screenadvice']}},
+  {key:'tumor',label:'肿瘤特征',groups:[
+    {title:'瘤种、分级与分期',keys:['site','path','icd10','icdo3topo','icdo3morph','grade','tnm','stage','diagdate','diag_basis']}
+  ],charts:[
+    {keys:['stage','grade','diag_basis'],layout:'sp-compact-rounds'},
+    {keys:['site','path']}
+  ],records:{title:'分期与编码明细',keys:['tnm','stage','diagdate','icd10','icdo3topo','icdo3morph']}},
+  {key:'treat',label:'诊疗过程',groups:[
+    {title:'治疗与 MDT',keys:['tfirst','diag_to_treat','mdt']},
+    {title:'治疗方式',keys:['mode0','mode1','mode2','mode3','mode4','mode5'],columns:' sp-cols-3'}
+  ],charts:[
+    {keys:['mdt','referral'],layout:'sp-process-rounds'},
+    {kind:'treatment'},
+    {keys:['diag_to_treat','tfirst']}
+  ]},
+  {key:'outcome',label:'随访与结局',groups:[
+    {keys:['vital','followstate','lastfu','survival','deathdate','death']}
+  ],charts:[
+    {keys:['vital','followstate'],layout:'sp-process-rounds'},
+    {keys:['lastfu','survival']}
+  ],records:{title:'死亡记录',keys:['deathdate','death'],deathsOnly:true}}
+];
+function spProfileSection(key){return SP_PROFILE_SECTIONS.find(function(s){return s.key===key})}
+function spProfileSectionBody(e,key){
+  return spProfileSection(key).groups.map(function(group){return (group.title?spSub(group.title):'')+'<div class="sp-kv-grid'+(group.columns||'')+'">'+group.keys.map(function(k){return spProfileKv(e,k)}).join('')+'</div>'}).join('');
+}
+function spProfileField(key){return SP_PROFILE_FIELDS.find(function(f){return f.key===key})}
+function spProfileRead(e,key){
+  var f=spProfileField(key),v=f.read(e);
+  var dateKey={screendate:'screenDate',diagdate:'diagDate',lastfu:'lastFu',deathdate:'deathDate'}[key];
+  if(dateKey&&spKnown(e[dateKey])&&v!=='不适用'){
+    var date=spDate(e[dateKey]),diagnosis=spDiagnosisDate(e);
+    if(!date||((key==='lastfu'||key==='deathdate')&&diagnosis&&date<diagnosis))return {value:null,text:'日期冲突',state:'conflict'};
+  }
+  var missing=v===null||v===undefined||v===''||v==='—'||v==='不详'||v==='未记录'||(Array.isArray(v)&&!v.length)||(!Array.isArray(v)&&!spKnown(v));
+  var state=missing?'missing':v==='记录冲突'?'conflict':v==='不适用'?'na':'valid';
+  var text=state==='missing'?'未记录':Array.isArray(v)?v.join('、'):String(v);
+  if(state==='valid'&&f.kind==='number')text+=key==='age'?' 岁':key==='diag_to_treat'?' 天':' 个月';
+  return {value:missing?null:v,text:text,state:state};
+}
+function spProfileKv(e,key){var f=spProfileField(key),r=spProfileRead(e,key);return '<div class="sp-kv-item sp-inline" data-profile-field="'+key+'"><span class="k">'+f.label+'</span><span class="v">'+esc(r.text)+'</span></div>'}
+function spFieldSummary(list,key){
+  var f=spProfileField(key),rows=spUnique(list,spTumorKey).map(function(e){return {event:e,events:[e],result:spProfileRead(e,key)}});
+  if(f.unit==='患者'){
+    var by=new Map();rows.forEach(function(r){var k=spPatientKey(r.event);if(!by.has(k))by.set(k,[]);by.get(k).push(r)});
+    rows=Array.from(by.values()).map(function(group){
+      var values=Array.from(new Set(group.map(function(r){return JSON.stringify(Array.isArray(r.result.value)?r.result.value.slice().sort():r.result.value)})));
+      return {event:group[0].event,events:group.map(function(r){return r.event}),result:values.length>1?{value:null,text:'多瘤例记录不一致',state:'conflict'}:group[0].result};
+    });
+  }
+  var buckets=new Map(),valid=0,missing=0,na=0,conflict=0,numbers=[];
+  rows.forEach(function(row){
+    var r=row.result;
+    if(r.state==='valid')valid++;else if(r.state==='na')na++;else if(r.state==='conflict')conflict++;else missing++;
+    if(r.state==='valid'&&f.kind==='number')numbers.push(r.value);
+    var labels=r.state!=='valid'?[r.text]:f.kind==='multiple'?r.value:[f.kind==='date'?r.value.slice(0,7):f.kind==='number'?(key==='age'?r.value<40?'0–39 岁':r.value<50?'40–49 岁':r.value<60?'50–59 岁':r.value<70?'60–69 岁':'70 岁及以上':key==='diag_to_treat'?r.value<=7?'0–7 天':r.value<=14?'8–14 天':r.value<=30?'15–30 天':'超过 30 天':r.value<6?'不足 6 个月':r.value<12?'6–11.9 个月':r.value<24?'12–23.9 个月':'24 个月及以上'):r.text];
+    row.buckets=labels;
+    labels.forEach(function(label){if(!buckets.has(label))buckets.set(label,{label:label,count:0,state:r.state});buckets.get(label).count++});
+  });
+  var bands=key==='age'?['0–39 岁','40–49 岁','50–59 岁','60–69 岁','70 岁及以上']:key==='diag_to_treat'?['0–7 天','8–14 天','15–30 天','超过 30 天']:['不足 6 个月','6–11.9 个月','12–23.9 个月','24 个月及以上'];
+  return {field:f,rows:rows,total:rows.length,valid:valid,missing:missing,na:na,conflict:conflict,median:spMedian(numbers),buckets:Array.from(buckets.values()).sort(function(a,b){return (a.state==='valid'?0:1)-(b.state==='valid'?0:1)||(f.kind==='date'?a.label.localeCompare(b.label):f.kind==='number'?bands.indexOf(a.label)-bands.indexOf(b.label):b.count-a.count)})};
+}
+/* ---- 兼容既有指标消费者的字段字典 ----
+   label/dim 用于明细表「画像字段」列，src 为该字段在业务系统中的取数来源 ---- */
+var SP_PORTRAIT_FIELDS={
+ empi:{label:'患者主索引/脱敏身份证',dim:'患者基础',src:'患者主索引'},
+ sex:{label:'性别',dim:'患者基础',src:'患者主索引/报告卡'},
+ birth:{label:'出生日期（推导确诊时年龄）',dim:'患者基础',src:'患者主索引'},
+ region:{label:'户籍地（区县/地市）',dim:'患者基础',src:'报告卡'},
+ hospital:{label:'实际就诊医院',dim:'患者基础',src:'门急诊/住院/治疗执行记录'},
+ insurance:{label:'医保类型',dim:'患者基础',src:'医保结算数据'},
+ screen:{label:'筛查记录（项目/机构/时间/结果/建议）',dim:'患者基础',src:'筛查管理数据'},
+ site:{label:'原发部位/病理类型',dim:'肿瘤特征',src:'报告卡/病理报告'},
+ tumor:{label:'患者主索引 + 原发肿瘤/瘤例标识',dim:'肿瘤特征',src:'报告卡主卡/瘤例标识'},
+ code:{label:'ICD-10/ICD-O-3 编码与分级',dim:'肿瘤特征',src:'报告卡/病理报告'},
+ stage:{label:'分期期别',dim:'肿瘤特征',src:'分期记录'},
+ diagDate:{label:'确诊日期',dim:'肿瘤特征',src:'报告卡'},
+ diagBasis:{label:'诊断依据',dim:'肿瘤特征',src:'报告卡/病理报告'},
+ treat:{label:'治疗执行记录（六类方式/执行日期/执行机构）',dim:'诊疗过程',src:'手术/放疗/药物治疗执行记录'},
+ mdt:{label:'MDT 会诊记录',dim:'诊疗过程',src:'MDT 与转诊管理'},
+ referral:{label:'治疗机构变化',dim:'诊疗过程',src:'治疗执行记录（患者级时间序列自动生成）'},
+ vital:{label:'生存状态',dim:'随访与结局',src:'随访与死亡登记'},
+ lastfu:{label:'末次随访日期 / 随访状态',dim:'随访与结局',src:'随访管理数据'},
+ death:{label:'死亡日期与死因',dim:'随访与结局',src:'随访与死亡登记'}
+};
+/* 指标 → 画像字段：未在此登记的指标不得出现在汇总页与导出文件中 */
+var SP_METRIC_FIELD={
+ patients:'empi',tumors:'tumor',periodDiagnosed:'diagDate',active:'lastfu',alive:'vital',dead:'death',
+ lost:'lastfu',vitalUnknown:'vital',early:'stage',late:'stage',stageMissing:'stage',screen:'screen',basis:'diagBasis',
+ mdt:'mdt',referral:'referral',started:'treat',combo:'treat',
+ mode0:'treat',mode1:'treat',mode2:'treat',mode3:'treat',mode4:'treat',mode5:'treat',
+ follow:'lastfu',lostRatio:'lastfu',local:'hospital',cross:'hospital',knownAlive:'vital',
+ complete:'empi',dateConflicts:'treat'
+};
+/* 画像未采集字段：只列缺口与受影响指标，一律不生成数值 */
+var SP_GAP_FIELDS=[
+ {field:'历史首次确诊日期',src:'需历史恶性肿瘤确诊记录（画像未采集）',affect:'首次新确诊患者数'},
+ {field:'随访任务与完成证据',src:'随访管理数据-随访任务表（未接入）',affect:'按期随访完成率'},
+ {field:'在管状态',src:'随访管理数据-管理状态字段（未采集）',affect:'随访在管患者数'},
+ {field:'既往史',src:'报告卡（画像未采集）',affect:'既往史构成'},
+ {field:'症状',src:'门急诊/入院记录（画像未采集）',affect:'症状记录状态'},
+ {field:'ECOG 体能评分',src:'病程记录（画像未采集）',affect:'体能状态分层'},
+ {field:'营养风险筛查',src:'营养评估记录（画像未采集）',affect:'营养风险分层'},
+ {field:'RECIST 疗效评价',src:'影像/病程记录（画像未采集）',affect:'疾病评价构成'},
+ {field:'复发/进展/转移评价',src:'随访与病程记录（画像未采集）',affect:'复发、进展、转移记录占比'},
+ {field:'姑息/安宁疗护阶段',src:'病程与支持治疗记录（画像未采集）',affect:'姑息与安宁疗护记录占比'},
+ {field:'初诊远处转移标志',src:'分期记录（可由 M1 判定，未单列字段）',affect:'初诊远处转移占比'},
+ {field:'既往外省诊疗标志',src:'转院记录（可判跨省转诊，未单列字段）',affect:'既往外省诊疗占比'},
+ {field:'发现途径',src:'筛查/门诊记录（画像未采集）',affect:'发现途径构成'},
+  {field:'随访时间到事件序列',src:'随访与死亡登记（未接入）',affect:'1/3/5 年生存率'},
+ {field:'治疗周期与不良反应分级',src:'病程/医嘱（未接入）',affect:'治疗完成率、不良反应发生率'}
+];
+function spFieldOf(id){var k=SP_METRIC_FIELD[id],f=k?SP_PORTRAIT_FIELDS[k]:null;return f||{label:'—',dim:'—',src:'—'}}
+/* ---- 指标口径与达标线：对齐《卫健领导关注指标总表》中标注「画像已有」的指标 ----
+   dir:'up' 越高越好 / 'down' 越低越好；target 为参考基准（取自指标总表）；
+   判定：达标 / 预警（偏离基准但未越过警戒线）/ 未达标 / 无基准；无基准指标只报值不判达标 ---- */
+var SP_METRIC_KPI={};
+/* 达标判定：返回 {state,label,tone}；无基准返回 neutral */
+function spKpiJudge(id,m){
+  var cfg=SP_METRIC_KPI[id];
+  if(!cfg||m.value===null||cfg.target===null)return {state:'',label:'',tone:''};
+  var v=m.value,ok=cfg.dir==='up'?v>=cfg.target:v<=cfg.target;
+  if(ok)return {state:'pass',label:'达标',tone:'success'};
+  /* 警戒线：向上指标低于基准 20% 及以上、向下指标高于基准 50% 及以上判未达标，其间为预警 */
+  var gap=cfg.dir==='up'?(cfg.target-v)/cfg.target:(v-cfg.target)/cfg.target;
+  return gap>=0.2?{state:'fail',label:'未达标',tone:'danger'}:{state:'warn',label:'预警',tone:'caution'};
+}
+/* 指标卡：值 + 达标状态 + 基准 + 有效分母，带 hover 口径与画像字段 */
+function spKpiCard(agg,id){
+  var m=agg.metrics[id],j=spKpiJudge(id,m),cfg=SP_METRIC_KPI[id]||{};
+  var action=m.value!==null&&m.ids.length?' onclick="window._spMetricPatients(\''+id+'\')" tabindex="0" role="button" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();window._spMetricPatients(\''+id+'\')}"':'';
+  return '<div class="sp-kpi'+(action?' sp-kpi-action':'')+'"'+action+' title="'+esc((cfg.kpi||m.name)+'｜口径：'+m.definition+'；画像字段：'+m.field+'（'+m.fieldSrc+'）'+(cfg.ref?'；来源：'+cfg.ref:''))+'">'+
+    '<div class="sp-kpi-k"><span class="sp-kpi-k-t">'+esc(cfg.kpi||m.name)+'</span>'+(j.label?'<span class="sp-kpi-tag sp-kpi-'+j.tone+'">'+j.label+'</span>':'')+'</div>'+
+    '<div class="sp-kpi-v">'+(m.value===null?'—':spNumber(m.value))+(m.value===null?'':'<em>'+m.unit+'</em>')+'</div>'+
+    '<div class="sp-kpi-sub">'+esc(spMetricEvidence(m))+'</div>'+
+    '<div class="sp-kpi-sub">基准 '+(cfg.targetText?esc(cfg.targetText):'—')+'</div></div>';
+}
+/* 治疗机构变化为患者级事实；群体统计沿用截止日，详情显示截至今天的患者全部治疗。 */
+function spInstitutionChanges(e,cutoff){
+ var rows=[],tumors=spPatientTumors(e);
+ if(!tumors.length&&e)tumors=[e];
+ tumors.forEach(function(t){
+  (t.treatments||[]).concat(t.treatmentVisits||[]).forEach(function(r){
+   var executed=spDate(String(r.executedAt||r.date||r.start||'').slice(0,10)),diagnosis=spDiagnosisDate(t),death=spDate(t.deathDate);
+   if(executed&&((diagnosis&&executed<diagnosis)||(death&&executed>death)))return;
+   rows.push({id:r.recordId||r.id,source:r.source||'治疗执行记录',date:r.executedAt||r.date||r.start,
+    hospital:r.hospital,hospitalCode:r.hospitalCode,mode:r.mode,plan:r.plan,status:r.status,tumorId:t.id,tumorName:spTumorName(t)});
+  });
+ });
+ return window.SPTransfers?window.SPTransfers.derive(rows,cutoff||spCutoff()):{records:[],changes:[],pending:[],state:null};
+}
+function spReferralState(e){return spInstitutionChanges(e,spCutoff()).state}
 function spAgg(list){
   list=spUnique(list||[],spTumorKey);
   var persons=spPersons(list),n=list.length,pn=persons.length,metrics={};
@@ -794,70 +1061,41 @@ function spAgg(list){
   var alive=persons.filter(function(e){return /^存活/.test(spVital(e))}).length;
   var dead=persons.filter(function(e){return spVital(e)==='死亡'}).length;
   var lost=persons.filter(function(e){return spLost(e)===true&&spVital(e)!=='死亡'}).length;
-  var active=function(e){return /^存活/.test(spVital(e))&&spLost(e)===false&&(e.managementStatus==='在管'||e.followStatus==='随访中')};
+  /* 在管 = 画像「随访工作状态」为随访中，且生存状态已知存活、未失访；不引入画像外字段 */
+  var active=function(e){return /^存活/.test(spVital(e))&&spLost(e)===false&&e.followStatus==='随访中'};
   count('patients','纳入患者数',pn,'人','统一患者标识去重',function(){return true});
   count('tumors','纳入瘤例数',n,'例','患者标识 + 原发肿瘤/记录标识去重',function(){return true},list);
   var from=(_spScope&&_spScope.from)||spCutoff().slice(0,4)+'-01-01',to=(_spScope&&_spScope.to)||spCutoff();
   var period=function(e){return list.some(function(t){var d=spDiagnosisDate(t);return spPatientKey(t)===spPatientKey(e)&&!!d&&d>=from&&d<=to})};
   count('periodDiagnosed','期内确诊记录患者数',persons.filter(period).length,'人','当前记录确诊日期在 '+from+' 至 '+to,period);
-  var firstKnown=persons.filter(function(e){return !!spDate(e.firstCancerDiagnosisDate)}).length;
-  var first=function(e){var d=spDate(e.firstCancerDiagnosisDate);return !!d&&d>=from&&d<=to};
-  count('newPatients','首次新确诊患者数',firstKnown===pn&&pn?persons.filter(first).length:null,'人','需要历史首次恶性肿瘤确诊日期',first);
-  metrics.newPatients.unknown=pn-firstKnown;
-  count('active','随访在管存活患者',persons.filter(active).length,'人','已知存活、非失访且明确在管/随访中',active);
+  count('active','随访在管存活患者',persons.filter(active).length,'人','已知存活、未失访且随访工作状态为随访中',active);
   count('alive','已知存活患者',alive,'人','截止日前有效末次随访明确存活',function(e){return /^存活/.test(spVital(e))});
   count('dead','已登记死亡患者',dead,'人','有效死亡日期不晚于截止日',function(e){return spVital(e)==='死亡'});
   count('lost','失访记录患者',lost,'人','明确失访记录且未死亡结案',function(e){return spLost(e)===true&&spVital(e)!=='死亡'});
   count('vitalUnknown','生存状态不详患者',pn-alive-dead,'人','无可用时点或生存状态不详',function(e){return spVital(e)==='不详'});
   ratio('early','记录早期分期占比',list,function(e){var s=spStage(e);return s==='不适用'?s:s==='不详'?null:spEarly(e)},'I/II期 / 已知且适用的分期瘤例');
   ratio('late','记录 IV 期占比',list,function(e){var s=spStage(e);return s==='不适用'?s:s==='不详'?null:spLate(e)},'IV期 / 已知且适用的分期瘤例');
-  ratio('distant','初诊远处转移记录占比',list,recordedBool('distantAtDiagnosis'),'明确初诊远处转移 / 初诊转移状态已知瘤例');
+  /* 兼容历史调用的期别缺失统计；实际 TNM 字段统计由 spFieldSummary 提供。 */
+  ratio('stageMissing','分期期别未记录占比',list,function(e){var s=spStage(e);return s==='不适用'?'不适用':(s==='不详'?true:false)},'无有效分期瘤例 / 全部纳入瘤例');
   ratio('screen','队列筛查记录覆盖',persons,function(e){return spScreenStatus(e)==='有筛查记录'},'有筛查记录患者 / 纳入患者','患者');
   ratio('basis','病理学诊断记录占比',list,function(e){var v=spDiagBasisType(e);return v==='不详'?null:v==='病理学诊断'},'有明确病理/活检依据 / 诊断依据已知瘤例');
   ratio('mdt','MDT 记录占比',list,recordedBool('mdt',['mdtRecordedDate','mdtDate']),'截止日前MDT明确为是 / MDT字段已知瘤例');
-  ratio('referral','转诊记录占比',list,recordedBool('referral',['referralRecordedDate','referralDate']),'截止日前明确转诊 / 转诊状态已知瘤例');
+  ratio('referral','治疗机构变化患者占比',persons,function(e){return spReferralState(e)},'截至统计日有治疗机构变化的患者 / 治疗机构变化状态可判定患者（按患者去重）','患者');
   ratio('started','治疗启动记录覆盖',list,function(e){return spTreatmentEntries(e).length>0||(!Array.isArray(e.treatments)&&spTreatmentModes(e).length>0)},'有有效且截止日前的治疗开始记录 / 纳入瘤例');
   ratio('combo','多方式治疗记录占比',list,function(e){var a=spTreatmentModes(e);return a.length?a.length>=2:null},'至少两种不同治疗类别 / 有有效治疗方式的瘤例');
-  ['手术','放疗','化疗','靶向','免疫','内分泌','介入'].forEach(function(mode,i){
-    ratio('mode'+i,mode+'记录占比',list,function(e){return spTreatmentModes(e).length?spHasMode(e,mode):null},'含该方式 / 有有效治疗方式的瘤例');
+  /* 治疗方式按画像六类口径：手术/放疗/化疗/靶向/免疫/内分泌；介入等不属六类，不参与占比 */
+  SP_MODES.forEach(function(mode,i){
+    ratio('mode'+i,mode+'记录占比',list,function(e){var state=spModeState(e,mode);return state==='有'?true:state==='明确无'?false:null},'有该方式记录 / 该方式明确为有或无的瘤例');
   });
-  ratio('palliative','姑息治疗记录占比',list,function(e){var v=spRecordValue(e,'curPhase',['phaseDate']);return spKnown(v)?String(v).indexOf('姑息')>=0:null},'明确姑息阶段 / 治疗阶段已知瘤例');
-  ratio('hospice','安宁疗护记录占比',list,function(e){var v=spRecordValue(e,'supportive',['supportiveDate']);return spKnown(v)?String(v).indexOf('安宁')>=0:null},'明确安宁疗护 / 支持治疗字段已知瘤例');
   ratio('follow','随访日期记录覆盖',persons,function(e){var d=spDate(e.lastFu),diag=spDiagnosisDate(e);return !!d&&d<=spCutoff()&&(!diag||d>=diag)},'有有效末次随访日期 / 纳入患者','患者');
   ratio('lostRatio','失访记录患者占比',persons,function(e){return spVital(e)==='死亡'?'不适用':spLost(e)},'明确失访 / 非死亡且失访状态已知患者','患者');
-  ratio('recurrence','复发记录占比',list,recordedBool('recurrence',['recurrenceRecordedDate','recurrenceDate']),'截止日前明确复发 / 复发状态已知瘤例');
-  ratio('progress','进展记录占比',list,recordedBool('diseaseProgress',['progressRecordedDate','progressDate']),'截止日前明确进展 / 进展状态已知瘤例');
-  ratio('metastasis','转移记录占比',list,function(e){var v=spRecordValue(e,'metaProgress',['metastasisRecordedDate','metastasisDate']);return spKnown(v)?spBool(v)===false?false:true:null},'有转移记录 / 转移字段已知瘤例；不代表随访新增转移');
   ratio('local','市域内就诊记录占比',list,function(e){var s=spGeoClass(e);return s==='不详'?null:s==='市域内'},'现就诊医院与户籍地市相同 / 两地市均可判定瘤例');
   ratio('cross','跨市就诊记录占比',list,function(e){var s=spGeoClass(e);return s==='不详'?null:s==='跨市'},'现就诊医院与户籍地市不同 / 两地市均可判定瘤例');
-  ratio('historicProvince','既往外省诊疗记录占比',persons,recordedBool('provOut'),'明确曾在外省诊疗 / 既往跨省字段已知患者','患者');
   ratio('knownAlive','已知状态中存活占比',persons,function(e){var v=spVital(e);return v==='不详'?null:v!=='死亡'},'已知存活 / 生存状态已知患者；非生存率','患者');
   ratio('complete','关键字段完整患者比例',persons,function(e){
     return list.filter(function(t){return spPatientKey(t)===spPatientKey(e)}).every(function(t){return spCoreChecks(t).every(function(c){return c.ok})});
   },'本人全部瘤例的适用关键字段均有效 / 纳入患者','患者');
-  var tasks=[],taskKeys=new Set(),taskSources=new Set();
-  list.forEach(function(e){
-    if(!Array.isArray(e.followupTasks))return;
-    taskSources.add(spPatientKey(e));
-    e.followupTasks.forEach(function(t){
-      var key=spPatientKey(e)+'|'+String(spKnown(t.id)?t.id:spAnonymousKey(t));
-      if(taskKeys.has(key))return;
-      taskKeys.add(key);
-      var end=spDate(t.windowEnd)||spDate(t.dueDate);
-      var created=spDate(t.createdDate),cancelled=spDate(t.cancelledDate);
-      var cancel=t.status==='已取消'&&(cancelled?cancelled<=spCutoff():spCutoff()===spToday());
-      if(end&&end<=spCutoff()&&(!created||created<=end)&&spBool(t.applicable)!==false&&!cancel)tasks.push({patient:e,task:t,end:end});
-    });
-  });
-  var timely=tasks.filter(function(r){
-    var t=r.task,d=spDate(t.completedDate),start=spDate(t.windowStart)||spDate(t.createdDate)||spDiagnosisDate(r.patient);
-    var evidence=spDate(t.evidenceDate);
-    return !!d&&!!start&&d>=start&&d<=r.end&&(!evidence||evidence<=spCutoff())&&!!(t.evidenceId||t.followupRecordId||t.hasEvidence===true);
-  });
-  metrics.timely={id:'timely',name:'按期随访完成率',value:tasks.length?+(timely.length/tasks.length*100).toFixed(1):null,
-    numerator:timely.length,denominator:tasks.length,unknown:pn-taskSources.size,notApplicable:0,unit:'%',statisticalUnit:'随访任务',
-    definition:'有有效证据且在任务窗口内完成 / 已到期适用任务；不详为任务源未接入患者数',status:taskSources.size?(tasks.length?'可计算':'无到期任务'):'未接入',
-    ids:Array.from(new Set(timely.map(function(r){return r.patient.id})))};
+  /* 随访任务表不在画像字段内：按期随访完成率不做估算，仅在缺口清单中列明 */
   var ages=persons.map(spAge).filter(function(v){return v!==null});
   var conflicts=list.filter(function(e){
     var a=spInterval(e,'firstDate','diagDate'),b=spInterval(e,'diagDate','tTreat'),first=spFirstTreat(e),death=spDate(e.deathDate);
@@ -869,16 +1107,21 @@ function spAgg(list){
     return a.status==='日期冲突'||b.status==='日期冲突'||invalid||!!(death&&first&&first<=spCutoff()&&first>death);
   });
   count('dateConflicts','诊疗日期冲突瘤例',conflicts.length,'例','首诊、确诊、首治顺序倒挂或截止日前治疗发生于确诊前/死亡后',function(e){return conflicts.indexOf(e)>=0},list);
+  /* 每个指标挂上对应画像字段与取数来源，明细表/CSV 与页面共用同一份溯源信息 */
+  Object.keys(SP_METRIC_FIELD).forEach(function(id){
+    var m=metrics[id];if(!m)return;
+    var f=SP_PORTRAIT_FIELDS[SP_METRIC_FIELD[id]];
+    m.field=f.label;m.fieldDim=f.dim;m.fieldSrc=f.src;
+  });
   return {total:pn,tumorTotal:n,persons:persons,list:list,metrics:metrics,alive:alive,dead:dead,lost:lost,active:metrics.active.value,
     male:persons.filter(function(e){return e.sex==='男'}).length,female:persons.filter(function(e){return e.sex==='女'}).length,
     medianAge:spMedian(ages),ageUnknown:pn-ages.length,newYear:metrics.periodDiagnosed.value,
     earlyRate:metrics.early.value,lateRate:metrics.late.value,mdtRate:metrics.mdt.value,comboRate:metrics.combo.value,
-    crossCityRate:metrics.cross.value,crossProvRate:metrics.historicProvince.value,localTreatRate:metrics.local.value,
+    crossCityRate:metrics.cross.value,localTreatRate:metrics.local.value,
     surgeryRate:metrics.mode0.value,radioRate:metrics.mode1.value,chemoRate:metrics.mode2.value,targetRate:metrics.mode3.value,
-    immunoRate:metrics.mode4.value,endocrineRate:metrics.mode5.value,interRate:metrics.mode6.value,
-    referralRate:metrics.referral.value,pallRate:metrics.palliative.value,fuRate:metrics.follow.value,lostRate:metrics.lostRatio.value,
-    recurRate:metrics.recurrence.value,metaRate:metrics.metastasis.value,progRate:metrics.progress.value,
-    distantRate:metrics.distant.value,deathRate:pn?+(dead/pn*100).toFixed(1):null,effSurvival:metrics.knownAlive.value};
+    immunoRate:metrics.mode4.value,endocrineRate:metrics.mode5.value,
+    referralRate:metrics.referral.value,fuRate:metrics.follow.value,lostRate:metrics.lostRatio.value,
+    deathRate:pn?+(dead/pn*100).toFixed(1):null,effSurvival:metrics.knownAlive.value};
 }
 function spCoreChecks(e){
   var vital=spVital(e),first=spFirstTreat(e);
@@ -1216,11 +1459,16 @@ var spChartStyle=document.createElement('style');spChartStyle.textContent=`
 .sp-mt-sub{margin-top:4px;font-size:var(--fs-xs);color:var(--color-text-muted)}
 .sp-mt-actions{display:flex;gap:8px;flex:0 0 auto}
 .sp-mt-table td.sp-mt-note{color:var(--color-text-muted);font-size:var(--fs-xs)}
+.sp-mt-table td.sp-mt-src{font-size:var(--fs-xs);color:var(--color-text-body);white-space:normal;min-width:110px}
+.sp-mt-table td.sp-mt-name{min-width:150px;white-space:normal}
+.sp-mt-table td.sp-mt-kpi{font-weight:700;white-space:nowrap}
 .sp-mt-table tr.sp-mt-grouprow td{background:var(--color-bg-subtle);font-weight:700;color:var(--color-text-title);font-size:var(--fs-sm);letter-spacing:.02em}
 .sp-overview-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
 .sp-overview-title h2{margin:0;font-size:18px}
 .sp-overview-title>span{font-size:12px;color:var(--color-text-muted)}
-.sp-kpi-k{white-space:normal;overflow:visible;min-height:34px;line-height:1.4;font-size:12px}
+.sp-kpi-k{white-space:normal;overflow:visible;min-height:34px;line-height:1.4;font-size:12px;align-items:flex-start}
+.sp-kpi-k .sp-kpi-tag{margin-left:0}
+.sp-kpi-k-t{flex:1 1 auto;min-width:0}
 .sp-kpi-v{min-height:28px}
 .sp-kpi-sub{white-space:normal;overflow:visible;line-height:1.5;min-height:18px}
 .sp-kpi-action{cursor:pointer}
@@ -1327,12 +1575,8 @@ function spMapPanel(list,metric,scopeCity){
 var _spScope={city:'',site:'',hospital:'',from:'',to:'',cutoff:spToday()};
 var _spMapMetricKey='患者规模';
 var _spDomain='burden';
-/* 保留五组分析结构，描述记录事实，不对无适用规则的全队列作达标评价。 */
-var SP_DOMAINS=[
- {key:'burden',label:'人群与病情构成'},{key:'early',label:'发现与诊断'},
- {key:'treat',label:'诊疗过程'},{key:'outcome',label:'随访与结局'},
- {key:'equity',label:'就医与可及性'},{key:'metrics',label:'指标明细表'}
-];
+/* 总览只呈现四个业务分区；字段定义保留在数据层。 */
+var SP_DOMAINS=SP_PROFILE_SECTIONS.map(function(s){return {key:s.key,label:s.label}}).concat([{key:'cost',label:'医保费用'}]);
 
 function spScopeBar(){
   function options(values,current,all){return '<option value="">'+all+'</option>'+values.map(function(v){return '<option value="'+esc(v)+'"'+(v===current?' selected':'')+'>'+esc(v)+'</option>'}).join('')}
@@ -1371,16 +1615,11 @@ function spGroupSummary(list,agg,siteRows,cityRows){
 }
 /* ---- 链条节点指标带：一行 8 项，按防治链条（负担→发现→诊疗→结局→公平）取节点指标，
    值旁标与全省同瘤种基准的差值；已在全省时不显示差值 ---- */
+/* 八项核心概况：按《卫健领导关注指标总表》中「画像已有」的官方指标口径，
+   每项带参考基准与达标判定；画像未采集的指标不再进指标带 */
 function spKpiStrip(list,agg){
-  return '<div class="sp-kpi-strip">'+['patients','newPatients','active','early','started','timely','lostRatio','complete'].map(function(id){
-    var m=agg.metrics[id],sub=spMetricEvidence(m);
-    if(id==='patients')sub=agg.tumorTotal+' 瘤例';
-    if(id==='newPatients'&&m.value===null)sub='期内确诊记录 '+agg.metrics.periodDiagnosed.value+' 人';
-    var action=m.value!==null&&m.ids.length?' onclick="window._spMetricPatients(\''+id+'\')" tabindex="0" role="button" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();window._spMetricPatients(\''+id+'\')}"':'';
-    return '<div class="sp-kpi'+(action?' sp-kpi-action':'')+'"'+action+' title="'+esc(m.definition+'；'+spMetricEvidence(m))+'">'+
-      '<div class="sp-kpi-k">'+esc(m.name)+'</div><div class="sp-kpi-v">'+(m.value===null?'—':spNumber(m.value))+
-      (m.value===null?'':'<em>'+m.unit+'</em>')+'</div><div class="sp-kpi-sub">'+esc(sub)+'</div>'+
-      (m.value===null?'<div class="sp-kpi-sub">'+esc(id==='newPatients'?'历史首次确诊未接入':m.status==='未接入'?'随访任务未接入':m.status)+'</div>':'')+'</div>';
+  return '<div class="sp-kpi-strip">'+['early','late','stageMissing','basis','mdt','follow','lostRatio','local'].map(function(id){
+    return spKpiCard(agg,id);
   }).join('')+'</div>';
 }
 
@@ -1389,27 +1628,14 @@ function spCareCascade(list){
   return '';
 }
 
+function spCostContext(list){var people=spPersons(list);return {patientKeys:people.map(spPatientKey),tumorIds:list.map(function(e){return e.id}),patientEventKeys:list.reduce(function(map,e){map[e.id]=spPatientKey(e);return map},{}),cohortSize:people.length,cutoff:spCutoff()}}
 function renderOverview(){
   var list=spScopeEvents(_spScope);
-  var agg=spAgg(list);
-  var siteRows=spSiteRows(list);
-  var cityRows=spCityRows(list);
-  var h='<div class="sp-overview-title"><h2>患者群体总览</h2><span>内置样例 · 统计口径 V13.0 · 截止 '+spCutoff()+'</span></div>'+spScopeBar();
-  if(!list.length){
-    h+='<div class="sp-gp-empty">当前范围无纳入记录<br>'+
-      '<button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="window._spScopeReset()">重置筛选条件</button></div>';
-    return h;
-  }
-  /* 开场：一句话摘要 → 链条节点指标带 → 防治链条级联漏斗（群体视角核心） */
-  h+=spKpiStrip(list,agg);
-  /* 五段 Tabs：疾病负担 → 早期发现 → 规范诊疗 → 生存结局 → 资源与公平 */
-  h+='<div class="sp-domain-tabs">'+SP_DOMAINS.map(function(d){
-    return '<button class="sp-domain-tab'+(_spDomain===d.key?' active':'')+'" onclick="window._spSetDomain(\''+d.key+'\')">'+d.label+'</button>';
-  }).join('')+'</div>';
-  h+='<div id="spDomainBody">'+spDomainPanel(list,agg,siteRows,cityRows)+'</div>';
-  return h;
+  var h='<div class="sp-overview-v14"><div class="sp-overview-title"><h2>画像指标总览</h2><span>示例数据</span></div>'+spScopeBar();
+  h+='<div class="sp-domain-tabs" role="tablist" aria-label="画像分析维度">'+SP_DOMAINS.map(function(d){var active=_spDomain===d.key;return '<button type="button" id="spDomainTab-'+d.key+'" class="sp-domain-tab'+(active?' active':'')+'" role="tab" aria-controls="spDomainBody" aria-selected="'+active+'" aria-pressed="'+active+'" tabindex="'+(active?0:-1)+'" data-domain="'+d.key+'" onkeydown="window._spDomainKey(event,this)" onclick="window._spSetDomain(\''+d.key+'\')">'+d.label+'</button>'}).join('')+'</div>';
+  h+='<div id="spDomainBody" role="tabpanel" aria-labelledby="spDomainTab-'+_spDomain+'">'+spDomainPanel(list)+'</div>';
+  return h+'</div>';
 }
-
 
 /* ---- 五段面板：按肿瘤防治链条组织（疾病负担/早期发现/规范诊疗/生存结局/资源与公平） ----
    全部复用既有图表构件，按链条逻辑归位；数字由个体画像队列实时聚合，不新增采集 */
@@ -1427,23 +1653,16 @@ function spMetricCards(agg,ids){
       '<div class="v">'+esc(spMetricValue(m))+'</div><div class="sp-metric-evidence">'+esc(spMetricEvidence(m))+'</div></div>';
   }).join('')+'</div>';
 }
+/* 段内指标卡：与顶部指标带同一口径（官方指标名 + 基准 + 达标判定） */
+function spKpiStripOf(agg,ids){
+  return '<div class="sp-kpi-strip">'+ids.map(function(id){return spKpiCard(agg,id)}).join('')+'</div>';
+}
 function spDistribution(list,fn){
   var values=new Map();
   list.forEach(function(e){var k=fn(e);k=spKnown(k)?String(k):'不详';values.set(k,(values.get(k)||0)+1)});
   return Array.from(values,function(r){return {k:r[0],v:r[1]}}).sort(function(a,b){return b.v-a.v});
 }
-function spHistoryState(e){
-  if(!spKnown(e.pastHistory))return '不详';
-  return /^(无|无特殊既往史|无既往史|无基础疾病)$/.test(String(e.pastHistory).trim())?'明确无既往史':'有既往史记录';
-}
-function spSymptomState(e){return !spKnown(e.symptom)?'不详':e.symptom==='无'?'明确无症状记录':'有症状记录'}
 function spTreatmentLabel(e){var a=spTreatmentModes(e);return a.length?a.join(' + '):(spRecordValue(e,'treatmentStatus',['treatmentStatusDate'])||'未见有效启动记录')}
-function spPhysicalState(e){return spRecordValue(e,'physical',['ecogDate'])}
-function spNutritionState(e){return spRecordValue(e,'nutrition',['nutritionDate'])}
-function spRecistState(e){
-  var d=spDate(e.recistDate),diag=spDiagnosisDate(e);
-  return d&&d<=spCutoff()&&(!diag||d>=diag)&&['CR','PR','SD','PD','NE'].indexOf(e.recist)>=0?e.recist:'不详';
-}
 function spFollowGap(e){
   var d=spDate(e.lastFu),diag=spDiagnosisDate(e);
   if(!d||d>spCutoff()||(diag&&d<diag))return '日期不详或冲突';
@@ -1457,256 +1676,155 @@ function spSimpleTable(headers,rows){
     (rows.length?rows.map(function(row){return '<tr>'+row.map(function(v){return '<td>'+esc(v)+'</td>'}).join('')+'</tr>'}).join(''):
       '<tr><td colspan="'+headers.length+'" class="sp-table-empty">无纳入记录</td></tr>')+'</tbody></table></div>';
 }
-function spDomainPanel(list,agg,siteRows,cityRows){
-
-  /* ========== 段① 人群与病情构成：在管一群什么样的人、什么瘤、什么期 ==========
-     内部两块：A 人群特征（人口学/社会属性/共病）B 病情构成（瘤谱/分期）；
-     发现途径（症状/筛查）归属段②。原称「疾病负担」，V12.4 改名以名副其实。 */
-  if(_spDomain==='burden'){
-    var people=agg.persons,ages=spAgeDist(people);
-    var history=spDistribution(people,spHistoryState);
-    var checks=spCoreChecks({}).map(function(c){
-      var good=list.filter(function(e){return spCoreChecks(e).find(function(x){return x.name===c.name}).ok}).length;
-      return [c.name,good+' / '+list.length,list.length-good];
-    });
-    return spGpHead('A','人口学与社会属性','患者口径')+
-      '<div class="sp-mini-grid sp-overview-mini">'+spMini('确诊时中位年龄',spNumber(agg.medianAge)+'<em> 岁</em>')+
-      spMini('年龄不详',agg.ageUnknown+'<em> 人</em>')+spMini('男 / 女',agg.male+' / '+agg.female+'<em> 人</em>')+
-      spMini('性别不详',(agg.total-agg.male-agg.female)+'<em> 人</em>')+'</div>'+
-      '<div class="sp-2col sp-overview-grid">'+
-        spPanel('确诊时年龄构成（人）',spHBar(ages.map(function(a){return {k:a.k,v:a.n}}),false,true))+
-        spPanel('年龄与性别',spSimpleTable(['年龄段','男','女','不详','合计'],ages.map(function(a){return [a.k,a.m,a.f,a.u,a.n]})))+
-        spPanel('医保类型构成',spPie(spDistribution(people,function(e){return e.insurance}),'人'))+
-        spPanel('户籍区县构成',spHBar(spDistribution(people,function(e){return e.region}),false,true))+
-        spPanel('既往史记录',spPie(history,'人'))+
-        spPanel('关键字段有效情况',spSimpleTable(['字段','有效瘤例 / 总瘤例','缺失或冲突'],checks))+
-      '</div>'+spGpHead('B','肿瘤与分期记录','瘤例口径')+
-      '<div class="sp-2col sp-overview-grid">'+
-        spPanel('瘤种构成',spPie(siteRows.map(function(r){return {k:r.site,v:r.n}})))+
-        spPanel('分期记录构成',spPie(spStageItems(list)))+
-      '</div>'+spPanel('分瘤种分期记录',spSimpleTable(['瘤种','瘤例数','I期','II期','III期','IV期','不详','不适用'],siteRows.map(function(r){
-        return [r.site,r.n].concat(SP_STAGE_GROUPS.concat(['不详','不适用']).map(function(s){return r.list.filter(function(e){return spStage(e)===s}).length}));
-      })));
-  }
-
-  /* ========== 段② 早期发现：发现得早不早（筛查 → 早诊 → 地区/病种差异） ==========
-     注：分期构成（首诊分期）归属段①「疾病负担」，本段不再重复饼图，只用早诊率数值与差异表 */
-  if(_spDomain==='early'){
-    return spMetricCards(agg,['screen','early','late','distant'])+
-      '<div class="sp-2col sp-overview-grid">'+
-        spPanel('筛查记录状态',spPie(spDistribution(agg.persons,spScreenStatus),'人'))+
-        spPanel('诊断依据记录',spPie(spDistribution(list,spDiagBasisType)))+
-        spPanel('发现途径记录',spPie(spDistribution(list,function(e){return e.discoveryMode})))+
-        spPanel('症状记录状态',spPie(spDistribution(agg.persons,spSymptomState),'人'))+
-      '</div>'+spPanel('分瘤种分期对照',spSimpleTable(['瘤种','瘤例数','早期占比','分子 / 有效分母','IV期占比','分期不详'],siteRows.map(function(r){
-        var m=r.agg.metrics.early;
-        return [r.site,r.n,spMetricValue(m),m.numerator+' / '+m.denominator,spMetricValue(r.agg.metrics.late),m.unknown];
-      })))+'<div class="sp-overview-grid">'+spPanel('诊断时效（天）',spJourney(list))+'</div>';
-  }
-
-  /* ========== 段③ 规范诊疗：治得规不规范、卡在哪一环（时效 + 模式） ========== */
-  if(_spDomain==='treat'){
-    var modes=['mode0','mode1','mode2','mode3','mode4','mode5','mode6'].map(function(id){return agg.metrics[id]});
-    var combos=spDistribution(list,spTreatmentLabel);
-    return spMetricCards(agg,['mdt','combo','referral','dateConflicts'])+
-      spPanel('诊疗时效（天）',spJourney(list))+
-      '<div class="sp-2col sp-overview-grid">'+
-        spPanel('治疗方式记录占比',spSimpleTable(['治疗方式','占比','分子 / 有效分母','不详'],modes.map(function(m){
-          return [m.name,spMetricValue(m),m.numerator+' / '+m.denominator,m.unknown];
-        })))+
-        spPanel('治疗模式组合',spSimpleTable(['治疗组合/状态','瘤例数','占纳入瘤例'],combos.map(function(r){
-          return [r.k,r.v,spNumber(r.v/agg.tumorTotal*100)+'%'];
-        })))+
-        spPanel('就诊医院构成（瘤例）',spHBar(spDistribution(list,function(e){return e.hospital}),false,true))+
-        spPanel('体能与营养记录',spSimpleTable(['记录类别','状态','瘤例数'],
-          spDistribution(list,spPhysicalState).map(function(r){return ['ECOG记录',r.k,r.v]})
-            .concat(spDistribution(list,spNutritionState).map(function(r){return ['营养记录',r.k,r.v]}))))+
-      '</div>'+spMetricCards(agg,['palliative','hospice']);
-  }
-
-  /* ========== 段④ 生存结局：结局好不好（生存 + 复发进展死亡） ========== */
-  if(_spDomain==='outcome'){
-    var gaps=spDistribution(agg.persons,spFollowGap);
-    return spMetricCards(agg,['follow','timely','lost','vitalUnknown'])+
-      '<div class="sp-2col sp-overview-grid">'+
-        spPanel('生存状态记录',spPie(spDistribution(agg.persons,spVital),'人'))+
-        spPanel('末次随访距截止日',spHBar(gaps,false,true))+
-        spPanel('疾病评价记录',spPie(spDistribution(list,spRecistState)))+
-        spPanel('分瘤种结局记录',spSimpleTable(['瘤种','患者数','已知存活','已登记死亡','生存不详','失访记录'],siteRows.map(function(r){
-          return [r.site,r.agg.total,r.agg.alive,r.agg.dead,r.agg.total-r.agg.alive-r.agg.dead,r.agg.lost];
-        })))+
-      '</div>'+spMetricCards(agg,['recurrence','progress','metastasis'])+
-      spPanel('专业结局指标数据状态',spSimpleTable(['指标','状态'],[
-        ['1 / 3 / 5 年总体生存率','尚未建立时间到事件分析队列'],
-        ['随访新增转移 / 复发风险','起点与事件日期未接入'],
-        ['治疗完成与不良反应发生率','治疗周期、分级与适用分母未接入']
-      ]));
-  }
-
-  /* ========== 段⑤ 资源与公平：资源与可及性均不均衡（地图 + 流向 + 费用） ========== */
-  if(_spDomain==='equity'){
-    /* 地图 + 地市排行 */
-    var mapBlock='<div class="sp-ov-grid" style="margin-bottom:16px">'+
-      '<div class="panel"><div class="panel-header"><span>全省分布 · '+esc(_spMapMetricKey)+'</span></div><div class="panel-body">'+spMapPanel(list,_spMapMetricKey,_spScope.city)+'</div></div>'+
-      '<div class="sp-ov-side"><div class="panel"><div class="panel-header"><span>地市数据'+(_spScope.city?'<span class="spr-count">当前：'+esc(_spScope.city)+'</span>':'')+'</span></div><div class="panel-body">'+
-        '<div class="sp-map-rank">'+cityRows.filter(function(r){return r.n>0}).sort(function(a,b){return SP_MAP_METRICS[_spMapMetricKey].get(b)-SP_MAP_METRICS[_spMapMetricKey].get(a)}).slice(0,6).map(function(r,i){
-          var v=SP_MAP_METRICS[_spMapMetricKey].get(r);
-          return '<div class="sp-map-rank-item'+(r.city===_spScope.city?' sel':'')+'" onclick="window._spDrillCity(\''+esc(r.city)+'\')">'+
-            '<span class="sp-map-rank-idx">'+(i+1)+'</span><span class="sp-map-rank-name">'+esc(r.city)+'</span>'+
-            '<span class="sp-map-rank-sub">'+r.agg.total+' 人</span><span class="sp-map-rank-val">'+SP_MAP_METRICS[_spMapMetricKey].fmt(v)+'</span></div>';
-        }).join('')+'</div></div></div>'+
-      '<div class="panel"><div class="panel-header"><span>当前范围</span></div><div class="panel-body"><div class="sp-kv-grid">'+
-        '<div class="sp-kv-item"><span class="k">统计范围</span><span class="v">'+esc(spScopeLabel())+'</span></div>'+
-        '<div class="sp-kv-item"><span class="k">纳入患者 / 瘤例</span><span class="v">'+agg.total+' 人 / '+agg.tumorTotal+' 例</span></div>'+
-        '<div class="sp-kv-item"><span class="k">市域内就诊记录占比</span><span class="v">'+esc(spMetricValue(agg.metrics.local))+'</span></div>'+
-        '<div class="sp-kv-item"><span class="k">地址不详瘤例</span><span class="v">'+agg.metrics.local.unknown+' 例</span></div>'+
-      '</div></div></div></div>'+
-    '</div>';
-    /* 流出病种 */
-    var outRows=siteRows.filter(function(r){return r.list.some(spOutCity)}).map(function(siteRow){
-      var s=siteRow.site;
-      var tos={};siteRow.list.filter(spOutCity).forEach(function(e){tos[e.hospital]=(tos[e.hospital]||0)+1});
-      return '<tr><td>'+esc(s)+'</td><td>'+siteRow.n+'</td><td>'+esc(spMetricValue(siteRow.agg.metrics.cross))+'</td><td>'+esc(Object.keys(tos).join('、')||'—')+'</td></tr>';
-    }).join('');
-    return mapBlock+
-    spPanel('地市同口径对照',spCityCompare(cityRows,['cross','fu']))+
-    '<div class="sp-overview-grid">'+spMetricCards(agg,['cross','historicProvince'])+
-      spPanel('跨市就诊瘤种与医院','<div class="sp-table-wrap"><table class="data-table sp-overview-table"><thead><tr><th>瘤种</th><th>纳入瘤例</th><th>跨市记录占比</th><th>就诊医院</th></tr></thead><tbody>'+
-        (outRows||'<tr><td colspan="4" class="sp-table-empty">无跨市就诊记录</td></tr>')+'</tbody></table></div>')+
-      spPanel('费用与三级流向数据状态',spSimpleTable(['数据项','状态'],[
-        ['次均住院费用 / 跨区域费用差异','实际住院结算记录未接入'],
-        ['药品等费用项目构成','费用项目明细未接入'],
-        ['医保、个人及其他支付方构成','实际支付金额未接入'],
-        ['县域内诊疗 / 首次治疗跨省流向','机构县区码与诊疗事件所在地未接入']
-      ]))+'</div>';
-  }
-
-  /* ========== 段⑥ 指标明细表：全部聚合指标按维度列成可读、可复制、可导出的表 ==========
-     解决「画像指标汇总数据不好导出」：图形页读趋势，本页读数字 + 一键导 CSV */
-  if(_spDomain==='metrics'){
-    return spMetricsTable(list,agg,siteRows,cityRows);
-  }
-
-  return '';
+function spDiagYear(e){var d=spDiagnosisDate(e);return d?d.slice(0,4):'不详'}
+/* 观察时长：确诊日期 → 死亡日期（已死亡）或末次随访日期，只用画像字段推算，不代表生存率 */
+function spObserveBand(e){
+  var s=spSurvival(e);
+  if(s.n===null)return '日期缺失或冲突';
+  var m=s.n;
+  return m<6?'<6 个月':m<12?'6–11 个月':m<24?'12–23 个月':'≥24 个月';
 }
-
-/* ---- 指标明细表：把总览/五段的全部聚合指标汇成分组表格，支持整表 CSV 导出 ----
-   数据与各图形页同源（spAgg/spSiteRows/spCityRows），一处口径，确保图表与导出一致 ---- */
-function spMetricsGroups(list,agg,siteRows,cityRows){
-  function metricRow(m){return [m.name,spMetricValue(m),m.definition,m.numerator===null?'':m.numerator,
-    m.denominator===null?'':m.denominator,m.unknown,m.status,m.unit,m.statisticalUnit||m.unit,m.notApplicable]}
-  function group(name,ids){return {group:name,rows:ids.map(function(id){return metricRow(agg.metrics[id])})}}
-  function scalar(name,value,unit,definition,n,unknown){
-    return [name,value===null?'不可计算':spNumber(value)+' '+unit,definition,'',n===undefined?'':n,unknown||0,
-      value===null?'有效数据不足':'可计算',unit,unit==='人'?'患者':'瘤例',0];
-  }
-  function distribution(group,records,label,fn,unit){
-    spDistribution(records,fn).forEach(function(r){group.rows.push(scalar(label+' · '+r.k,r.v,unit||'例','当前纳入范围构成',records.length,0))});
-  }
-  var groups=[
-    group('一、队列与数据完整度',['patients','tumors','periodDiagnosed','newPatients','active','complete','dateConflicts']),
-    group('二、发现与诊断',['screen','early','late','distant','basis']),
-    group('三、诊疗过程',['started','mdt','combo','referral','palliative','hospice','mode0','mode1','mode2','mode3','mode4','mode5','mode6']),
-    group('四、随访与结局',['alive','dead','vitalUnknown','lost','follow','timely','lostRatio','recurrence','progress','metastasis']),
-    group('五、就医与可及性',['local','cross','historicProvince'])
-  ];
-  groups[0].rows.push(scalar('确诊时中位年龄',agg.medianAge,'岁','由出生日期与确诊日期推导；取有效患者中位数',agg.total-agg.ageUnknown,agg.ageUnknown));
-  distribution(groups[0],agg.persons,'性别',function(e){return e.sex},'人');
-  distribution(groups[0],agg.persons,'医保类型',function(e){return e.insurance},'人');
-  distribution(groups[0],agg.persons,'户籍区县',function(e){return e.region},'人');
-  distribution(groups[0],agg.persons,'既往史记录',spHistoryState,'人');
-  spAgeDist(agg.persons).forEach(function(a){
-    [['合计',a.n],['男',a.m],['女',a.f],['性别不详',a.u]].forEach(function(r){groups[0].rows.push(scalar('年龄 '+a.k+' · '+r[0],r[1],'人','确诊时年龄，患者去重',agg.total,0))});
-  });
-  spCoreChecks({}).forEach(function(c){
-    var good=list.filter(function(e){return spCoreChecks(e).find(function(x){return x.name===c.name}).ok}).length;
-    groups[0].rows.push(['关键字段 · '+c.name,good+' / '+list.length,'有效瘤例 / 全部瘤例',good,list.length,list.length-good,'可计算','例','瘤例',0]);
-  });
-  distribution(groups[1],list,'分期',spStage);
-  distribution(groups[1],list,'诊断依据',spDiagBasisType);
-  distribution(groups[1],agg.persons,'筛查状态',spScreenStatus,'人');
-  distribution(groups[1],list,'发现途径',function(e){return e.discoveryMode});
-  distribution(groups[1],agg.persons,'症状记录',spSymptomState,'人');
-  [['首诊 → 确诊','firstDate','diagDate'],['确诊 → 首治','diagDate','tTreat'],['首诊 → 首治','firstDate','tTreat']].forEach(function(r){
-    var s=spIntervalStats(list,r[1],r[2]);
-    [['中位',s.median],['P75',s.p75],['P90',s.p90]].forEach(function(v){groups[2].rows.push(scalar(r[0]+' · '+v[0],v[1],'天','同一瘤例的有效日期差；日期冲突不计入',s.n,s.unknown))});
-  });
-  distribution(groups[2],list,'治疗组合/状态',spTreatmentLabel);
-  distribution(groups[2],list,'ECOG记录',spPhysicalState);
-  distribution(groups[2],list,'营养记录',spNutritionState);
-  distribution(groups[3],agg.persons,'生存状态',spVital,'人');
-  distribution(groups[3],agg.persons,'随访日期间隔',spFollowGap,'人');
-  distribution(groups[3],list,'疾病评价记录',spRecistState);
-  distribution(groups[4],list,'就诊医院',function(e){return e.hospital});
-  [['实际住院与费用','结算记录未接入'],['县域与首次治疗跨省流向','机构县区码与事件所在地未接入']].forEach(function(r){
-    groups[4].rows.push([r[0],'未接入',r[1],'','','','未接入','','',0]);
-  });
-  var siteDetail={group:'六、分瘤种指标',cols:['瘤种','患者数','瘤例数','记录早期占比','早期分子 / 分母','分期不详','记录 IV 期占比','随访日期记录覆盖'],matrix:
-    siteRows.slice().sort(function(a,b){return b.n-a.n}).map(function(r){
-      var m=r.agg.metrics.early;
-      return [r.site,r.agg.total,r.n,spMetricValue(m),m.numerator+' / '+m.denominator,m.unknown,spMetricValue(r.agg.metrics.late),spMetricValue(r.agg.metrics.follow)];
-    })};
-  var cityDetail={group:'七、分地市指标',cols:['户籍地市','患者数','瘤例数','记录早期占比','分期不详','跨市记录占比','地址不详','随访日期记录覆盖'],matrix:
-    cityRows.filter(function(r){return r.n>0}).sort(function(a,b){return b.n-a.n}).map(function(r){
-      return [r.city,r.agg.total,r.n,spMetricValue(r.agg.metrics.early),r.agg.metrics.early.unknown,spMetricValue(r.agg.metrics.cross),
-        r.agg.metrics.cross.unknown,spMetricValue(r.agg.metrics.follow)];
-    })};
-  return {groups:groups,siteDetail:siteDetail,cityDetail:cityDetail};
+function spFieldLink(key,bucket,label,cls){
+  return '<button type="button" class="sp-field-link '+(cls||'')+'" data-field-key="'+key+'" data-field-bucket="'+bucket+'" onclick="window._spFieldEvidence(this.dataset.fieldKey,Number(this.dataset.fieldBucket))">'+esc(label)+'</button>';
 }
-function spMetricsTable(list,agg,siteRows,cityRows){
-  var m=spMetricsGroups(list,agg,siteRows,cityRows);
-  /* 概览型分组：三列（指标 / 数值 / 口径） */
-  var ovBody=m.groups.map(function(g){
-    var head='<tr class="sp-mt-grouprow"><td colspan="7">'+esc(g.group)+'</td></tr>';
-    var rows=g.rows.map(function(r){
-      return '<tr>'+[r[0],r[1],r[3],r[4],r[5],r[6],r[2]].map(function(v,i){return '<td class="'+(i===6?'sp-mt-note':'')+'">'+esc(v)+'</td>'}).join('')+'</tr>';
-    }).join('');
-    return head+rows;
+/* 图形只负责表达，所有分段继续使用同一字段汇总及原始 bucket 索引下钻。 */
+var SP_FIELD_PALETTE=['#4b82dc','#35a69d','#8d78cb','#d59b40','#ce718d','#549eb9'];
+function spFieldColor(key,b,i){
+  if(b.state!=='valid')return b.state==='conflict'?'#c3784b':b.state==='na'?'#cbd3de':'#a9b5c6';
+  var colors={sex:{'女':'#ce718d','男':'#4b82dc'},stage:{'I期':'#35a69d','II期':'#4b82dc','III期':'#d59b40','IV期':'#ce718d'},insurance:{'职工医保':'#4b82dc','城镇居民':'#35a69d','城乡居民':'#8d78cb'},mdt:{'已开展':'#35a69d','明确未开展':'#8d78cb'},referral:{'有变化':'#4b82dc','未观察到变化':'#35a69d'},vital:{'存活':'#35a69d','存活（带瘤）':'#4b82dc','死亡':'#8d78cb'},followstate:{'随访中':'#35a69d','失访':'#d59b40','死亡结案':'#8d78cb'}};
+  if(/^mode\d+$/.test(key))return b.label==='有'?'#4b82dc':'#35a69d';
+  if(colors[key]&&colors[key][b.label])return colors[key][b.label];
+  /* 长类别字段用名称决定颜色，筛选后同一类别仍保留颜色。 */
+  var hash=0;for(var n=0;n<b.label.length;n++)hash=(hash*31+b.label.charCodeAt(n))>>>0;
+  return SP_FIELD_PALETTE[(key==='region'||key==='hospital'||key==='screenorg'||key==='site'||key==='tnm'||key==='path'?hash:i)%SP_FIELD_PALETTE.length];
+}
+function spFieldChartAction(s,b,i){
+  var unit=s.field.unit==='患者'?'人':'例',label=b.label+'：'+b.count+' '+unit+'，'+(b.count/s.total*100).toFixed(1)+'%，查看记录';
+  return ' class="sp-chart-hit" role="button" tabindex="0" aria-label="'+esc(label)+'" data-field-key="'+s.field.key+'" data-field-bucket="'+i+'" onclick="window._spFieldEvidence(this.dataset.fieldKey,Number(this.dataset.fieldBucket))" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();this.dispatchEvent(new MouseEvent(\'click\',{bubbles:true}))}"';
+}
+function spFieldLegend(s,onlyOther){
+  var unit=s.field.unit==='患者'?'人':'例';
+  return '<div class="sp-chart-legend'+(onlyOther?' sp-chart-exceptions':'')+'">'+s.buckets.map(function(b,i){
+    if(onlyOther&&b.state==='valid')return '';
+    return '<div class="sp-chart-legend-row"><i style="background:'+spFieldColor(s.field.key,b,i)+'"></i>'+spFieldLink(s.field.key,i,b.label)+'<strong>'+b.count+'<small> '+unit+'</small></strong><span>'+(b.count/s.total*100).toFixed(1)+'%</span></div>';
+  }).join('')+'</div>';
+}
+function spFieldRoundChart(s,pie){
+  var angle=-Math.PI/2,offset=0,unit=s.field.unit==='患者'?'人':'例';
+  var slices=s.buckets.map(function(b,i){
+    var share=b.count/s.total,color=spFieldColor(s.field.key,b,i),action=spFieldChartAction(s,b,i),segment;
+    if(pie){
+      var end=angle+share*Math.PI*2;
+      segment=share===1?'<circle cx="110" cy="110" r="91" fill="'+color+'"'+action+'/>':'<path d="M110 110 L'+(110+91*Math.cos(angle)).toFixed(3)+' '+(110+91*Math.sin(angle)).toFixed(3)+' A91 91 0 '+(share>0.5?1:0)+' 1 '+(110+91*Math.cos(end)).toFixed(3)+' '+(110+91*Math.sin(end)).toFixed(3)+' Z" fill="'+color+'" stroke="var(--color-bg-surface)" stroke-width="2"'+action+'/>';
+      if(share>=0.1){var mid=(angle+end)/2,r=share===1?0:58;segment+='<text x="'+(110+r*Math.cos(mid)).toFixed(2)+'" y="'+(115+r*Math.sin(mid)).toFixed(2)+'" class="sp-pie-share">'+(share*100).toFixed(1)+'%</text>'}
+      angle=end;
+    }else{
+      segment='<circle cx="110" cy="110" r="80" fill="none" stroke="'+color+'" stroke-width="28" pathLength="100" stroke-dasharray="'+(share*100)+' '+(100-share*100)+'" stroke-dashoffset="'+(-offset)+'" transform="rotate(-90 110 110)"'+action+'/>';offset+=share*100;
+    }
+    return segment;
   }).join('');
-  var ovTable='<div class="sp-table-wrap"><table class="data-table sp-mt-table" style="min-width:980px"><thead><tr><th>指标</th><th>数值</th><th>分子</th><th>有效分母 / 样本</th><th>不详 / 不可用</th><th>状态</th><th>口径</th></tr></thead><tbody>'+ovBody+'</tbody></table></div>';
-  /* 明细矩阵表 */
-  function matrixTable(d){
-    var head='<tr>'+d.cols.map(function(c,i){return '<th class="'+(i===0?'txt':'num')+'">'+esc(c)+'</th>'}).join('')+'</tr>';
-    var body=d.matrix.length?d.matrix.map(function(row){
-      return '<tr>'+row.map(function(c,i){return '<td class="'+(i===0?'txt':'num')+'">'+esc(String(c))+'</td>'}).join('')+'</tr>';
-    }).join(''):'<tr><td colspan="'+d.cols.length+'" style="text-align:center;color:var(--color-text-muted)">暂无数据</td></tr>';
-    return '<div class="sp-table-wrap"><table class="data-table sp-mt-table" style="min-width:560px"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
-  }
-  var scopeTxt=esc(spScopeLabel());
-  var head='<div class="sp-mt-head"><div><div class="sp-mt-title">画像指标明细表</div>'+
-    '<div class="sp-mt-sub">当前范围：<b>'+scopeTxt+'</b> · '+agg.total+' 人 / '+agg.tumorTotal+' 瘤例 · 内置样例 · 口径 V13.0</div></div>'+
-    '<div class="sp-mt-actions"><button class="btn btn-primary btn-sm" onclick="window._spExportMetricsCSV()">导出 CSV</button>'+
-    '<button class="btn btn-outline btn-sm" onclick="window._spCopyMetrics()">复制全部</button></div></div>';
-  return head+
-    spPanel('汇总指标',ovTable)+
-    '<div style="height:16px"></div>'+spPanel(m.siteDetail.group,matrixTable(m.siteDetail))+
-    '<div style="height:16px"></div>'+spPanel(m.cityDetail.group,matrixTable(m.cityDetail));
+  return '<div class="sp-round-chart"><svg viewBox="0 0 220 220" role="group" aria-label="'+s.field.label+(pie?'饼图':'环图')+'">'+slices+(!pie?'<text x="110" y="108" class="sp-ring-total">'+s.total+'</text><text x="110" y="132" class="sp-ring-caption">'+unit+'</text>':'')+'</svg>'+spFieldLegend(s,false)+'</div>';
 }
-/* 把指标明细整理成「分组 / 指标 / 数值 / 口径」的扁平行，供 CSV 与复制共用 */
-function spMetricsFlatRows(){
-  var list=spScopeEvents(_spScope);
-  var m=spMetricsGroups(list,spAgg(list),spSiteRows(list),spCityRows(list));
-  var out=[['分组','指标','数值','单位','统计对象','分子','有效分母/样本','不详/不可用','不适用','状态','口径','范围','统计截止日','口径版本','数据来源']];
-  function row(group,name,value,unit,obj,num,den,unknown,na,status,definition){
-    out.push([group,name,String(value),unit,obj,String(num===undefined?'':num),String(den===undefined?'':den),
-      String(unknown===undefined?'':unknown),String(na||0),status,definition,spScopeLabel(),spCutoff(),'V13.0','内置样例']);
-  }
-  m.groups.forEach(function(g){
-    g.rows.forEach(function(r){row(g.group,r[0],r[1],r[7],r[8],r[3],r[4],r[5],r[9],r[6],r[2])});
-  });
-  /* 分组明细也保留原指标的有效分母与缺失数。 */
-  [[m.siteDetail.group,spSiteRows(list),'site',['patients','tumors','early','late','follow']],
-    [m.cityDetail.group,spCityRows(list).filter(function(r){return r.n>0}),'city',['patients','tumors','early','cross','follow']]].forEach(function(d){
-    d[1].forEach(function(r){
-      d[3].forEach(function(id){
-        var metric=r.agg.metrics[id];
-        row(d[0],r[d[2]]+' · '+metric.name,spMetricValue(metric),metric.unit,metric.statisticalUnit||metric.unit,
-          metric.numerator,metric.denominator===null?'':metric.denominator,metric.unknown,metric.notApplicable,metric.status,metric.definition);
-      });
+function spFieldBarChart(s){
+  var max=Math.max.apply(null,s.buckets.map(function(b){return b.count}).concat([1])),unit=s.field.unit==='患者'?'人':'例';
+  return '<div class="sp-field-bars">'+s.buckets.map(function(b,i){return '<div class="sp-field-bar-row'+(b.state==='valid'?'':' is-missing')+'">'+spFieldLink(s.field.key,i,b.label)+'<div class="sp-field-track" aria-hidden="true"><i style="width:'+(b.count/max*100)+'%;background:'+spFieldColor(s.field.key,b,i)+'"></i></div><strong>'+b.count+'<small> '+unit+'</small></strong><span>'+(b.count/s.total*100).toFixed(1)+'%</span></div>'}).join('')+'</div>';
+}
+function spFieldColumns(s){
+  var key=s.field.key,bands=key==='age'?['0–39 岁','40–49 岁','50–59 岁','60–69 岁','70 岁及以上']:key==='diag_to_treat'?['0–7 天','8–14 天','15–30 天','超过 30 天']:['不足 6 个月','6–11.9 个月','12–23.9 个月','24 个月及以上'];
+  var max=Math.max.apply(null,s.buckets.filter(function(b){return b.state==='valid'}).map(function(b){return b.count}).concat([1]));
+  return '<div class="sp-column-chart" role="group" aria-label="'+s.field.label+'分布柱状图">'+bands.map(function(label,i){
+    var index=s.buckets.findIndex(function(b){return b.label===label}),b=index<0?{label:label,count:0,state:'valid'}:s.buckets[index],color=SP_FIELD_PALETTE[i%SP_FIELD_PALETTE.length];
+    return '<div class="sp-column-item"><div class="sp-column-plot"><'+(index<0?'div':'button type="button"')+' class="sp-column-bar" style="height:'+(b.count/max*100)+'%;--bar-color:'+color+'"'+(index<0?'':' aria-label="'+label+'：'+b.count+' 例，查看记录" data-field-key="'+key+'" data-field-bucket="'+index+'" onclick="window._spFieldEvidence(this.dataset.fieldKey,Number(this.dataset.fieldBucket))"')+'><span>'+b.count+'<small> 例</small></span></'+(index<0?'div':'button')+'></div><div class="sp-column-label">'+(index<0?esc(label):spFieldLink(key,index,label))+'</div><span class="sp-column-percent">'+(b.count/s.total*100).toFixed(1)+'%</span></div>';
+  }).join('')+'</div>'+spFieldLegend(s,true);
+}
+function spFieldDateChart(s){
+  var items=s.buckets.map(function(b,i){return {label:b.label,count:b.count,state:b.state,index:i}}).filter(function(b){return b.state==='valid'}),h='';
+  if(items.length){
+    function month(label){return Number(label.slice(0,4))*12+Number(label.slice(5,7))-1}
+    var first=month(items[0].label),last=month(items[items.length-1].label),span=Math.max(1,last-first),max=Math.max.apply(null,items.map(function(b){return b.count})),ticks=Math.min(4,max),points=[];
+    /* 连续月份内没有当前队列记录的月份计为 0；保留真实时间间距。 */
+    for(var m=first;m<=last;m++){var label=Math.floor(m/12)+'-'+String(m%12+1).padStart(2,'0'),found=items.find(function(b){return b.label===label});points.push({label:label,count:found?found.count:0,index:found?found.index:-1,x:first===last?236:36+(m-first)/span*400,y:158-(found?found.count:0)/max*116})}
+    var line=points.map(function(p,i){return (i?'L':'M')+p.x.toFixed(2)+' '+p.y.toFixed(2)}).join(' ');
+    h='<svg class="sp-date-chart" viewBox="0 0 470 202" role="group" aria-label="'+s.field.label+'按月分布">';
+    for(var t=0;t<=ticks;t++){var value=Math.round(max*t/ticks),y=158-value/max*116;h+='<line x1="36" x2="436" y1="'+y+'" y2="'+y+'" class="sp-chart-gridline"/><text x="24" y="'+(y+4)+'" text-anchor="end">'+value+'</text>'}
+    h+='<text x="36" y="18">瘤例数</text><path d="'+line+' L'+points[points.length-1].x+' 158 L'+points[0].x+' 158 Z" fill="'+(s.field.key==='lastfu'?'#35a69d':'#4b82dc')+'" opacity=".10"/><path d="'+line+'" fill="none" stroke="'+(s.field.key==='lastfu'?'#35a69d':'#4b82dc')+'" stroke-width="2.5"/>';
+    points.forEach(function(p,i){
+      if(p.index>=0)h+='<circle cx="'+p.x+'" cy="'+p.y+'" r="5" fill="var(--color-bg-surface)" stroke="'+(s.field.key==='lastfu'?'#35a69d':'#4b82dc')+'" stroke-width="2.5"'+spFieldChartAction(s,s.buckets[p.index],p.index)+'/><text x="'+p.x+'" y="'+(p.y-12)+'" text-anchor="middle" class="sp-date-count">'+p.count+'</text>';
+      var step=Math.max(1,Math.ceil((points.length-1)/4));if(i===0||i===points.length-1||(i%step===0&&points.length-1-i>=step/2))h+='<text x="'+p.x+'" y="184" text-anchor="middle">'+p.label+'</text>';
     });
-  });
+    h+='</svg>';
+  }else h='<div class="sp-field-empty">暂无有效日期记录</div>';
+  return h+spFieldLegend(s,true)+(items.length?'<details class="sp-chart-data"><summary>查看各月记录</summary><div class="sp-chart-months">'+items.map(function(b){return '<span>'+spFieldLink(s.field.key,b.index,b.label)+'<strong>'+b.count+' 例</strong></span>'}).join('')+'</div></details>':'');
+}
+function spFieldTreatmentChart(list){
+  return '<div class="sp-treatment-chart"><div class="sp-treatment-legend"><span><i style="background:#4b82dc"></i>有记录</span><span><i style="background:#35a69d"></i>明确无</span><span><i style="background:#a9b5c6"></i>未记录</span><span><i style="background:#c3784b"></i>冲突</span></div>'+SP_MODES.map(function(mode,i){
+    var s=spFieldSummary(list,'mode'+i),yes=s.buckets.find(function(b){return b.label==='有'}),ordered=s.buckets.map(function(b,index){return {b:b,index:index}}).sort(function(a,b){var order=function(x){return x.label==='有'?0:x.label==='明确无'?1:x.state==='missing'?2:3};return order(a.b)-order(b.b)});
+    return '<div class="sp-treatment-row">'+spFieldLink(s.field.key,-1,mode)+'<div class="sp-treatment-stack">'+ordered.map(function(row){var b=row.b,pct=b.count/s.total*100;return '<button type="button" style="width:'+pct+'%;background:'+spFieldColor(s.field.key,b,row.index)+'" aria-label="'+mode+'，'+b.label+'：'+b.count+' 例，查看记录" title="'+b.label+'：'+b.count+' 例（'+pct.toFixed(1)+'%）" data-field-key="'+s.field.key+'" data-field-bucket="'+row.index+'" onclick="window._spFieldEvidence(this.dataset.fieldKey,Number(this.dataset.fieldBucket))">'+(pct>=7?b.count:'')+'</button>'}).join('')+'</div><strong>'+(s.total?((yes?yes.count:0)/s.total*100).toFixed(1)+'%':'—')+'</strong></div>';
+  }).join('')+'</div>';
+}
+function spFieldCard(list,key,title){
+  var s=spFieldSummary(list,key),f=s.field,unit=f.unit==='患者'?'人':'例';
+  var type=f.kind==='number'?'column':f.kind==='date'?'line':['sex','stage'].indexOf(key)>=0?'pie':['insurance','grade','diag_basis','mdt','referral','vital','followstate'].indexOf(key)>=0?'donut':'bar';
+  var body=!s.buckets.length?'<div class="sp-field-empty">暂无纳入记录</div>':type==='pie'||type==='donut'?spFieldRoundChart(s,type==='pie'):type==='column'?spFieldColumns(s):type==='line'?spFieldDateChart(s):spFieldBarChart(s);
+  var names={sex:'性别',age:'确诊年龄',insurance:'医保类型',region:'户籍地',hospital:'就诊机构',screenorg:'筛查机构',screentype:'筛查项目',stage:'分期',grade:'分级',site:'原发部位',diag_basis:'诊断依据',path:'病理类型',tnm:'TNM 分期',diagdate:'确诊月份',mdt:'MDT 会诊',referral:'治疗机构变化',tfirst:'首次治疗月份',diag_to_treat:'确诊至首治间隔',vital:'生存状态',followstate:'随访状态',lastfu:'末次随访月份',survival:'观察时长'};
+  return '<section class="panel sp-field-card" data-overview-field="'+key+'" data-chart-type="'+type+'"><div class="panel-header"><h3>'+esc(title||names[key]||f.label)+'</h3><div class="sp-chart-tools"><span>'+unit+'</span>'+spFieldLink(key,-1,'明细')+'</div></div><div class="panel-body">'+
+    (f.kind==='number'?'<div class="sp-field-median"><span>中位数</span><strong>'+(s.median===null?'—':spNumber(s.median))+'</strong><span>'+(key==='age'?'岁':key==='diag_to_treat'?'天':'个月')+'</span></div>':'')+
+    body+'</div></section>';
+}
+function spOverviewTreatment(list){
+  return '<section class="panel sp-overview-treatment"><div class="panel-header"><span>治疗方式</span><span class="sp-treatment-unit">例 / 有记录占比</span></div>'+spFieldTreatmentChart(list)+'<details class="sp-treatment-details"><summary>查看明细</summary><div class="sp-table-wrap"><table class="data-table sp-field-table"><thead><tr><th>治疗方式</th><th>有记录</th><th>占比</th><th>明确无</th><th>未记录</th><th>冲突</th><th>明细</th></tr></thead><tbody>'+SP_MODES.map(function(mode,i){var key='mode'+i,s=spFieldSummary(list,key),yes=s.rows.filter(function(r){return r.result.value==='有'}).length,no=s.rows.filter(function(r){return r.result.value==='明确无'}).length;return '<tr><td>'+mode+'</td><td>'+yes+' 例</td><td>'+(s.total?(yes/s.total*100).toFixed(1)+'%':'—')+'</td><td>'+no+'</td><td class="sp-field-missing">'+s.missing+'</td><td>'+s.conflict+'</td><td>'+spFieldLink(key,-1,'查看记录')+'</td></tr>'}).join('')+'</tbody></table></div></details></section>';
+}
+function spOverviewRecords(list,section){
+  var config=section.records,rows=spUnique(list,spTumorKey).filter(function(e){return !config.deathsOnly||spDeathFieldApplies(e)});
+  return '<details class="sp-overview-records" data-record-section="'+section.key+'"><summary>'+config.title+'<span>'+rows.length+' 例</span></summary><div class="sp-table-wrap"><table class="data-table sp-field-table"><thead><tr><th>患者</th><th>原发部位</th>'+config.keys.map(function(k){return '<th data-record-field="'+k+'">'+esc(spProfileField(k).label)+'</th>'}).join('')+'<th>画像</th></tr></thead><tbody>'+(rows.length?rows.map(function(e){return '<tr data-record-event="'+esc(e.id)+'"><td>'+esc(e.patient)+'</td><td>'+esc(spProfileRead(e,'site').text)+'</td>'+config.keys.map(function(k){return '<td data-record-value="'+k+'">'+esc(spProfileRead(e,k).text)+'</td>'}).join('')+'<td><button type="button" class="sp-field-link" data-event-id="'+esc(e.id)+'" onclick="window._spEvidencePatient(this.dataset.eventId)">查看画像</button></td></tr>'}).join(''):'<tr><td colspan="'+(config.keys.length+3)+'" class="sp-field-empty">暂无死亡记录</td></tr>')+'</tbody></table></div></details>';
+}
+function spDomainPanel(list){
+  if(_spDomain==='cost')return window.SPCost&&window.SPCost.renderPopulation?window.SPCost.renderPopulation(spCostContext(list)):'<div class="sp-field-empty">医保费用模块未加载</div>';
+  if(!list.length)return '<div class="sp-gp-empty">当前范围无纳入画像。<br><button class="btn btn-outline btn-sm" onclick="window._spScopeReset()">重置筛选条件</button></div>';
+  var section=spProfileSection(_spDomain);
+  if(!section){_spDomain='burden';section=spProfileSection('burden')}
+  var h=section.charts.map(function(group){
+    if(group.kind==='treatment')return spOverviewTreatment(list);
+    return '<div class="sp-field-grid '+(group.layout||'')+'">'+group.keys.map(function(k){return spFieldCard(list,k)}).join('')+'</div>';
+  }).join('');
+  return h+(section.records?spOverviewRecords(list,section):'');
+}
+function spMetricsFlatRows(){
+  var list=spScopeEvents(_spScope),out=[['分区','画像字段','统计项','数值','单位','统计对象','分母','有效记录','未记录','冲突','不适用','字段来源','统计口径','范围','统计截止日','口径版本','数据来源']];
+  function add(f,label,value,unit,s,rule){out.push([f.dim,f.label,label,value,unit,f.unit,s.total,s.valid,s.missing,s.conflict,s.na,f.source,rule||f.rule,spScopeLabel(),spCutoff(),'V14','内置样例'])}
+  SP_PROFILE_FIELDS.forEach(function(f){var s=spFieldSummary(list,f.key);add(f,'有效记录',s.valid,f.unit==='患者'?'人':'例',s);s.buckets.forEach(function(b){add(f,b.label,b.count,f.unit==='患者'?'人':'例',s)});if(f.kind==='number')add(f,'中位数',s.median===null?'—':s.median,f.key==='age'?'岁':f.key==='diag_to_treat'?'天':'个月',s)});
+  if(window.SPCost){
+    var m=window.SPCost.populationModel(spCostContext(list)),a=m.stats,has=a&&a.count;
+    function costRow(label,value,unit,den,rule){out.push(['医保费用分析',label,label,value===null?'—':value,unit,'患者 / 结算',den===null?'':den,'','','','','医保结算',rule||'仅统计明确关联单一瘤例的结算净额；共同费用另列',spScopeLabel(),m.asOf,'V14',m.demo?'演示结算':m.available?'已接入结算':'未接入'])}
+    costRow('群体累计医疗费用',has?a.total/100:null,'元',null);
+    costRow('费用覆盖患者',m.available?m.patients:null,'人',m.cohort);
+    costRow('人均医疗费用',has&&m.patients?Math.round(a.total/m.patients)/100:null,'元',m.patients);
+    costRow('个人支付占比',has&&a.paymentComplete?+(a.personal/a.total*100).toFixed(1):null,'%',has?a.total/100:null);
+    costRow('省外费用占比',has&&a.outOfProvince!==null?+(a.outOfProvince/a.total*100).toFixed(1):null,'%',has?a.total/100:null);
+    if(has){
+      [['医保基金支付',a.fund],['个人支付',a.personal],['其他保障支付',a.other]].forEach(function(r){costRow(r[0],a.paymentComplete?r[1]/100:null,'元',null);costRow(r[0]+'占比',a.paymentComplete?+(r[1]/a.total*100).toFixed(1):null,'%',a.total/100)});
+      ['药品费','检查检验费','治疗费','手术费','耗材费','其他费用'].forEach(function(label){var v=a.itemsComplete?(a.items[label]||0):null;costRow(label,v===null?null:v/100,'元',null);costRow(label+'占比',v===null?null:+(v/a.total*100).toFixed(1),'%',a.total/100)});
+      costRow('共同关联费用',m.sharedTotal/100,'元',null,'多瘤例共同结算单列，不纳入主统计');
+    }
+  }
   return out;
 }
+window._spFieldEvidence=function(key,bucket){
+  if(!spProfileField(key))return;
+  var list=spScopeEvents(_spScope),s=spFieldSummary(list,key),selected=bucket>=0?s.buckets[bucket]:null;
+  var rows=selected?s.rows.filter(function(r){return r.buckets.indexOf(selected.label)>=0}):s.rows;
+  var body='<div class="sp-evidence-context"><strong>'+s.field.label+(selected?' / '+esc(selected.label):'')+'</strong><p>当前 '+rows.length+' '+(s.field.unit==='患者'?'人':'例')+' · 截至 '+spCutoff()+'</p></div><div class="sp-table-wrap"><table class="data-table sp-field-table"><thead><tr><th>患者 / 报告卡</th><th>原发部位</th><th>'+s.field.label+'</th><th>患者画像</th></tr></thead><tbody>'+rows.map(function(r){return '<tr><td>'+esc(r.event.patient)+'<small class="sp-evidence-sub">'+esc(r.events.map(spReportCardNo).join('、'))+'</small></td><td>'+esc(r.events.map(function(e){return e.laterality||'未记录'}).join('、'))+'</td><td>'+esc(r.result.text)+(r.result.state==='conflict'?'<small class="sp-evidence-sub">'+r.events.map(function(e){return esc(spReportCardNo(e)+': '+spProfileRead(e,key).text)}).join('<br>')+'</small>':'')+'</td><td>'+r.events.map(function(e){return '<button class="sp-field-link" data-event-id="'+esc(e.id)+'" onclick="window._spEvidencePatient(this.dataset.eventId)">查看画像'+(r.events.length>1?' · '+esc(e.laterality||e.site):'')+'</button>'}).join('<br>')+'</td></tr>'}).join('')+'</tbody></table></div>';
+  var mask=spModal(s.field.label+'明细',body,'<button class="btn btn-ghost" data-sp-close>关闭</button>');
+  mask.classList.add('sp-field-evidence');mask.setAttribute('role','dialog');mask.setAttribute('aria-modal','true');mask.setAttribute('aria-label',s.field.label+'明细');
+  var opener=document.activeElement;mask.querySelector('button').focus();
+  mask.addEventListener('keydown',function(e){if(e.key==='Escape'){mask.remove();if(opener&&opener.isConnected)opener.focus()}if(e.key==='Tab'){var buttons=Array.from(mask.querySelectorAll('button')),first=buttons[0],last=buttons[buttons.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}});
+};
+window._spEvidencePatient=function(id){
+  var list=spScopeEvents(_spScope);if(!list.some(function(e){return e.id===id}))return;
+  _wbOverviewSelection={scope:Object.assign({},_spScope),ids:list.map(function(e){return e.id}),label:spScopeLabel()};
+  _wbFilters={q:'',site:'',city:'',hospital:'',fu:'',mp:''};_wbDetail=id;
+  if(typeof navigateTo==='function')navigateTo('sp-patients');else{_spSub='workbench';spRefresh()}
+};
 
 function spIssuesPanel(list,siteRows,cityRows){
   var gAgg=spAgg(list);
@@ -1738,7 +1856,7 @@ function spIssuesPanel(list,siteRows,cityRows){
 
 
 /* ===================== 六、01 患者专科画像 ===================== */
-var _wbFilters={q:'',site:'',stage:'',city:'',hospital:'',fu:'',mp:''};
+var _wbFilters={q:'',site:'',city:'',hospital:'',fu:'',mp:''};
 var _wbDetail=null;
 var _wbOverviewSelection=null;
 
@@ -1747,14 +1865,14 @@ function spWbFiltered(){
   return source.filter(function(e){
     var q=_wbFilters.q;
     if(q){
-      var hit=[e.patient,e.region,e.site,e.path,e.hospital].some(function(x){return String(x||'').indexOf(q)>=0});
+      /* 关键字按报告卡编号 / 姓名 / 身份证号匹配；瘤种、地市、医院各有独立下拉，不再挤在关键字里重复一遍 */
+      var hit=[spReportCardNo(e),e.patient,e.idNo].some(function(x){return String(x||'').toUpperCase().indexOf(q.toUpperCase())>=0});
       if(!hit)return false;
     }
     if(_wbFilters.site&&e.site!==_wbFilters.site)return false;
-    if(_wbFilters.stage&&spStage(e)!==_wbFilters.stage)return false;
     if(_wbFilters.city&&e.city!==_wbFilters.city)return false;
-    if(_wbFilters.hospital&&e.hospital!==_wbFilters.hospital)return false;
-    if(_wbFilters.fu&&e.followStatus!==_wbFilters.fu)return false;
+    if(_wbFilters.hospital&&spPatientHospitals(e).indexOf(spNormHospital(_wbFilters.hospital))<0)return false;
+    if(_wbFilters.fu&&spFollowState(e)!==_wbFilters.fu)return false;
     var mp=spIsMultiPrimary(e);
     if(_wbFilters.mp==='是'&&!mp)return false;
     if(_wbFilters.mp==='否'&&mp)return false;
@@ -1790,9 +1908,8 @@ function renderWorkbench(){
   var list=spWbFiltered();
   var sites=Array.from(new Set(SP_SITES.concat(tumorEvents.map(function(e){return e.site}).filter(spKnown))));
   var bar='<div class="sp-filter-bar">'+
-    '<div class="form-group wide"><label>关键字</label><input id="spWbQ" placeholder="姓名 / 地区 / 瘤种 / 医院" value="'+esc(_wbFilters.q)+'"></div>'+
+    '<div class="form-group wide"><label>关键字</label><input id="spWbQ" placeholder="报告卡编号 / 姓名 / 身份证号" value="'+esc(_wbFilters.q)+'"></div>'+
     '<div class="form-group"><label>瘤种</label><select id="spWbSite"><option value="">全部</option>'+sites.map(function(s){return '<option'+(s===_wbFilters.site?' selected':'')+'>'+esc(s)+'</option>'}).join('')+'</select></div>'+
-    '<div class="form-group"><label>分期</label><select id="spWbStage"><option value="">全部</option>'+SP_STAGE_GROUPS.map(function(s){return '<option'+(s===_wbFilters.stage?' selected':'')+'>'+s+'</option>'}).join('')+'</select></div>'+
     '<div class="form-group"><label>地市</label><select id="spWbCity"><option value="">全部</option>'+SP_CITIES.map(function(c){return '<option'+(c===_wbFilters.city?' selected':'')+'>'+c+'</option>'}).join('')+'</select></div>'+
     '<div class="form-group"><label>医院</label><select id="spWbHospital"><option value="">全部</option>'+SP_HOSPITALS.map(function(h){return '<option'+(h===_wbFilters.hospital?' selected':'')+'>'+esc(h)+'</option>'}).join('')+'</select></div>'+
     '<div class="form-group"><label>随访状态</label><select id="spWbFu"><option value="">全部</option>'+['随访中','失访','死亡结案'].map(function(s){return '<option'+(s===_wbFilters.fu?' selected':'')+'>'+s+'</option>'}).join('')+'</select></div>'+
@@ -1800,16 +1917,24 @@ function renderWorkbench(){
     '<div class="sp-filter-actions"><button class="btn btn-ghost btn-sm" onclick="window._spWbReset()">重置</button><button class="btn btn-primary btn-sm" onclick="window._spWbQuery()">查询</button></div>'+
   '</div>';
   var rows=list.map(function(e){
+    /* 首列报告卡编号是本行的跳转入口：点编号进该瘤例的画像详情（stopPropagation 避免与整行点击叠加） */
     return '<tr style="cursor:pointer" onclick="window._spOpenDetail(\''+e.id+'\')">'+
-      '<td style="font-weight:600">'+esc(e.patient)+'</td><td>'+esc(e.sex)+'</td><td>'+spNumber(spAge(e))+'</td>'+
-      '<td>'+esc(e.city)+'</td><td>'+esc(e.hospital||'—')+'</td>'+
-      '<td>'+esc(e.site)+'</td><td>'+esc(e.laterality)+'</td><td>'+esc(e.path)+'</td>'+
-      '<td>'+esc(spStage(e))+'</td>'+'<td>'+spMultiCell(e)+'</td>'+
+      '<td class="code"><a href="javascript:void(0)" class="sp-card-no" title="查看该报告卡的画像详情" onclick="event.stopPropagation();window._spOpenDetail(\''+e.id+'\')">'+esc(spReportCardNo(e))+'</a></td>'+
+      '<td style="font-weight:600">'+esc(e.patient)+'</td><td>'+esc(e.sex)+'</td>'+
+      /* 确诊日期紧挨「确诊时年龄」放在其左侧：日期是原始事实，年龄由它推算，先因后果 */
+      '<td class="code">'+esc(spDiagnosisDate(e)||'—')+'</td><td>'+spNumber(spAge(e))+'</td>'+
+      '<td>'+esc(e.city)+'</td><td>'+spHospSpan(e)+'</td>'+
+      /* 原发部位取画像详情里同一个字段（laterality：右肺上叶/左乳/胃窦…），
+         ICD10 沿用 spIcd10 的既有口径（由部位码截主码，C34.9→C34），与详情页「ICD-10」一致 */
+      '<td>'+esc(e.laterality||e.site||'—')+'</td>'+
+      '<td class="code" title="'+esc('癌种 '+e.site+' · ICD-O-3 部位码 '+(spTopoCode(e)||'—'))+'">'+esc(spIcd10(e)||'—')+'</td>'+
+      '<td>'+esc(e.path)+'</td>'+
+      '<td>'+spMultiCell(e)+'</td>'+
       '<td>'+spFuVitalCell(e)+'</td>'+    '</tr>';
   }).join('');
   var table='<div class="panel"><div class="panel-header"><span>患者列表<span class="spr-count">共 '+list.length+' 例 · 全部 '+tumorEvents.length+' 例</span></span></div>'+
-    '<div class="sp-table-wrap"><table class="data-table" style="min-width:1120px"><thead><tr><th class="txt">患者</th><th class="code">性别</th><th class="num">确诊时年龄</th><th class="txt">户籍地市</th><th class="txt">就诊医院</th><th class="txt">瘤种</th><th class="txt">部位</th><th>病理</th><th class="code">分期</th><th class="code">是否多原发</th><th class="code">随访状态</th></tr></thead><tbody>'+
-    (rows||'<tr><td colspan="11" style="text-align:center;color:var(--color-text-muted);padding:30px 0">无符合条件的患者</td></tr>')+
+    '<div class="sp-table-wrap"><table class="data-table" style="min-width:1120px"><thead><tr><th class="code">报告卡编号</th><th class="txt">患者</th><th class="code">性别</th><th class="code">确诊日期</th><th class="num">确诊时年龄</th><th class="txt">户籍地市</th><th class="txt">就诊医院</th><th class="txt">原发部位</th><th class="code">ICD-10</th><th>病理</th><th class="code">是否多原发</th><th class="code">随访状态</th></tr></thead><tbody>'+
+    (rows||'<tr><td colspan="12" style="text-align:center;color:var(--color-text-muted);padding:30px 0">无符合条件的患者</td></tr>')+
     '</tbody></table></div></div>';
   var context=_wbOverviewSelection?'<div class="sp-overview-context"><span>总览队列 · '+esc(_wbOverviewSelection.label)+'</span>'+
     '<button class="btn btn-ghost btn-sm" onclick="navigateTo(\'sp-overview\')">返回总览</button></div>':'';
@@ -1842,7 +1967,7 @@ function spTimeline(e){
     if(m)nodes.push({d:m[2],c:m[1]});
   });
   (SP_EXAMS[e.id]||[]).forEach(function(x){if(x.hot)nodes.push({d:x.d,c:(x.k==='检查'?'检查 · ':'检验 · ')+x.n+'：'+x.r,t:1})});
-  (SP_REFERRALS[e.id]||[]).forEach(function(x){nodes.push({d:x.d,c:'转诊('+x.dir+') · '+x.from+' → '+x.to,t:2})});
+  spInstitutionChanges(e).changes.forEach(function(x){nodes.push({d:x.d,c:'治疗机构变化 · '+x.from+' → '+x.to+'（'+x.current.tumorName+'）',t:2})});
   nodes.push({d:e.lastFu,c:'最近随访 · '+e.followStatus});
   var seen={},uniq=[];
   nodes.forEach(function(nd){
@@ -1850,7 +1975,7 @@ function spTimeline(e){
     if(!seen[k]){seen[k]=1;uniq.push(nd)}
   });
   uniq.sort(function(a,b){return a.d<b.d?-1:1});
-  return '<div class="sp-tl-legend"><span><i style="background:var(--color-primary)"></i>诊疗节点</span><span><i style="background:#f59e0b"></i>检查检验（影像/检验）</span><span><i style="background:#14b8a6"></i>转诊</span></div><div class="sp-timeline">'+uniq.map(function(nd){
+  return '<div class="sp-tl-legend"><span><i style="background:var(--color-primary)"></i>诊疗节点</span><span><i style="background:#f59e0b"></i>检查检验（影像/检验）</span><span><i style="background:#14b8a6"></i>治疗机构变化（患者全部治疗）</span></div><div class="sp-timeline">'+uniq.map(function(nd){
     return '<div class="sp-tl-item'+(nd.t===1?' sp-tl-exam':nd.t===2?' sp-tl-ref':'')+'"><div class="sp-tl-date">'+esc(nd.d)+'</div><div class="sp-tl-content">'+esc(nd.c)+'</div></div>';
   }).join('')+'</div>';
 }
@@ -1863,13 +1988,13 @@ function spExamTable(pid){
   }).join('')+'</tbody></table></div>';
 }
 function spRefTable(pid){
-  var list=SP_REFERRALS[pid]||[];
-  if(!list.length)return '<div class="sp-chart-empty">无转院就诊记录（本机构直接建档管理）</div>';
-  /* 「类型」列已移除：转出→转入的方向本身已表达上/下转；「操作」列已移除：详情内容在此表内已展示完整 */
-  return '<div class="sp-table-wrap"><table class="data-table" style="min-width:560px"><thead><tr><th style="width:96px">时间</th><th style="width:38%">转出 → 转入</th><th class="txt">事由/目的</th><th style="width:240px">接诊状态</th></tr></thead><tbody>'+
-  list.map(function(x){
-    return '<tr><td>'+esc(x.d)+'</td><td>'+esc(x.from)+'<span style="color:var(--color-primary);padding:0 6px">→</span>'+esc(x.to)+'</td><td class="txt">'+esc(x.reason)+'</td><td>'+esc(x.status)+'</td></tr>';
-  }).join('')+'</tbody></table></div>';
+ var e=tumorEvents.find(function(t){return t.id===pid}),derived=spInstitutionChanges(e),list=derived.changes;
+ var note='<p class="sp-transfer-note">按患者全部治疗执行记录的时间顺序生成，治疗机构变化即记一条；同院连续治疗合并，跨院后返回保留记录。仅表示观察到的机构变化。</p>';
+ if(derived.pending.length)note+='<details class="sp-transfer-note"><summary>'+derived.pending.length+' 条治疗记录待补全或确认时序</summary><ul>'+derived.pending.map(function(x){return '<li>'+esc(x.record.date||'日期未记录')+' · '+esc(x.record.hospital||'机构未记录')+' · '+esc(x.reason)+'</li>'}).join('')+'</ul></details>';
+ if(!list.length)return note+'<div class="sp-chart-empty">'+(derived.state===null?'治疗记录不足，暂无法判定机构变化':'已有治疗记录未观察到机构变化')+'</div>';
+ return note+'<div class="sp-table-wrap"><table class="data-table" style="min-width:760px"><thead><tr><th>变化日期</th><th>前次治疗机构</th><th>本次治疗机构</th><th>治疗依据</th><th>来源</th></tr></thead><tbody>'+list.map(function(x){
+  return '<tr><td>'+esc(x.d)+'</td><td>'+esc(x.from)+'<div class="sp-transfer-evidence">前次治疗 '+esc(x.previous.date)+'</div></td><td>'+esc(x.to)+'<div class="sp-transfer-evidence">本次治疗 '+esc(x.current.date)+'</div></td><td>'+esc(x.previous.mode||'治疗')+' → '+esc(x.current.mode||'治疗')+'<div class="sp-transfer-evidence">'+esc(x.current.tumorName)+' · '+esc(x.current.plan||'—')+'</div></td><td>自动生成<div class="sp-transfer-evidence">治疗执行记录</div></td></tr>';
+ }).join('')+'</tbody></table></div>';
 }
 function spRptSec(title,bodyHtml){return '<div class="sp-rpt-sec"><div class="sp-rpt-t">'+esc(title)+'</div><div class="sp-rpt-c">'+bodyHtml+'</div></div>'}
 /* ================= 检查检验结果弹窗：字段严格对齐《江西省全民健康信息平台数据接口规范 V3.1》 =================
@@ -2270,26 +2395,19 @@ function spModalWide(title, bodyHtml, foot) {
 })();
 
 window._spRefView=function(pid,i){
-  var x=(SP_REFERRALS[pid]||[])[i];if(!x)return;
-  var e=tumorEvents.filter(function(t){return t.id===pid})[0];
-  var body='<div class="sp-rpt-info"><span>患者：'+esc(e?e.patient:pid)+'</span><span>转诊时间：'+esc(x.d)+'</span><span>类型：'+esc(x.dir)+'</span></div>'+
-    '<div class="sp-ref-flow"><div class="sp-ref-node"><div class="sp-ref-role">转出机构</div><div class="sp-ref-name">'+esc(x.from)+'</div></div><div class="sp-ref-line">——'+esc(x.dir)+'——▶</div><div class="sp-ref-node"><div class="sp-ref-role">转入机构</div><div class="sp-ref-name">'+esc(x.to)+'</div></div></div>'+
-    '<div class="sp-kv-grid" style="margin-top:14px">'+spKv('事由/目的',x.reason)+spKv('接诊状态',x.status)+spKv('随转材料',x.mat)+spKv('画像联动','该转诊事件已并入画像时间线')+'</div>';
-  spModal('转院就诊记录 · '+x.d,body,'<button class="btn btn-ghost btn-sm" data-sp-close>关闭</button>');
+ var e=tumorEvents.find(function(t){return t.id===pid});if(!e)return;
+ var x=spInstitutionChanges(e).changes[i];if(!x)return;
+ var body='<div class="sp-kv-grid">'+spKv('变化日期',x.d)+spKv('前次治疗机构',x.from)+spKv('本次治疗机构',x.to)+spKv('前次治疗',x.previous.date+' · '+(x.previous.mode||'治疗'))+spKv('本次治疗',x.current.date+' · '+(x.current.mode||'治疗'))+spKv('生成依据','按治疗执行时间识别机构变化')+'</div>';
+ spModal('治疗机构变化',body,'<button class="btn btn-ghost btn-sm" data-sp-close>关闭</button>');
 };
 function spBlock(idx,title,bodyHtml){
   return '<div class="sp-profile-block"><div class="sp-block-head"><span class="sp-block-idx">'+idx+'</span><span class="sp-block-title">'+esc(title)+'</span></div><div class="sp-block-body">'+bodyHtml+'</div></div>';
-}
-/* 带块头追加区的画像块：extra 渲染在标题右侧（如多原发瘤例切换键） */
-function spBlockWith(idx,title,bodyHtml,extra){
-  if(!extra)return spBlock(idx,title,bodyHtml);
-  return '<div class="sp-profile-block"><div class="sp-block-head"><span class="sp-block-idx">'+idx+'</span><span class="sp-block-title">'+esc(title)+'</span>'+extra+'</div><div class="sp-block-body">'+bodyHtml+'</div></div>';
 }
 /* 同一患者的全部瘤例（多原发）：按确诊日期升序、同日期按原发序号，首例为「原发」，其余为「第 N 原发」 */
 function spPatientTumors(e){
   if(!e)return [];
   var pk=spPatientKey(e);
-  var list=spUnique(tumorEvents.filter(function(x){return spPatientKey(x)===pk}),spTumorKey);
+  var list=spUnique(tumorEvents.filter(function(x){var d=spDiagnosisDate(x),u=spUpdatedDate(x);return spPatientKey(x)===pk&&(!d||d<=spCutoff())&&(!u||u<=spCutoff())}),spTumorKey);
   list.forEach(function(x){x.__ord=spDate(spDiagnosisDate(x))||spDate(x.stageDate)||spDate(x.firstDate)||''});
   list.sort(function(a,b){
     if(a.__ord!==b.__ord)return a.__ord<b.__ord?-1:1;
@@ -2324,71 +2442,30 @@ function spTumorSwitch(e){
 }
 function spDetailPage(e){
   var tumors=spPatientTumors(e);
-  var head='<div class="sp-detail-back"><button class="btn btn-ghost btn-sm" onclick="window._spBackList()">← 返回患者列表</button></div>'+
+  var head=(_wbOverviewSelection?'<div class="sp-overview-context"><span>总览核对 · 截至 '+spCutoff()+' · '+esc(_wbOverviewSelection.label)+'</span><button class="btn btn-ghost btn-sm" onclick="navigateTo(\'sp-overview\')">返回总览</button></div>':'')+'<div class="sp-detail-back"><button class="btn btn-ghost btn-sm" onclick="window._spBackList()">← 返回患者列表</button></div>'+
     '<div class="sp-patient-strip">'+
     '<div class="sp-patient-avatar">'+esc(e.patient.charAt(0))+'</div>'+
-    '<div style="min-width:0"><div class="sp-patient-name">'+esc(e.patient)+'<span class="sp-patient-meta">'+esc(spMaskIdNo(e.idNo))+' · '+esc(spEmpi(e))+'</span></div></div>'+
+    '<div class="sp-patient-id"><div class="sp-patient-name">'+esc(e.patient)+'<span class="sp-patient-meta">'+esc(spMaskIdNo(e.idNo))+' · '+esc(spEmpi(e))+'</span></div></div>'+
+    spTumorSwitch(e)+
     '</div>';
-  /* 1 患者基础：一眼认清"这是谁"——性别年龄、户籍地、医保、就诊机构；筛查参与属预防端信息 */
-  var b1='<div class="sp-kv-grid">'+
-    spKvI('性别',e.sex)+
-    spKvI('确诊时年龄',spNumber(spAge(e))+' 岁')+
-    spKvI('户籍地',e.region)+
-    spKvI('就诊机构',e.hospital||'—')+
-    spKvI('医保类型',e.insurance)+
-    '</div>'+
-    spSub('筛查参与信息')+
-    '<div class="sp-kv-grid">'+
-    spKvI('筛查参与',spScreenStatus(e))+
-    spKvI('筛查方式',e.screenType||'—')+
-    spKvI('筛查时间',e.screenDate||'—')+
-    spKvI('筛查结果',e.screenResult||'—')+
-    spKvI('筛查建议',e.screenAdvice||'—')+
-    '</div>';
-  /* 2 肿瘤特征：瘤种身份（原发部位+病理类型）+ 编码（ICD-10、ICD-O-3）+ 分级/TNM + 确诊日期 + 诊断依据
-     多原发：同一患者多个瘤例时，块头出现瘤例切换键，切换后本块（及全页瘤例级信息）随之切换 */
-  var curIdx=Math.max(0,tumors.map(function(x){return x.id}).indexOf(e.id));
-  var b2=spSub('瘤种与分期')+'<div class="sp-kv-grid">'+
-    spKvI('原发部位',e.laterality)+
-    spKvI('病理类型',spPathText(e))+
-    spKvI('ICD-10',spIcd10(e)||'—')+
-    spKvI('ICD-O-3 部位码',spTopoCode(e)||'—')+
-    spKvI('ICD-O-3 形态码',spMorphCode(e)||'—')+
-    spKvI('分级',spGradeText(e))+
-    spKvI('TNM',e.tNm||'—')+
-    spKvI('确诊日期',e.diagDate||'—')+
-    spKvI('诊断依据',spDiagBasisType(e))+
-    (tumors.length>1?spKvI('瘤例序号',spTumorNo(curIdx)+' · '+spTumorLabel(e,curIdx)+' / 共 '+tumors.length+' 例'):'')+
-    '</div>';
-  /* 3 诊疗过程：治疗与转诊（治疗方式三项同行；转诊仅记是否） */
-  var referral=spBool(spRecordValue(e,'referral',['referralRecordedDate','referralDate']));
-  var mdt=spBool(spRecordValue(e,'mdt',['mdtRecordedDate','mdtDate']));
-  var b3=spSub('治疗与转诊')+'<div class="sp-kv-grid">'+
-    spKvI('首次治疗日期',spFirstTreat(e)||'—')+
-    spKvI('是否发生转诊',referral===null?'不详':referral?'是':'否')+
-    spKvI('MDT',mdt===null?'不详':mdt?'已开展':'未开展')+
-    '</div>'+
-    spSub('治疗方式')+
-    '<div class="sp-kv-grid sp-cols-3">'+spModeFlags(e)+'</div>';
-  /* 4 随访与结局：现在什么状态、活多久了 */
-  var surv=spSurvival(e);
-  var b5='<div class="sp-kv-grid">'+
-    spKvI('生存状态',e.vitalStatus+(e.lostFollow?'（失访）':''))+
-    spKvI('末次随访日期',e.lastFu||'—')+
-    spKvI('生存时间（推算）',surv.text)+
-    spKvI('死亡原因',e.vitalStatus==='死亡'?(e.deathCause||'—'):'—')+
-    '</div>';
+  var b1=spProfileSectionBody(e,'burden');
+  var b2=spProfileSectionBody(e,'tumor');
+  var others=spOtherModes(e);
+  var b3=spProfileSectionBody(e,'treat')+
+    (others.length?'<div class="sp-note-inline">六类以外记录：'+esc(others.join('、'))+'（按实际记录展示）</div>':'');
+  var b5=spProfileSectionBody(e,'outcome');
   var blocks='<div class="sp-profile-blocks">'+
     spBlock(1,'患者基础',b1)+
-    spBlockWith(2,'肿瘤特征',b2,spTumorSwitch(e))+
+    spBlock(2,'肿瘤特征',b2)+
     spBlock(3,'诊疗过程',b3)+
     spBlock(4,'随访与结局',b5)+
     '</div>';
-  var exList=SP_EXAMS[e.id]||[],rfList=SP_REFERRALS[e.id]||[];
-  var exP=spPanel('检查检验记录（'+exList.length+'条 · 点击查看结果）',spExamTable(e.id));
-  var rfP=spPanel('转院就诊记录（'+rfList.length+'条）',spRefTable(e.id));
+  var rfList=spInstitutionChanges(e).changes;
+  var exP=spPanel('检查检验记录',spExamTable(e.id));
+  var rfP=spPanel('治疗机构变化（'+rfList.length+'条）',spRefTable(e.id));
   var tl=spPanel('画像时间线',spTimeline(e));
-  return '<div class="sp-detail-shell">'+head+blocks+exP+rfP+tl+'</div>';
+  var cost=window.SPCost?window.SPCost.render(e,{patientKey:spPatientKey(e),patientTumorIds:spPatientTumors(e).map(function(t){return t.id}),today:spCutoff()}):'';
+  return '<div class="sp-detail-shell">'+head+blocks+cost+exP+rfP+tl+'</div>';
 }
 
 
@@ -2397,37 +2474,14 @@ var _spCfgTab='elem';
 var SP_CFG_TABS=[{key:'elem',label:'画像要素'},{key:'rule',label:'映射规则'},{key:'nlp',label:'NLP 提取'},{key:'ver',label:'版本与归档'}];
 
 /* 覆盖判定字段库：新增要素时从下拉选择，覆盖率按数据实时计算 */
-var SP_ELEM_FIELD_MAP=[
- {key:'sex',name:'性别',fn:function(e){return e.sex}},
- {key:'age',name:'年龄（分层变量）',fn:function(e){return e.age}},
- {key:'region',name:'户籍地/区县（聚合维度）',fn:function(e){return e.region}},
- {key:'hospital',name:'就诊机构（聚合维度）',fn:function(e){return e.hospital}},
- {key:'insurance',name:'医保类型',fn:function(e){return e.insurance}},
- {key:'screen',name:'筛查参与',fn:function(e){return e.screenDate||e.screenType}},
- {key:'screentype',name:'筛查方式',fn:function(e){return e.screenType}},
- {key:'screendate',name:'筛查时间',fn:function(e){return e.screenDate}},
- {key:'screenresult',name:'筛查结果',fn:function(e){return e.screenResult}},
- {key:'screenadvice',name:'筛查建议',fn:function(e){return e.screenAdvice}},
- {key:'site_path',name:'原发部位、病理类型（瘤种分层）',fn:function(e){return e.laterality&&e.path}},
- {key:'icd10',name:'ICD-10',fn:function(e){return spTopoCode(e)}},
- {key:'icdo3topo',name:'ICD-O-3 部位码',fn:function(e){return spTopoCode(e)}},
- {key:'icdo3morph',name:'ICD-O-3 形态码',fn:function(e){return spMorphCode(e)}},
- {key:'stage',name:'临床分期、TNM（早晚期占比）',fn:function(e){return e.stage&&e.tNm}},
- {key:'diagdate',name:'确诊日期（时间类指标起点）',fn:function(e){return e.diagDate}},
- {key:'grade',name:'分级（分化程度）',fn:function(e){return e.grade}},
- {key:'diag_basis',name:'诊断依据',fn:function(e){return spMorphCode(e)}},
- {key:'modes',name:'治疗方式分项（手术/放疗/化疗）',fn:function(e){return e.treatments&&e.treatments.length}},
- {key:'mdt',name:'MDT（开展率）',fn:function(e){return e.mdt!==undefined}},
- {key:'tfirst',name:'首次治疗日期（治疗及时性）',fn:function(e){return e.treatments&&e.treatments.length}},
- {key:'referral',name:'是否发生转诊',fn:function(e){return e.referral!==undefined}},
- {key:'vital',name:'生存状态',fn:function(e){return e.vitalStatus}},
- {key:'lastfu',name:'末次随访日期（失访率）',fn:function(e){return e.lastFu}},
- {key:'survival',name:'生存时间（自动推算）',fn:function(e){return spSurvival(e).n!==null}},
- {key:'death',name:'死亡原因',fn:function(e){return e.vitalStatus!=='死亡'||!!e.deathCause}}
-];
-function spFieldFn(fkey){var f=SP_ELEM_FIELD_MAP.filter(function(x){return x.key===fkey})[0];return f?f.fn:function(){return true};}
+var SP_ELEM_FIELD_MAP=[]; // 下方与当前画像字段统一生成。
+function spFieldFn(fkey){
+  var aliases={site_path:'site',modes:'tfirst'},key=aliases[fkey]||fkey;
+  if(spProfileField(key))return function(e){var r=spProfileRead(e,key);return r.state==='valid'||r.state==='na'};
+  return function(){return false};
+}
 var SP_DIMS=['患者基础','肿瘤特征','诊疗过程','随访与结局'];
-var SP_SOURCES=['登记报告卡','筛查管理数据','病理报告数据','TNM分期质控','病案首页数据','MDT与转诊管理','随访管理数据','随访与死亡登记','医保结算数据'];
+var SP_SOURCES=['登记报告卡','筛查管理数据','病理报告数据','TNM分期质控','病案首页数据','MDT与转诊管理','治疗执行记录','随访管理数据','随访与死亡登记','医保结算数据'];
 
 /* 画像要素元数据（工作副本：可新增/编辑/启停） */
 var _spElements=[
@@ -2436,7 +2490,7 @@ var _spElements=[
  {id:'PE03',dim:'患者基础',name:'户籍地（聚合维度）',src:'登记报告卡',fkey:'region',on:true},
  {id:'PE04',dim:'患者基础',name:'就诊机构（聚合维度）',src:'登记报告卡',fkey:'hospital',on:true},
  {id:'PE05',dim:'患者基础',name:'医保类型',src:'医保结算数据',fkey:'insurance',on:true},
- {id:'PE06',dim:'患者基础',name:'筛查参与',src:'筛查管理数据',fkey:'screen',on:true},
+ {id:'PE06',dim:'患者基础',name:'筛查机构',src:'筛查管理数据',fkey:'screenorg',on:true},
  {id:'PE07',dim:'患者基础',name:'筛查方式',src:'筛查管理数据',fkey:'screentype',on:true},
  {id:'PE08',dim:'患者基础',name:'筛查时间',src:'筛查管理数据',fkey:'screendate',on:true},
  {id:'PE09',dim:'患者基础',name:'筛查结果',src:'筛查管理数据',fkey:'screenresult',on:true},
@@ -2445,34 +2499,39 @@ var _spElements=[
  {id:'DE01a',dim:'肿瘤特征',name:'ICD-10',src:'登记报告卡',fkey:'icd10',on:true},
  {id:'DE01b',dim:'肿瘤特征',name:'ICD-O-3 部位码',src:'登记报告卡',fkey:'icdo3topo',on:true},
  {id:'DE01c',dim:'肿瘤特征',name:'ICD-O-3 形态码',src:'病理报告数据',fkey:'icdo3morph',on:true},
- {id:'DE02',dim:'肿瘤特征',name:'临床分期、TNM（早晚期占比）',src:'TNM分期质控',fkey:'stage',on:true},
+ {id:'DE02',dim:'肿瘤特征',name:'分期期别',src:'TNM分期质控',fkey:'stage',on:true},
  {id:'DE03',dim:'肿瘤特征',name:'确诊日期（时间类指标起点）',src:'登记报告卡',fkey:'diagdate',on:true},
  {id:'DE04',dim:'肿瘤特征',name:'分级',src:'登记报告卡',fkey:'grade',on:true},
  {id:'DE05',dim:'肿瘤特征',name:'诊断依据',src:'登记报告卡',fkey:'diag_basis',on:true},
- {id:'TR02',dim:'诊疗过程',name:'治疗方式分项（手术/放疗/化疗）',src:'病案首页数据',fkey:'modes',on:true},
- {id:'TR03',dim:'诊疗过程',name:'MDT（开展率）',src:'MDT与转诊管理',fkey:'mdt',on:true},
+ {id:'TR02',dim:'诊疗过程',name:'治疗方式分项（六类）',src:'病案首页数据',fkey:'modes',on:true},
+ {id:'TR03',dim:'诊疗过程',name:'MDT',src:'MDT与转诊管理',fkey:'mdt',on:true},
  {id:'TR04',dim:'诊疗过程',name:'首次治疗日期（治疗及时性）',src:'病案首页数据',fkey:'tfirst',on:true},
- {id:'TR05',dim:'诊疗过程',name:'是否发生转诊',src:'MDT与转诊管理',fkey:'referral',on:true},
+ {id:'TR04a',dim:'诊疗过程',name:'确诊至首次治疗间隔（推算）',src:'报告卡 + 治疗执行记录',fkey:'diag_to_treat',on:true},
+ {id:'TR05',dim:'诊疗过程',name:'治疗机构是否变化',src:'治疗执行记录',fkey:'referral',on:true},
  {id:'FU01',dim:'随访与结局',name:'生存状态',src:'随访与死亡登记',fkey:'vital',on:true},
- {id:'FU02',dim:'随访与结局',name:'末次随访日期（失访率）',src:'随访管理数据',fkey:'lastfu',on:true},
- {id:'FU06',dim:'随访与结局',name:'生存时间（自动推算）',src:'随访与死亡登记',fkey:'survival',on:true},
+ {id:'FU02',dim:'随访与结局',name:'末次随访日期',src:'随访管理数据',fkey:'lastfu',on:true},
+ {id:'FU06',dim:'随访与结局',name:'观察时长（推算）',src:'随访与死亡登记',fkey:'survival',on:true},
  {id:'FU07',dim:'随访与结局',name:'死亡原因',src:'随访与死亡登记',fkey:'death',on:true}
 ];
+/* 将现有配置标识映射到当前显示字段，新增字段沿用维度与来源。 */
+(function(){
+  var previous=_spElements,aliases={site:'site_path',tfirst:'tfirst'};
+  var sources={'患者基础':'登记报告卡','肿瘤特征':'登记报告卡','诊疗过程':'治疗执行记录','随访与结局':'随访与死亡登记'};
+  _spElements=SP_PROFILE_FIELDS.map(function(f,i){var old=previous.find(function(e){return e.fkey===(aliases[f.key]||f.key)});return {id:old?old.id:'PF'+String(i+1).padStart(2,'0'),dim:f.dim,name:f.label,src:old?old.src:sources[f.dim],fkey:f.key,on:old?old.on:true}});
+  SP_ELEM_FIELD_MAP=SP_PROFILE_FIELDS.map(function(f){return {key:f.key,name:f.label,fn:function(e){var r=spProfileRead(e,f.key);return r.state==='valid'||r.state==='na'}}});
+})();
 /* 画像维度映射规则（工作副本） */
 var _spMapRules=[
- {id:'MR01',dim:'患者基础',input:'身份证号',out:'脱敏主索引 + 出生日期',logic:'主索引复用登记报告卡后8位口径；出生日期取身份证7–14位；年龄由系统按当前日期推导，不双写',on:true},
- {id:'MR02',dim:'患者基础',input:'性别 + 医保类型 + 区县/机构',out:'人群属性分组',logic:'按区县 × 机构层级 × 医保类型自动归组',on:true},
- {id:'MR03',dim:'肿瘤特征',input:'发病部位 + 病理类型',out:'ICD-10 / ICD-O-3 编码',logic:'由部位文本映射 ICD-O-3 部位码，再截主码为 ICD-10；形态学由病理类型映射四位码 + 行为位 /3',on:true},
- {id:'MR04',dim:'肿瘤特征',input:'临床分期 + 分期确认日期',out:'早晚期分层',logic:'I/II期 → 早期；IV期 → 晚期；分期确认日期须早于首次治疗日期',on:true},
- {id:'MR06',dim:'诊疗过程',input:'治疗明细（方式 + 起止日期）',out:'最近一次治疗',logic:'取执行到最后一天（end 优先，其次 start/date）的一条作为最近一次治疗；手术为单日期，放化疗为起止区间',on:true},
- {id:'MR07',dim:'诊疗过程',input:'治疗方式组合',out:'治疗模式分类',logic:'≥2种方式 → 综合治疗；含靶向/免疫 → 精准治疗',on:true},
- {id:'MR08',dim:'诊疗过程',input:'治疗明细 + 治疗状态 + 生存状态',out:'累计治疗线数（推算值）',logic:'按治疗明细条数计基础线数；治疗状态含二线/三线关键词时递增',on:true},
- {id:'MR09',dim:'诊疗过程',input:'治疗明细（各方式最早起始日）',out:'首次治疗日期（推算值）',logic:'取全部治疗方式中最早的起始日，不手工录入',on:true},
- {id:'MR09',dim:'随访与结局',input:'末次随访日期 + 生存状态',out:'随访状态结论',logic:'失访标记 → 失访率分母',on:true},
- {id:'MR10',dim:'随访与结局',input:'RECIST 评价 + 评价日期',out:'疾病状态',logic:'CR/PR/SD/PD 四分类，与评价日期成对展示',on:true},
- {id:'MR11',dim:'随访与结局',input:'ECOG + 评估日期',out:'体能状态分层',logic:'ECOG ≥2 判为需重点关注，参与状态稳定度判定',on:true},
- {id:'MR12',dim:'随访与结局',input:'确诊日期 + 死亡日期/末次随访',out:'生存时间',logic:'自动推算：死亡取确诊→死亡月数；存活取确诊→末次随访月数',on:true},
- {id:'MR13',dim:'指标汇总',input:'患者画像全量字段',out:'省/市/院/病种聚合指标',logic:'按行政区划、机构、瘤种三维实时聚合',on:true}
+ {id:'MR01',dim:'患者基础',input:'出生日期 / 身份证 + 确诊日期',out:'确诊时年龄',logic:'按当前瘤例的确诊日期计算周岁，不使用原记录 age 或当前年龄替代',on:true},
+ {id:'MR02',dim:'患者基础',input:'患者标识 + 同名画像字段',out:'人口字段去重',logic:'同一患者只计一次；多个瘤例值不一致时单列冲突，不静默覆盖',on:true},
+ {id:'MR03',dim:'肿瘤特征',input:'原发部位 + 病理类型',out:'ICD-10 / ICD-O-3 编码',logic:'复用画像当前编码映射；详细部位、分级、TNM 与期别分别保留',on:true},
+ {id:'MR04',dim:'肿瘤特征',input:'stage / tNm / grade',out:'期别、TNM、分级记录构成',logic:'分别读取对应字段，不互相替代；记录构成不直接判为早诊率或转移率',on:true},
+ {id:'MR-TX-ORG',dim:'诊疗过程',input:'患者主索引 + 实际治疗日期 + 机构',out:'治疗机构变化',logic:'同一患者全部瘤例实际治疗按时间排序；相邻机构变化生成记录，时序不明待核对',on:true},
+ {id:'MR07',dim:'诊疗过程',input:'各项治疗执行记录 + 明确未开展记录',out:'治疗方式三态',logic:'每项独立判定有、明确无、未记录；其他方式有记录不能证明本项为无',on:true},
+ {id:'MR09',dim:'诊疗过程',input:'确诊日期 + 实际治疗执行日期',out:'首次治疗日期与确诊至首治间隔',logic:'排除计划、撤销、未执行和截止日之后的记录；日期冲突不参与计算',on:true},
+ {id:'MR-FU',dim:'随访与结局',input:'生存状态 + 失访记录 + 随访 / 死亡日期',out:'生存状态与随访状态',logic:'两类状态分别展示；失访不等于死亡，缺失日期不生成已知历史结局',on:true},
+ {id:'MR12',dim:'随访与结局',input:'确诊日期 + 死亡 / 末次随访日期',out:'观察时长',logic:'有效日期差换算月数，零天保留零；不替代长期生存率',on:true},
+ {id:'MR13',dim:'指标汇总',input:'37 个同源画像字段 + 统计范围',out:'画像总览 / 核对记录 / CSV',logic:'共用字段读取、统计对象、分母与截止日；费用仅累计明确归属单瘤例的净额，共同费用单列',on:true}
 ];
 var SP_RULE_TEMPLATES=['按行政区划聚合','拼接生成结论行','区间映射为分层','关键字匹配打标','计数聚合为占比','任一阳性即标记'];
 /* NLP 结构化提取结果：原文片段 → 画像要素，状态可采纳/忽略 */
@@ -2485,26 +2544,99 @@ var _spNlp=[
  {id:'NLP06',src:'随访记录 · 刘雅琴',snippet:'内分泌维持中，未见复发征象',el:'复发',val:'暂无复发记录',conf:94,st:'已采纳'}
 ];
 /* 智能校验：实时按数据执行 */
+function spCheckFields(keys){return tumorEvents.filter(function(e){return keys.some(function(k){var r=spProfileRead(e,k);return r.state==='missing'||r.state==='conflict'})})}
+function spCheckResult(rows,ok){return {bad:rows,detail:rows.length?rows.map(function(e){return e.patient}).join('、'):ok}}
 var SP_CHECKS=[
- {id:'R001',name:'临床分期/分期确认日期缺失',run:function(){var bad=tumorEvents.filter(function(e){return !e.stage||!e.stageDate});return {bad:bad,detail:bad.length?bad.map(function(e){return e.patient}).join('、'):'全部患者分期及确认日期完整'}}},
- {id:'R002',name:'形态学 ICD-O-3 无法编码',run:function(){var bad=tumorEvents.filter(function(e){return !spMorphCode(e)});return {bad:bad,detail:bad.length?bad.map(function(e){return e.patient+'（'+e.path+'）'}).join('、'):'全部患者形态学可编码'}}},
- {id:'R003',name:'原发部位 ICD-10 无法编码',run:function(){var bad=tumorEvents.filter(function(e){return !spTopoCode(e)});return {bad:bad,detail:bad.length?bad.map(function(e){return e.patient+'（'+e.site+'）'}).join('、'):'全部患者部位可编码'}}},
- {id:'R004',name:'诊断依据缺失',run:function(){var bad=tumorEvents.filter(function(e){return !e.diagBasis});return {bad:bad,detail:bad.length?bad.map(function(e){return e.patient}).join('、'):'诊断依据齐全'}}},
- {id:'R006',name:'治疗方式缺失',run:function(){var bad=tumorEvents.filter(function(e){return !e.treatMode||!e.treatMode.length});return {bad:bad,detail:bad.length?bad.map(function(e){return e.patient}).join('、'):'全部患者均有治疗记录'}}},
- {id:'R007',name:'首次治疗日期缺失（无法算治疗及时性）',run:function(){var bad=tumorEvents.filter(function(e){return !spFirstTreat(e)});return {bad:bad,detail:bad.length?bad.map(function(e){return e.patient}).join('、'):'全部患者首次治疗日期可推算'}}},
- {id:'R008',name:'治疗日期倒挂（首次治疗早于确诊/分期确认）',run:function(){var bad=tumorEvents.filter(function(e){return (e.tConfirm&&e.tTreat&&e.tConfirm>e.tTreat)||(e.stageDate&&e.tTreat&&e.stageDate>e.tTreat)});return {bad:bad,detail:bad.length?bad.map(function(e){return e.patient+'（首次治疗'+e.tTreat+'）'}).join('、'):'确诊/分期确认均不晚于首次治疗'}}},
- {id:'R009',name:'疾病状态未评价（RECIST）',run:function(){var bad=tumorEvents.filter(function(e){return !e.recist||!e.recistDate});return {bad:bad,detail:bad.length?bad.map(function(e){return e.patient}).join('、'):'全部患者均有 RECIST 评价及日期'}}},
- {id:'R010',name:'ECOG 体能评分缺失',run:function(){var bad=tumorEvents.filter(function(e){return !e.physical||!e.ecogDate});return {bad:bad,detail:bad.length?bad.map(function(e){return e.patient}).join('、'):'ECOG 及评估日期齐全'}}},
- {id:'R011',name:'末次随访超90天未更新',run:function(){var bad=tumorEvents.filter(function(e){return e.followStatus==='随访中'&&e.lastFu<'2026-06-13'});return {bad:bad,detail:bad.length?bad.map(function(e){return e.patient+'（'+e.lastFu+'）'}).join('、'):'随访更新及时'}}},
- {id:'R012',name:'死亡日期/原因未填写',run:function(){var bad=tumorEvents.filter(function(e){return e.vitalStatus==='死亡'&&(!e.deathDate||!e.deathCause)});return {bad:bad,detail:bad.length?bad.map(function(e){return e.patient}).join('、'):'死亡日期与原因均已登记'}}},
- {id:'R013',name:'生存时间无法推算',run:function(){var bad=tumorEvents.filter(function(e){return spSurvival(e).n===null});return {bad:bad,detail:bad.length?bad.map(function(e){return e.patient}).join('、'):'全部患者生存时间可自动推算'}}}
+ {id:'R001',name:'分期期别缺失',run:function(){return spCheckResult(spCheckFields(['stage']),'分期期别完整')}},
+ {id:'R002',name:'形态学 ICD-O-3 无法编码',run:function(){return spCheckResult(spCheckFields(['icdo3morph']),'形态学编码完整')}},
+ {id:'R003',name:'原发部位 ICD-10 无法编码',run:function(){return spCheckResult(spCheckFields(['icd10']),'原发部位编码完整')}},
+ {id:'R004',name:'诊断依据缺失',run:function(){return spCheckResult(spCheckFields(['diag_basis']),'诊断依据齐全')}},
+ {id:'R006',name:'未见有效治疗执行记录',run:function(){return spCheckResult(spCheckFields(['tfirst']),'全部瘤例有有效治疗执行记录')}},
+ {id:'R007',name:'首次治疗日期缺失',run:function(){return spCheckResult(spCheckFields(['tfirst']),'首次治疗日期可推算')}},
+ {id:'R008',name:'确诊至首次治疗不可计算',run:function(){return spCheckResult(spCheckFields(['diag_to_treat']),'有效诊疗日期可计算间隔')}},
+ {id:'R011',name:'末次随访超 90 天未更新',run:function(){var bad=tumorEvents.filter(function(e){var r=spProfileRead(e,'lastfu');return spFollowState(e)==='随访中'&&(r.state!=='valid'||(Date.parse(spCutoff())-Date.parse(r.value))/86400000>90)});return spCheckResult(bad,'当前随访中记录均在 90 天内更新')}},
+ {id:'R012',name:'死亡日期 / 原因未填写',run:function(){return spCheckResult(spCheckFields(['deathdate','death']),'已确认死亡记录的日期与原因完整')}},
+ {id:'R013',name:'观察时长无法推算',run:function(){return spCheckResult(spCheckFields(['survival']),'观察时长可推算')}}
 ];
 var _spCheckTime='2026-09-11 08:30';
-var SP_ELEM_CHECK={stage:'R001',site_path:'R002',diag_basis:'R004',modes:'R006',tfirst:'R007',lastfu:'R011',death:'R012',survival:'R013'};
+var SP_ELEM_CHECK={stage:'R001',icdo3morph:'R002',icd10:'R003',diag_basis:'R004',tfirst:'R007',diag_to_treat:'R008',lastfu:'R011',deathdate:'R012',death:'R012',survival:'R013'};
 function spCheck(id){return SP_CHECKS.filter(function(c){return c.id===id})[0];}
 /* 画像版本：含变更明细 */
 var SP_VERSIONS=[
-  {v:'V13.0',time:'2026-10-25',by:'管理员',desc:'患者群体总览统计口径修订与原型同步优化',cur:true,changes:[
+  {v:'V14.8',time:'2026-11-03',by:'管理员',desc:'检查检验记录面板标题去掉「（6条 · 点击查看结果）」',cur:true,changes:[
+    '按业务确认，详情页「检查检验记录」面板标题只保留名称，去掉括号内的条数与操作提示',
+    '条数属表格信息，逐行可见，写在标题里会随记录增减变化而抖动；「点击查看结果」与每行右侧的「查看结果」按钮重复',
+    '同时清理只为拼这个标题而存在的 exList 变量，spExamTable 仍按 SP_EXAMS 自行取数',
+    '「治疗机构变化（N 条）」保留条数：该面板首屏可能折叠且条数代表派生记录量，与检查表性质不同']},
+  {v:'V14.7',time:'2026-11-03',by:'管理员',desc:'肿瘤特征块删除「分期确认日期」一项',cur:false,changes:[
+    '按业务确认，块2「瘤种、分级与分期」删除「分期确认日期」：TNM 与分期期别已能判定分期是否成立，单独再列一个日期属于同一判定链上的重复展示',
+    '字段定义 stagedate 一并删除（SP_PROFILE_FIELDS 由 37 项减为 36 项、详情展示由 36 项减为 35 项），配置页要素 DE02a「分期确认日期（分期有效性判定）」同步移除',
+    '校验规则 R001 由「分期期别 / 分期确认日期缺失」改为「分期期别缺失」，SP_ELEM_CHECK 去掉 stagedate 绑定；分期缺失判定不再要求该日期',
+    '总览「肿瘤特征」下方「分期与编码明细」表去掉该列；spProfileRead 的日期冲突检查去掉 stagedate 分支，不留失效键',
+    '底层 stageDate 数据保留：TNM 与分期期别的截止日过滤、画像时间线的「明确诊断」节点、多原发瘤例排序仍按它取值，属过程数据而非展示字段',
+    '肿瘤特征块由 11 项减为 10 项：原发部位 / 病理类型 / ICD-10 / ICD-O-3 部位码 / ICD-O-3 形态码 / 分级 / TNM / 分期期别 / 确诊日期 / 诊断依据']},
+  {v:'V14.6',time:'2026-11-03',by:'管理员',desc:'患者基础块「筛查参与」改为「筛查机构」，展示筛查实施机构',cur:false,changes:[
+    '按业务确认，块1「筛查参与」一项改为「筛查机构」：原值是「有筛查记录 / 未参与 / 不详」的状态判定，与同组的筛查项目、时间、结果、建议并列时既非字段也非事实，改用筛查记录上的实施机构',
+    '取数改为筛查记录的医疗机构（screenOrg），与筛查项目 / 时间 / 结果 / 建议同源；缺失显示「未记录」，不回退到就诊机构，避免把「在哪治病」当成「在哪筛查」',
+    '小标题由「筛查参与信息」改为「筛查信息」：本组已无参与状态项，保留原标题会名实不符',
+    '总览「患者基础」段原「筛查参与」环图改为「筛查机构」条形图（13 家机构），末组「就诊医院 / 筛查项目」保持两列',
+    '筛查参与状态口径（spScreenStatus）与指标「队列筛查记录覆盖」保留在聚合层，仅不再占据详情键值位与总览图表位',
+    '14 例样例按各自筛查项目补筛查机构：肺癌/肝癌/结直肠癌等机会性筛查取首诊社区卫生服务中心，结肠癌机会性筛查取省肿瘤医院',
+    '画像字段仍为 37 项、详情展示 36 项（互换而非新增），配置页要素 PE06 同步更名为「筛查机构」']},
+  {v:'V14.5',time:'2026-11-03',by:'管理员',desc:'患者专科画像列表关键字改为按报告卡编号 / 姓名 / 身份证号检索',cur:false,changes:[
+    '关键字占位提示由「姓名 / 地区 / 瘤种 / 医院」改为「报告卡编号 / 姓名 / 身份证号」，与 spWbFiltered 实际匹配字段一致',
+    '匹配字段收敛为报告卡编号、姓名、身份证号三项：瘤种、地市、医院已有各自下拉，关键字再重复匹配属同一条件两条路径，命中来源难判断',
+    '报告卡编号与身份证号按不区分大小写匹配，兼容身份证末位 x / X 与卡片编号录入不一致',
+    '地区（户籍地市及区县）不再由关键字命中，改由「地市」下拉过滤；筛选栏仍为 6 项条件、条件间「与」关系不变',
+    '重置、查询、总览下钻（_spGpToPatients）与证据弹窗（_spEvidencePatient）读写同一 _wbFilters.q，交互行为不变']},
+  {v:'V14.4',time:'2026-11-02',by:'管理员',desc:'画像详情删除「治疗机构变化」一项，小标题改为「治疗与 MDT」',cur:false,changes:[
+    '按业务确认，诊疗过程块内删除「治疗机构变化 有变化 / 未观察到变化」：该值由患者全部治疗的机构时间序列自动派生，属于过程明细，放在四块画像的键值位与「首次治疗日期」「MDT」并列会被当成一条采集字段',
+    '机构变化本身不丢失：页面下方仍有「治疗机构变化（N 条）」明细表与画像时间线的机构变化节点，逐条给出 A→B 的日期与去向',
+    '小标题随之由「治疗与转诊」改为「治疗与 MDT」——本组已不含转诊相关项，避免名实不符',
+    '字段定义、指标（治疗机构变化患者占比）、总览图表与配置页要素 TR05 均保留，只去掉详情页这一处展示位',
+    '诊疗过程块由 6 项减为 5 项（首次治疗日期 / 确诊至首次治疗 / MDT 会诊 + 六类治疗方式）']},
+  {v:'V14.3',time:'2026-11-02',by:'管理员',desc:'画像详情「治疗方式（六类）」文案去掉（六类）括注',cur:false,changes:[
+    '按业务确认，诊疗过程块内小标题由「治疗方式（六类）」改为「治疗方式」：手术/放疗/化疗/靶向/免疫/内分泌六个分项已由字段本身逐一列出，括注重复且占位',
+    '只改展示文案，不改口径：六类仍各自独立判定「有 / 明确无 / 未记录」，介入等六类以外记录仍单独一行按实际展示',
+    '画像指标汇总的治疗堆叠图与配置页「治疗方式分项（六类）」要素名保持不变——那里需要点明统计口径，详情页是记录展示，不必再标类数']},
+  {v:'V14.2',time:'2026-11-02',by:'管理员',desc:'多原发瘤例切换键上移至患者信息条，肿瘤特征块头恢复纯标题',cur:false,changes:[
+    '按业务确认，多原发切换键从「肿瘤特征」块头右侧移到页面顶部患者信息条右侧：切换的是整页画像（四块内容都随之变化），放在块 2 的标题旁会误读成只切换肿瘤特征',
+    '患者条由两列改为三列（头像 / 姓名+身份信息 / 切换键），切换键仍右对齐；块 2 块头去掉追加区，spBlockWith 一并删除，块标题回到「编号 + 标题」两段结构',
+    '≤900px 窄屏降级：患者条回两列，切换键整行换行到姓名下方，页签自动等宽，不挤压姓名与脱敏号',
+    '单瘤例患者仍不渲染切换键，患者条自动收为两列，版式与改动前一致',
+    '切换、页签高亮、跨患者拦截等行为不变，仅位置与容器变化']},
+  {v:'V14.1',time:'2026-11-02',by:'管理员',desc:'患者专科画像列表移除「分期」筛选条件',cur:false,changes:[
+    '按业务确认，患者列表筛选栏删除「分期」下拉：分期是肿瘤特征的分析维度，放在列表查询条件里与「瘤种/地市/医院/随访状态/是否多原发」这类对象属性并列不成立',
+    '同步清理 _wbFilters.stage 字段与 spWbFiltered 中的分期判定、_spWbQuery/_spWbReset/_spGpToPatients/_spEvidencePatient 的 stage 赋值，不留失效状态位',
+    '筛选栏由 7 项减为 6 项：关键字 / 瘤种 / 地市 / 医院 / 随访状态 / 是否多原发，其余条件组合与「与」关系不变',
+    '分期构成、早诊率、IV 期占比等分期相关指标与图表不受影响（仍见画像指标汇总与详情页肿瘤特征）']},
+  {v:'V14.0',time:'2026-10-30',by:'管理员',desc:'画像字段与指标总览同源，支持逐项核对与费用对账',cur:false,changes:['37 个画像字段共用读取器，详情、总览、缺失统计及导出一致','按四个画像分区重组总览，移除无依据的官方基准与达标判定','治疗方式区分有、明确无、未记录；TNM、分级与期别独立统计','生存状态与随访状态分开，补充死亡日期并明确观察时长的计算','单瘤例医保净额与画像相加一致，共同费用单列说明','详情页记录表标题由「转院就诊记录」改为「治疗机构变化」，与时间线图例和群体指标口径统一，表格内容与派生规则不变']},
+  {v:'V13.6',time:'2026-10-30',by:'管理员',desc:'总览医保费用分析展示演示计算结果并醒目标注统计口径',cur:false,changes:['总览无真实结算接口时也展示样例累计费用、覆盖人数、人均费用、个人支付与省外费用占比及支付/费用类别构成','样例仅用于演示计算口径，不代表真实总体统计或正式监管结论；真实统计仍严格只纳入 mode=live 结算']},
+  {v:'V13.3',time:'2026-10-30',by:'管理员',desc:'患者详情展示卫健委视角的医疗费用概览；转院记录按治疗机构变化自动生成',cur:false,changes:['费用概览仅保留累计医疗费用、个人支付及占比、次均住院费用、省外医疗费用及占比，按当前瘤例累计展示，移除筛选和结算操作，演示数据明确标注','按患者治疗执行时间排序，连续同院合并，A→B→A生成两次变化，同日多机构时序不明时待确认','详情、时间线和群体治疗机构变化指标共用派生规则；不再依赖医院转诊数据']},
+  {v:'V13.2',time:'2026-10-30',by:'管理员',desc:'指标口径改为对齐《卫健领导关注指标总表》：指标名、计算口径、参考基准与达标判定均取自总表，删除无业务价值的构成图',cur:false,changes:[
+   '新增 SP_METRIC_KPI：9 个官方指标（早诊率、IV 期占比、TNM 分期缺失率、病理确诊率 MV%、MDT 覆盖率、随访覆盖率、失访率、县域内就诊率、省内跨市就医率）逐项绑定官方指标名、计算口径、参考基准与指标总表出处',
+   '新增 spKpiJudge 达标判定：按「越高越好/越低越好」方向与基准比较，输出 达标 / 预警 / 未达标；无基准指标只报值不判达标，避免自造结论',
+   '顶部八项核心概况与各段指标卡统一改用官方指标口径，每张卡显示「数值 + 有效分母 + 参考基准 + 达标标签」，hover 显示官方口径与画像字段来源',
+   '新增 TNM 分期缺失率指标（总表 B 类★核心项）：分母排除「不适用」瘤种，分子为分期不详瘤例',
+   '删除「确诊年份构成」「户籍区县构成」两图：前者对群体分析无决策价值，后者与地市下钻重复；段①改为 年龄构成 / 年龄与性别 / 医保类型 / 瘤种构成 / 分期构成 / 关键字段有效情况',
+   '段②新增「分瘤种早诊情况」（早诊率 / IV 期占比 / 分期缺失率）与「分地市早诊差异（按 IV 期占比降序）」，把总表里的地区与病种差异落成可对标表',
+   '段③指标卡改为 病理确诊率 / MDT 覆盖率 / 多方式治疗率 / 治疗启动覆盖，去掉无基准的转诊占比与日期冲突卡（保留为表内明细）',
+   '段④缺口清单按总表口径改写为 5 年相对生存率、随访新增转移/复发风险、治疗完成与不良反应发生率、生存随访完成率（满 5 年）',
+   '指标明细表新增「参考基准」「达标判定」两列，分组按总表分类改名 B 早期发现 / C 规范诊疗 / D 随访管理 / E 就医流向；CSV 同步输出官方指标名、基准与判定',
+   '分瘤种与分地市矩阵增加「分期缺失率」列，早诊率列名改为官方叫法，便于直接对照总表']},
+  {v:'V13.1',time:'2026-10-30',by:'管理员',desc:'指标汇总改为严格按专科画像字段取数：每项指标可溯源，画像未采集字段不再生成数值',cur:false,changes:[
+   '新增画像字段字典 SP_PORTRAIT_FIELDS 与指标映射 SP_METRIC_FIELD：指标汇总的唯一取数白名单，逐项对应画像四块展示字段及业务来源',
+   '指标明细表与 CSV 新增「画像字段」「字段来源」两列，任一数字都能反查到画像详情页的哪一项、从哪个系统取数',
+   '删除画像未采集字段支撑的指标：既往史构成、症状记录、发现途径、初诊远处转移、既往外省诊疗、ECOG/营养、RECIST 疗效、复发/进展/转移、姑息/安宁疗护',
+   '删除无取数基础的指标：首次新确诊患者数（缺历史首次确诊日期）、按期随访完成率（缺随访任务表）、随访在管患者数（缺管理状态字段）',
+   '「在管」改为按画像随访工作状态=随访中且存活、未失访判定；「转诊记录占比」改为按有效转院就诊记录判定，分母为转诊状态可判定瘤例',
+   '新增第六组「画像未采集字段」：只列字段、来源与受影响指标，一律不生成数值，便于按缺口补数据字典与接口',
+   '治疗方式按画像口径收敛为六类（手术/放疗/化疗/靶向/免疫/内分泌），介入等非六类记录按实际展示但不参与占比',
+   '患者画像「肿瘤特征」补分期期别与分期确认日期，「诊疗过程」补确诊至首次治疗间隔与转诊记录，使汇总的早晚期占比、诊疗时效、转诊占比有对应展示项',
+   '八项核心概况改为 患者数/瘤例数/早期占比/IV期占比/治疗启动覆盖/MDT占比/随访覆盖/失访占比，全部落在画像字段上',
+   '段②段③段④的图表位补入「确诊年份构成」「分瘤种筛查覆盖」「首次治疗日期可推算情况」「观察时长分组」，替换被删除的无依据图表',
+   '配置页同步：治疗方式要素改称「六类」，诊断依据覆盖率改由 spDiagBasisType 判定，转诊覆盖率改按转院记录判定']},
+  {v:'V13.0',time:'2026-10-25',by:'管理员',desc:'患者群体总览统计口径修订与原型同步优化',cur:false,changes:[
    '统一患者/瘤例去重、确诊区间和截止日，区分存活、死亡、失访与在管记录',
    '各指标标明有效分母、不详与不适用；年龄和诊疗时效直接按有效日期计算',
    '取消无依据达标结论、累计漏斗和固定费用估算，正式生存与费用明确显示数据缺口',
@@ -2898,20 +3030,33 @@ window._spMapMetric=function(m){
   window._spBindMap();
 };
 window._spSetDomain=function(d){
+  if(!SP_DOMAINS.some(function(item){return item.key===d}))return;
   _spDomain=d;
   var body=document.getElementById('spDomainBody');
   if(body){
     var list=spScopeEvents(_spScope);
-    body.innerHTML=spDomainPanel(list,spAgg(list),spSiteRows(list),spCityRows(list));
+    body.innerHTML=spDomainPanel(list);
+    body.setAttribute('aria-labelledby','spDomainTab-'+d);
     var tabs=document.querySelectorAll('#spMainContent .sp-domain-tab');
     for(var i=0;i<tabs.length;i++){
-      if(tabs[i].getAttribute('onclick').indexOf("'"+d+"'")>=0)tabs[i].classList.add('active');
-      else tabs[i].classList.remove('active');
+      var selected=tabs[i].dataset.domain===d;
+      tabs[i].classList.toggle('active',selected);tabs[i].setAttribute('aria-pressed',String(selected));
+      tabs[i].setAttribute('aria-selected',String(selected));tabs[i].tabIndex=selected?0:-1;
     }
     /* 滚动定位到 Tab 行：点击后既能看到激活的 Tab 又能看到面板内容 */
     var tabsBox=document.querySelector('#spMainContent .sp-domain-tabs');
     (tabsBox||body).scrollIntoView({block:'start',behavior:'smooth'});
   }
+};
+window._spDomainKey=function(event,tab){
+  var index=SP_DOMAINS.findIndex(function(d){return d.key===tab.dataset.domain}),next;
+  if(event.key==='ArrowRight')next=(index+1)%SP_DOMAINS.length;
+  else if(event.key==='ArrowLeft')next=(index-1+SP_DOMAINS.length)%SP_DOMAINS.length;
+  else if(event.key==='Home')next=0;
+  else if(event.key==='End')next=SP_DOMAINS.length-1;
+  else return;
+  event.preventDefault();window._spSetDomain(SP_DOMAINS[next].key);
+  document.getElementById('spDomainTab-'+SP_DOMAINS[next].key).focus({preventScroll:true});
 };
 window._spGoIssue=function(domain,city,site){
   if(city)_spScope.city=city;
@@ -2922,7 +3067,7 @@ window._spGoIssue=function(domain,city,site){
 /* 群体 → 明细闭环：带当前地市/瘤种筛选条件跳回板块01患者列表 */
 window._spGpToPatients=function(){
   _wbDetail=null;
-  _wbFilters={q:'',site:_spScope.site,stage:'',city:_spScope.city,hospital:'',fu:''};
+  _wbFilters={q:'',site:_spScope.site,city:_spScope.city,hospital:'',fu:''};
   _wbOverviewSelection={scope:Object.assign({},_spScope),ids:spScopeEvents(_spScope).map(function(e){return e.id}),label:spScopeLabel()};
   if(typeof navigateTo==='function')navigateTo('sp-patients');
   else{_spSub='workbench';spRefresh();}
@@ -2941,11 +3086,11 @@ window._spMetricPatients=function(id){
 };
 window._spWbQuery=function(){
   var g=function(id){var el=document.getElementById(id);return el?String(el.value||'').trim():''};
-  _wbFilters={q:g('spWbQ'),site:g('spWbSite'),stage:g('spWbStage'),city:g('spWbCity'),hospital:g('spWbHospital'),fu:g('spWbFu'),mp:g('spWbMp')};
+  _wbFilters={q:g('spWbQ'),site:g('spWbSite'),city:g('spWbCity'),hospital:g('spWbHospital'),fu:g('spWbFu'),mp:g('spWbMp')};
   spRefresh();
 };
 window._spWbReset=function(){
-  _wbOverviewSelection=null;_wbFilters={q:'',site:'',stage:'',city:'',hospital:'',fu:'',mp:''};spRefresh();
+  _wbOverviewSelection=null;_wbFilters={q:'',site:'',city:'',hospital:'',fu:'',mp:''};spRefresh();
 };
 window._spOpenDetail=function(id){
   _wbDetail=id;spRefresh();
@@ -3228,5 +3373,5 @@ function render(sub){
 }
 window.renderSpecialtyPortrait=render;
 /* 调试导出：仅供本地回归测试读取内部状态，不影响业务逻辑 */
-if(window.__SP_TEST__){window.__SP_TEST__={tumorEvents:function(){return tumorEvents},spDetailPage:function(e){return spDetailPage(e)},spProfileCompleteness:function(e){return spProfileCompleteness(e)},spDiagBasisType:function(e){return spDiagBasisType(e)},spGradeText:function(e){return spGradeText(e)},_spElements:function(){return _spElements},SP_ELEM_CHECK:function(){return SP_ELEM_CHECK},SP_ELEM_FIELD_MAP:function(){return SP_ELEM_FIELD_MAP},spFieldFn:function(k){return spFieldFn(k)},spCheck:function(id){return spCheck(id)}};}
+if(window.__SP_TEST__){window.__SP_TEST__={SP_PROFILE_SECTIONS:function(){return SP_PROFILE_SECTIONS},tumorEvents:function(){return tumorEvents},spDetailPage:function(e){return spDetailPage(e)},spProfileCompleteness:function(e){return spProfileCompleteness(e)},spDiagBasisType:function(e){return spDiagBasisType(e)},spGradeText:function(e){return spGradeText(e)},_spElements:function(){return _spElements},SP_ELEM_CHECK:function(){return SP_ELEM_CHECK},SP_ELEM_FIELD_MAP:function(){return SP_ELEM_FIELD_MAP},spFieldFn:function(k){return spFieldFn(k)},spCheck:function(id){return spCheck(id)},spKpiJudge:function(id,m){return spKpiJudge(id,m)},SP_METRIC_KPI:function(){return SP_METRIC_KPI},spStage:function(e){return spStage(e)},spAgg:function(l){return spAgg(l)},spScopeEvents:function(){return spScopeEvents({})},spMetricsFlatRows:function(){return spMetricsFlatRows()},spDomainPanel:function(d){_spDomain=d;var l=spScopeEvents(_spScope);return spDomainPanel(l,spAgg(l),spSiteRows(l),spCityRows(l))},SP_PORTRAIT_FIELDS:function(){return SP_PORTRAIT_FIELDS},SP_METRIC_FIELD:function(){return SP_METRIC_FIELD},SP_GAP_FIELDS:function(){return SP_GAP_FIELDS},spModeFlags:function(e){return spModeFlags(e)},spOtherModes:function(e){return spOtherModes(e)},spInstitutionChanges:spInstitutionChanges,spReferralState:spReferralState,spRefTable:spRefTable,spTimeline:spTimeline,spPatientKey:spPatientKey,spProfileFields:function(){return SP_PROFILE_FIELDS},spProfileRead:spProfileRead,spFieldSummary:spFieldSummary,spFirstTreat:spFirstTreat,spModeState:spModeState,spCostContext:spCostContext};}
 })();

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>登录 · 江西省肿瘤登记直报系统</title>
+<style>
+:root{
+  --blue:#2f6fd0; --blue-2:#3b82f6;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--font);min-height:100%;display:flex;align-items:center;justify-content:center;
+  padding:48px 56px;color:#fff;
+  background-color:#081a31;
+  background-image:
+    linear-gradient(105deg,rgba(4,14,30,.92) 0%,rgba(5,17,36,.68) 46%,rgba(4,14,30,.40) 100%),
+    radial-gradient(1500px 950px at 64% 36%,rgba(24,64,128,.30),transparent 66%),
+    url('login-hero.jpg'),
+    linear-gradient(135deg,#081a31 0%,#0d2444 48%,#071528 100%);
+  background-size:cover,cover,cover,auto;
+  background-position:center,center,center 42%,center;
+  background-repeat:no-repeat;
+  background-attachment:fixed,fixed,fixed,fixed;
+}
+body::after{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+}
+/* ---------- 布局 ---------- */
+.stage{
+  position:relative;z-index:1;width:100%;max-width:1280px;
+  display:grid;grid-template-columns:1fr 432px;gap:88px;align-items:center;
+}
+/* ---------- 左：超大标题 ---------- */
+.hero{animation:rise .8s cubic-bezier(.16,1,.3,1) both}
+.kicker{
+  display:flex;align-items:center;gap:10px;margin-bottom:22px;
+  font-size:11.5px;font-weight:600;letter-spacing:5px;color:rgba(156,197,255,.72);
+}
+.kicker i{width:7px;height:7px;border-radius:50%;background:#37e0b4;box-shadow:0 0 10px rgba(55,224,180,.9);animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.hero h1{
+  font-size:clamp(46px,4.9vw,64px);font-weight:700;line-height:1.32;letter-spacing:8px;
+  background:linear-gradient(180deg,#ffffff 32%,#9dc0ff 95%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 12px 34px rgba(30,80,180,.38));
+}
+.accent{
+  width:88px;height:5px;border-radius:3px;margin-top:30px;
+  background:linear-gradient(90deg,#3b82f6,#22d3ee);
+  box-shadow:0 0 18px rgba(59,130,246,.65);
+}
+/* ---------- 右：深色玻璃卡（渐变描边） ---------- */
+.card{
+  position:relative;width:100%;padding:32px 34px 26px;border-radius:24px;
+  background:linear-gradient(180deg,rgba(17,33,60,.62),rgba(9,20,40,.58));
+  backdrop-filter:blur(28px) saturate(1.5);-webkit-backdrop-filter:blur(28px) saturate(1.5);
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow:0 36px 90px rgba(2,8,20,.58),inset 0 1px 0 rgba(255,255,255,.16);
+  animation:rise .8s .14s cubic-bezier(.16,1,.3,1) both;
+}
+.card::before{ /* 渐变光环描边 */
+  content:"";position:absolute;inset:-1px;border-radius:25px;padding:1px;pointer-events:none;
+  background:linear-gradient(160deg,rgba(255,255,255,.42),rgba(255,255,255,.05) 34%,transparent 62%,rgba(120,175,255,.38));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude;
+}
+@keyframes rise{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+.view{display:none}.view.on{display:block;animation:fade .35s ease both}
+@keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+/* 卡头：徽标 + 欢迎语 */
+.card-hd{display:flex;align-items:center;gap:13px;margin-bottom:24px}
+.logo-tile{
+  width:42px;height:42px;flex:none;border-radius:12px;display:grid;place-items:center;
+  background:linear-gradient(135deg,#2f6fd0,#22d3ee);
+  box-shadow:0 8px 22px rgba(38,110,196,.45),inset 0 1px 0 rgba(255,255,255,.4);
+}
+.logo-tile svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.hd-t{font-size:19px;font-weight:600;letter-spacing:2px;color:#f2f7ff}
+.hd-s{font-size:11px;letter-spacing:1.5px;color:rgba(160,190,235,.55);margin-top:3px}
+/* ---------- 浮动标签输入 ---------- */
+.field{position:relative;margin-bottom:16px}
+.field input{
+  width:100%;height:58px;padding:25px 14px 8px 44px;border-radius:14px;
+  border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.055);
+  color:#eef4ff;font-size:14.5px;font-family:var(--font);outline:none;
+  transition:border-color .2s,background .2s,box-shadow .2s;
+}
+.field input:hover{border-color:rgba(255,255,255,.24)}
+.field input:focus{border-color:rgba(126,176,255,.85);background:rgba(255,255,255,.10);box-shadow:0 0 0 4px rgba(59,130,246,.20)}
+.field input::placeholder{color:transparent}
+.field .f-ico{
+  position:absolute;left:15px;top:19px;width:19px;height:19px;pointer-events:none;
+  stroke:rgba(198,220,255,.75);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;
+  transition:stroke .2s;
+}
+.field input:focus~.f-ico{stroke:#8fc1ff}
+.field label{
+  position:absolute;left:44px;top:18px;font-size:14.5px;letter-spacing:.5px;
+  color:rgba(192,212,244,.5);pointer-events:none;transition:all .18s ease;font-family:var(--font);
+}
+.field input:focus~label,.field input:not(:placeholder-shown)~label{
+  top:7px;left:45px;font-size:10.5px;font-weight:600;letter-spacing:1.5px;color:#9cc2ff;
+}
+.field.pwd input{padding-right:48px}
+.field.cap input{padding-right:106px}
+.field.sms input{padding-right:118px}
+.eye{position:absolute;right:9px;top:50%;transform:translateY(-50%);border:0;background:transparent;cursor:pointer;padding:6px;display:grid;place-items:center;color:rgba(184,208,248,.68);border-radius:8px}
+.eye:hover{color:#8fc1ff;background:rgba(255,255,255,.07)}
+.eye svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.captcha{
+  position:absolute;right:10px;top:11px;width:86px;height:36px;border-radius:9px;cursor:pointer;
+  background:linear-gradient(180deg,#f4f8fe,#e4edf9);border:1px solid rgba(255,255,255,.45);
+  display:grid;place-items:center;font-size:16px;font-weight:800;letter-spacing:4px;
+  color:#1d4fa3;font-style:italic;user-select:none;transition:transform .2s,box-shadow .2s;
+}
+.captcha:hover{transform:scale(1.05);box-shadow:0 6px 16px rgba(2,10,25,.4)}
+.sms-btn{
+  position:absolute;right:9px;top:11px;height:36px;padding:0 13px;border-radius:9px;cursor:pointer;
+  border:1px solid rgba(150,190,255,.5);background:rgba(59,130,246,.18);
+  color:#bcd6ff;font-size:12.5px;font-weight:600;font-family:var(--font);white-space:nowrap;
+  transition:background .2s,border-color .2s;
+}
+.sms-btn:hover{background:rgba(59,130,246,.32);border-color:rgba(170,205,255,.75)}
+.sms-btn:disabled{cursor:not-allowed;background:rgba(255,255,255,.06);color:rgba(180,200,230,.4);border-color:rgba(255,255,255,.12)}
+/* 记住我 / 忘记密码 */
+.row-opts{display:flex;align-items:center;justify-content:space-between;margin:2px 2px 18px}
+.remember{display:flex;align-items:center;gap:8px;font-size:12.5px;color:rgba(190,208,240,.68);cursor:pointer;user-select:none}
+.remember input{display:none}
+.remember i{position:relative;width:15px;height:15px;flex:none;border:1px solid rgba(255,255,255,.3);border-radius:5px;background:rgba(255,255,255,.05);transition:all .18s}
+.remember:hover i{border-color:rgba(160,200,255,.65)}
+.remember input:checked+i{border-color:transparent;background:linear-gradient(135deg,#2f6fd0,#3b82f6);box-shadow:0 3px 10px rgba(47,111,208,.5)}
+.remember input:checked+i::after{content:"";position:absolute;left:4.5px;top:1.5px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.link{border:0;background:transparent;color:rgba(160,190,240,.85);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);padding:2px}
+.link:hover{color:#a8ccff;text-decoration:underline}
+/* 主按钮：渐变 + hover 光扫 */
+.btn-primary{
+  position:relative;width:100%;height:54px;overflow:hidden;border:0;border-radius:14px;cursor:pointer;color:#fff;
+  font-size:16px;font-weight:600;letter-spacing:4px;font-family:var(--font);
+  background:linear-gradient(90deg,#2f6fd0,#3b82f6);
+  box-shadow:0 16px 36px rgba(38,98,196,.5),inset 0 1px 0 rgba(255,255,255,.28);
+  transition:transform .2s,box-shadow .2s,filter .2s;
+}
+.btn-primary::after{
+  content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;pointer-events:none;
+  background:linear-gradient(105deg,transparent,rgba(255,255,255,.35),transparent);
+  transform:skewX(-20deg);transition:left .55s ease;
+}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 20px 44px rgba(48,112,214,.6),inset 0 1px 0 rgba(255,255,255,.28);filter:brightness(1.06)}
+.btn-primary:hover::after{left:130%}
+.btn-primary:active{transform:translateY(0)}
+.tail{display:flex;justify-content:center;margin-top:16px}
+/* toast */
+.toast-box{position:fixed;top:26px;right:26px;z-index:99;display:flex;flex-direction:column;gap:10px}
+.toast-item{
+  min-width:200px;padding:13px 17px 13px 15px;border-radius:12px;font-size:13px;color:#e8f1ff;
+  background:rgba(13,24,44,.92);border:1px solid rgba(255,255,255,.14);
+  border-left:3px solid #3b82f6;box-shadow:0 14px 34px rgba(2,10,25,.5);animation:toastIn .3s ease both;
+}
+.toast-item.ok{border-left-color:#2fd08c}
+.toast-item.err{border-left-color:#ff6b5e}
+@keyframes toastIn{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+@media(max-width:1120px){.stage{grid-template-columns:1fr 400px;gap:56px}}
+@media(max-width:960px){
+  body{padding:40px 24px}
+  .stage{grid-template-columns:1fr;gap:44px;max-width:520px}
+  .hero{text-align:center}
+  .kicker{justify-content:center}
+  .hero h1{font-size:clamp(36px,8.6vw,46px);letter-spacing:6px}
+  .accent{margin-left:auto;margin-right:auto}
+}
+</style>
+</head>
+<body>
+<main class="stage">
+  <!-- 左：一个大标题（大图为全屏真实背景 login-hero.jpg） -->
+  <section class="hero">
+    <div class="kicker"><i></i>CANCER REGISTRY NETWORK · V4.0</div>
+    <h1>江西省肿瘤登记<br>直报信息管理系统</h1>
+    <div class="accent"></div>
+  </section>
+
+  <!-- 右：深色玻璃登录卡 -->
+  <section class="card">
+    <!-- 登录 -->
+    <div class="view on" id="viewLogin">
+      <div class="card-hd">
+        <div class="logo-tile">
+          <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5.5c0 4.4-2.9 7.6-7 9-4.1-1.4-7-4.6-7-9V9z"/><path d="m9 12.5 2 2 4-4.5"/></svg>
+        </div>
+        <div>
+          <div class="hd-t">欢迎登录</div>
+          <div class="hd-s">肿瘤直报 · 数据专区</div>
+        </div>
+      </div>
+      <div class="field">
+        <input id="account" type="text" value="admin" placeholder=" " autocomplete="username">
+        <svg class="f-ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>
+        <label for="account">账号</label>
+      </div>
+      <div class="field pwd">
+        <input id="password" type="password" value="123456" placeholder=" " autocomplete="current-password">
+        <svg class="f-ico" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        <label for="password">密码</label>
+        <button class="eye" type="button" onclick="togglePwd('password',this)" title="显示 / 隐藏密码">
+          <svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <div class="field cap">
+        <input id="captcha" type="text" value="8888" maxlength="4" placeholder=" ">
+        <svg class="f-ico" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="m8 15 3-3 2 2 3-4"/></svg>
+        <label for="captcha">验证码</label>
+        <div class="captcha" id="captchaBox" title="点击换一张" onclick="refreshCaptcha()">8888</div>
+      </div>
+      <div class="row-opts">
+        <label class="remember"><input type="checkbox"><i></i>记住账号</label>
+        <button class="link" type="button" onclick="switchView('reset')">忘记密码？</button>
+      </div>
+      <button class="btn-primary" type="button" onclick="doLogin()">登 录</button>
+    </div>
+
+    <!-- 手机号重置密码 -->
+    <div class="view" id="viewReset">
+      <div class="card-hd">
+        <div class="logo-tile">
+          <svg viewBox="0 0 24 24"><circle cx="8.5" cy="14.5" r="4.5"/><path d="m11.7 11.3 7.3-7.3 2 2-1.8 1.8 1.6 1.6-2 2-1.6-1.6-2.2 2.2"/><path d="m16.5 9.5.01 0"/></svg>
+        </div>
+        <div>
+          <div class="hd-t">重置密码</div>
+          <div class="hd-s">短信验证 · 立即生效</div>
+        </div>
+      </div>
+      <div class="field">
+        <input id="phone" type="tel" value="13800138000" maxlength="11" placeholder=" ">
+        <svg class="f-ico" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
+        <label for="phone">手机号</label>
+      </div>
+      <div class="field sms">
+        <input id="smsCode" type="text" value="8888" maxlength="6" placeholder=" ">
+        <svg class="f-ico" viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg>
+        <label for="smsCode">短信验证码</label>
+        <button class="sms-btn" id="smsBtn" type="button" onclick="sendSms()">获取验证码</button>
+      </div>
+      <div class="field">
+        <input id="newPwd" type="password" placeholder=" ">
+        <svg class="f-ico" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        <label for="newPwd">新密码</label>
+      </div>
+      <div class="field">
+        <input id="newPwd2" type="password" placeholder=" ">
+        <svg class="f-ico" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><path d="m9.5 15.5 1.7 1.7 3.3-3.6"/></svg>
+        <label for="newPwd2">确认新密码</label>
+      </div>
+      <button class="btn-primary" type="button" onclick="doReset()">确认重置</button>
+      <div class="tail"><button class="link" type="button" onclick="switchView('login')">返回登录</button></div>
+    </div>
+  </section>
+</main>
+<div class="toast-box" id="toastBox"></div>
+
+<script>
+/* 模拟登录 / 手机号重置密码：纯前端演示，无后端、无真实短信 */
+function $(id){return document.getElementById(id)}
+function showToast(msg,type){
+  var box=$('toastBox');if(!box)return;
+  var el=document.createElement('div');
+  el.className='toast-item '+(type==='err'?'err':'ok');
+  el.textContent=msg;box.appendChild(el);
+  setTimeout(function(){el.remove()},2600);
+}
+function switchView(which){
+  var isReset=which==='reset';
+  $('viewLogin').classList.toggle('on',!isReset);
+  $('viewReset').classList.toggle('on',isReset);
+}
+function refreshCaptcha(){
+  var code=String(Math.floor(1000+Math.random()*9000));
+  $('captchaBox').textContent=code;
+  $('captcha').value=code;
+  showToast('验证码已更新为 '+code);
+}
+function togglePwd(inputId,btn){
+  var el=$(inputId);if(!el)return;
+  el.type=el.type==='password'?'text':'password';
+  btn.style.color=el.type==='text'?'#8fc1ff':'';
+}
+/* 模拟登录：只校验非空，通过后跳转主系统 */
+function doLogin(){
+  var acc=$('account').value.trim(),pwd=$('password').value.trim(),cap=$('captcha').value.trim();
+  if(!acc){showToast('请填写账号','err');$('account').focus();return}
+  if(!pwd){showToast('请填写密码','err');$('password').focus();return}
+  if(!cap){showToast('请填写验证码','err');$('captcha').focus();return}
+  showToast('登录成功，正在进入系统…');
+  setTimeout(function(){location.href='app.html'},700);
+}
+/* 获取短信验证码：60s 倒计时模拟，不发送真实短信 */
+var smsTimer=null;
+function sendSms(){
+  var phone=$('phone').value.trim();
+  if(!/^1\d{10}$/.test(phone)){showToast('请输入正确的 11 位手机号','err');$('phone').focus();return}
+  $('smsCode').value='8888';
+  showToast('验证码已发送（演示固定为 8888）');
+  var left=60,btn=$('smsBtn');
+  btn.disabled=true;btn.textContent=left+'s 后重发';
+  clearInterval(smsTimer);
+  smsTimer=setInterval(function(){
+    left--;
+    if(left<=0){clearInterval(smsTimer);btn.disabled=false;btn.textContent='获取验证码'}
+    else btn.textContent=left+'s 后重发';
+  },1000);
+}
+/* 模拟重置：校验后把新密码回填登录框并切回登录 */
+function doReset(){
+  var phone=$('phone').value.trim(),code=$('smsCode').value.trim();
+  var p1=$('newPwd').value,p2=$('newPwd2').value;
+  if(!/^1\d{10}$/.test(phone)){showToast('请输入正确的 11 位手机号','err');$('phone').focus();return}
+  if(!code){showToast('请填写短信验证码','err');$('smsCode').focus();return}
+  if(code!=='8888'){showToast('验证码不正确（演示为 8888）','err');$('smsCode').focus();return}
+  if(p1.length<6){showToast('新密码至少 6 位','err');$('newPwd').focus();return}
+  if(p1!==p2){showToast('两次输入的新密码不一致','err');$('newPwd2').focus();return}
+  showToast('密码重置成功，请使用新密码登录');
+  $('password').value=p1;
+  $('captcha').value=$('captchaBox').textContent.trim();
+  $('newPwd').value='';$('newPwd2').value='';
+  clearInterval(smsTimer);$('smsBtn').disabled=false;$('smsBtn').textContent='获取验证码';
+  setTimeout(function(){switchView('login')},900);
+}
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Enter')return;
+  if($('viewReset').classList.contains('on'))doReset();else doLogin();
+});
+if(location.search.indexOf('logout=1')>=0){
+  setTimeout(function(){showToast('已退出登录')},350);
+}
+</script>
+</body>
+</html>

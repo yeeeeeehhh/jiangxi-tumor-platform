@@ -1198,14 +1198,14 @@
      与预警监测 B 层（登记质量预警）规则口径联动：超过预警值的列整列标注预警，
      点击超标列头可直接按 B-COMPLETENESS 规则生成预警 + 工单。
      依据：《中国肿瘤登记年报》《IARC CI5》《中国肿瘤登记工作指导手册》及国家登记质量评价参考 */
-  /* 2026-10-20 追加登记质量五指标（迟报率 / 重复率 / MV% / DCO% / M/I）。
+  /* 2026-10-20 追加登记质量指标（重复率 / MV% / DCO% / M/I）。
      本表除「缺失比例」（越低越好，超上限即预警）外还有两类：
        · ratio 比值（M/I，落在参考区间内才算达标，两端都可能越界）
        · min 正向指标（MV%，低于下限即预警）
      取值统一走 qcRowValue，判定/展示走 qcDev / qcNear，避免各处各写一套方向。
      原「分期与病理完整率」已删：分期完整度由「分期」缺失率反映、病理完整度由「MV%」反映，不再重复立列。 */
   var QC_LIMITS = {
-    '迟报率': { limit: 5, basis: '省级报卡质量考核：报告卡超过上报时限（确诊后 30 日内）的比例参考上限 5%' },
+    /* 迟报率已按需求下线 */
     '重复率': { limit: 3, basis: '国家登记质量评价参考：疑似重复卡（重卡）占比上限 3%，重卡会虚增分子、抬高全部率值' },
     'MV%': { limit: 66, dir: 'min', basis: '《中国肿瘤登记年报》可靠性指标；IARC CI5 收录参考下限 MV%（形态学确诊比例）≥ 66%' },
     'DCO%': { limit: 15, basis: '《中国肿瘤登记年报》完整性指标；DCO%（仅死亡证明来源）上限 15%，与死亡补发病闭环联合研判' },
@@ -1350,7 +1350,7 @@
     /* 登记质量指标（2026-10-20 追加）：排到所有缺失比例列之前（紧跟维度列）。
        2026-10-20 二改：「分期与病理完整率」删除——它与「肿瘤信息缺失比例 ▸ 分期」+「MV%」同源重复，
        且派生值可能高于 MV%，与本列定义冲突；分期完整度看「分期」缺失率、病理完整度看「MV%」，不再另立一列。 */
-    var qualKeys = ['迟报率', '重复率', 'MV%', 'DCO%', 'M/I'];
+    var qualKeys = ['重复率', 'MV%', 'DCO%', 'M/I'];
     var f = factor();
     var headers = qcDimHeaders();
     /* 登记质量数值：以各市登记运营基线（cockpit-module.js 的 META：mv/dco/dup）为锚，
@@ -1370,7 +1370,7 @@
       var total = Math.max(20, Math.round((1220 - index * 126) * f));
       var label = groupLabel(g);
       var warn = +(1.8 + index * 0.5);
-      var late = Math.max(0.4, +(1.2 + index * 0.45 + qcJit(label, index, 1, 0.8)).toFixed(2));
+      /* 迟报率已下线，不再计算 late */
       var dup = Math.max(0.2, +(cityBase(g, 'dup', 2.9) * 0.8 + index * 0.22 + qcJit(label, index, 2, 0.5)).toFixed(2));
       var mv = Math.min(96, +(cityBase(g, 'mv', 74.5) - index * 1.6 + qcJit(label, index, 3, 3.5)).toFixed(2));
       var dco = Math.max(0.3, +(cityBase(g, 'dco', 4.8) * 0.75 + index * 0.18 + qcJit(label, index, 4, 0.6)).toFixed(2));
@@ -1382,7 +1382,7 @@
         outer: +(3.3 + index * 0.55),
         warn: warn,
         fields: fields.map(function (_, fi) { return +(0.9 + index * 0.3 + fi * 0.15); }),
-        '迟报率': late,
+        /* '迟报率' 已按需求下线 */
         '重复率': dup,
         'MV%': mv,
         'DCO%': dco,
@@ -1390,7 +1390,7 @@
       };
       return row;
     });
-    /* 2026-10-20 按需求：登记质量指标（迟报率/重复率/MV%/DCO%/M/I）是登记处级口径，
+    /* 2026-10-20 按需求：登记质量指标（重复率/MV%/DCO%/M/I）是登记处级口径，
        只在「汇总维度 = 区划」时出列；单位 / 用户维度不显示，避免个体口径硬套机构质量指标。 */
     var showQual = state.group === 'region';
     var qualCols = showQual ? qualKeys : [];

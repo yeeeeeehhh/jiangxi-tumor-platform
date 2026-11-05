@@ -873,6 +873,7 @@
       }).join('') + '</select>' +
       '<span class="hd-clock" id="hdClock"></span>' +
       '<button class="hd-btn" onclick="hdRefresh()">刷新</button>' +
+      '<button class="hd-btn" onclick="hdCycleTheme()">配色 · ' + THEME_LABELS[ST.theme] + '</button>' +
       '<button class="hd-btn primary" onclick="hdToggleFs()">' + (ST.fs ? '退出大屏' : '大屏模式') + '</button>' +
       '</div></header>';
   }
@@ -882,7 +883,7 @@
        .hd 是全站通用的卡片标题栏类名（qc-card/qc-modal/mon-card/kb-card 都用它），
        大屏此前把深色背景挂在了裸 .hd 上，导致所有卡片标题栏被染成深色条、文字重叠。
        现改为 .hd-board 专属命名空间，仅承载本大屏的深色容器样式。 */
-    return '<div class="hd-board hd' + (ST.fs ? ' fs' : '') + '">' + header() +
+    return '<div class="hd-board hd t-' + ST.theme + (ST.fs ? ' fs' : '') + (ST.theme === 'light' ? ' hd-light' : '') + '">' + header() +
       '<div class="hd-kpi-row">' + kpiStrip() + '</div>' +
       /* 报告卡质量横条（2026-10-19 新增）：紧接 KPI，构成"核心数据 + 质量"完整首屏 */
       qcBar() +
@@ -1015,6 +1016,27 @@
     rerender();
     toast(ST.fs ? '已进入大屏模式，按 Esc 退出' : '已退出大屏模式');
   }
+  /* 配色主题（2026-11-05 收敛为双皮肤）：night=深色（登录同款沉浸质感，默认）/ light=浅色（墨蓝顶栏+浅色内容）。
+     选择写入 localStorage 持久化，刷新后保持；旧入口 window.hdToggleMono 保留，在深浅之间切换。 */
+  var THEME_ORDER = ['night', 'light'];
+  var THEME_LABELS = { night: '深色', light: '浅色' };
+  function themeSaved() {
+    try { var k = localStorage.getItem('hd-theme'); return THEME_ORDER.indexOf(k) >= 0 ? k : null; } catch (e) { return null; }
+  }
+  function applyTheme(key) {
+    ST.theme = THEME_ORDER.indexOf(key) >= 0 ? key : 'night';
+    ST.mono = false; /* 旧状态镜像，hdGetState.mono 继续可用 */
+    try { localStorage.setItem('hd-theme', ST.theme); } catch (e) { }
+    rerender();
+  }
+  function hdCycleTheme() {
+    applyTheme(THEME_ORDER[(THEME_ORDER.indexOf(ST.theme) + 1) % THEME_ORDER.length]);
+    toast('已切换为' + THEME_LABELS[ST.theme] + '模式');
+  }
+  function hdToggleMono() {
+    applyTheme(ST.theme === 'light' ? 'night' : 'light');
+    toast(ST.theme === 'light' ? '已切换为浅色模式' : '已切换为深色模式');
+  }
   function hdRefresh() { CACHE = {}; rerender(); toast('预警数据已刷新'); }
   function hdCloseModal() {
     var m = document.getElementById('hdModal');
@@ -1025,6 +1047,8 @@
 
   window.hdCity = hdCity;
   window.hdToggleFs = hdToggleFs;
+  window.hdToggleMono = hdToggleMono;
+  window.hdCycleTheme = hdCycleTheme;
   window.hdRefresh = hdRefresh;
   window.hdCloseModal = hdCloseModal;
   window.hdCityModal = openCityModal;
@@ -1038,7 +1062,7 @@
     if (opts.city !== undefined) ST.city = META[opts.city] ? opts.city : '';
     if (typeof window.navigateTo === 'function') window.navigateTo(PAGE); else mount();
   };
-  window.hdGetState = function () { return { year: ST.year, domain: ST.domain, metric: ST.metric, city: ST.city, fs: ST.fs }; };
+  window.hdGetState = function () { return { year: ST.year, domain: ST.domain, metric: ST.metric, city: ST.city, fs: ST.fs, mono: ST.mono, theme: ST.theme }; };
   window.homeDashboardPageIds = [PAGE];
   window.renderHomeDashboardPage = function (id) { if (id === PAGE) { hdCloseModalSafe(); mount(); } };
 
@@ -1293,7 +1317,92 @@
     '.hd-mtable .hd-tbl{min-width:0;table-layout:auto}',
     '.hd-mfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}',
     /* 滚动条 */
-    '.hd ::-webkit-scrollbar{width:7px;height:7px}.hd ::-webkit-scrollbar-thumb{background:rgba(120,190,255,.25);border-radius:4px}.hd ::-webkit-scrollbar-track{background:transparent}'
+    '.hd ::-webkit-scrollbar{width:7px;height:7px}.hd ::-webkit-scrollbar-thumb{background:rgba(120,190,255,.25);border-radius:4px}.hd ::-webkit-scrollbar-track{background:transparent}',
+    '/* ==== 双皮肤：深色 t-night（默认，登录同款沉浸质感）/ 浅色 hd-light（墨蓝顶栏 + 浅色内容）==== */',
+    '.hd-board.hd-light{--line:rgba(15,23,42,.10);--line2:rgba(15,23,42,.18);--cy:#2563eb;--gd:#b45309;--tx:#1e293b;--mu:#64748b;background:#f4f7fb;color:#1e293b} .hd-board.hd-light::before{background-image:linear-gradient(rgba(15,23,42,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(15,23,42,.03) 1px,transparent 1px)} .hd-board.hd-light .hd-head{background:linear-gradient(180deg,#ffffff,rgba(244,247,251,0))} .hd-board.hd-light .hd-title h1{background:none;-webkit-text-fill-color:#0f172a;color:#0f172a} .hd-board.hd-light .hd-clock{color:#2563eb} .hd-board.hd-light .hd-sel{background:#ffffff;color:#1e293b;border-color:rgba(15,23,42,.18)} .hd-board.hd-light .hd-seg button{color:#64748b} .hd-board.hd-light .hd-seg button.on{background:#2563eb;color:#ffffff;text-shadow:none} .hd-board.hd-light .hd-btn{background:#ffffff;color:#1e293b;border-color:rgba(15,23,42,.18)} .hd-board.hd-light .hd-btn:hover{border-color:#2563eb;color:#0f172a} .hd-board.hd-light .hd-btn.primary{background:#2563eb;border-color:#2563eb;color:#ffffff} .hd-board.hd-light .hd-kpi{background:#ffffff;border-color:rgba(15,23,42,.10)} .hd-board.hd-light .hd-kpi-v{color:#0f172a} .hd-board.hd-light .hd-qcbar{background:#ffffff;border-color:rgba(15,23,42,.10)} .hd-board.hd-light .hd-qcbar-t{color:#0f172a} .hd-board.hd-light .hd-qcbar-grid{background:rgba(15,23,42,.08)} .hd-board.hd-light .hd-qc-cell{background:#ffffff} .hd-board.hd-light .hd-qc-v{color:#0f172a} .hd-board.hd-light .hd-qc-cell.tone-bad .hd-qc-v{color:#dc2626} .hd-board.hd-light .hd-qc-cell.tone-ok .hd-qc-v{color:#059669} .hd-board.hd-light .hd-panel{background:#ffffff;border-color:rgba(15,23,42,.10)} .hd-board.hd-light .hd-panel-h h3,.hd-board.hd-light .hd-p-title{color:#0f172a} .hd-board.hd-light .hd-ax{fill:#64748b} .hd-board.hd-light .hd-py-v{fill:#334155} .hd-board.hd-light .hd-py-g{fill:#0f172a;stroke:#ffffff} .hd-board.hd-light .hd-map-grid{background-image:radial-gradient(circle,rgba(15,23,42,.10) 1px,transparent 1px)} .hd-board.hd-light .hd-region{stroke:rgba(15,23,42,.25)} .hd-board.hd-light .hd-lb-n{fill:#0f172a;stroke:#ffffff} .hd-board.hd-light .hd-lb-v{fill:#334155;stroke:#ffffff} .hd-board.hd-light .hd-legend-map{background:rgba(255,255,255,.92)} .hd-board.hd-light .hd-legend-title{color:#0f172a} .hd-board.hd-light .hd-tip{background:rgba(255,255,255,.97)} .hd-board.hd-light .hd-tip-h{color:#0f172a} .hd-board.hd-light .hd-tip-row b{color:#1e293b} .hd-board.hd-light .hd-hb-name{color:#334155} .hd-board.hd-light .hd-hb-track{background:rgba(15,23,42,.06)} .hd-board.hd-light .hd-hb-val{color:#0f172a} .hd-board.hd-light .hd-hb-val em{color:#64748b} .hd-board.hd-light .hd-fuhd{color:#64748b} .hd-board.hd-light .hd-gauge-top{color:#334155} .hd-board.hd-light .hd-gauge-top b{color:#0f172a} .hd-board.hd-light .hd-gauge-track{background:rgba(15,23,42,.08)} .hd-board.hd-light .hd-tag.ok{color:#059669} .hd-board.hd-light .hd-tag.bad{color:#dc2626} .hd-board.hd-light .hd-fs-track i{background:#2563eb;color:#ffffff} .hd-board.hd-light .hd-fs-pct{color:#475569} .hd-board.hd-light .hd-tbl th{background:#eef2f7;color:#475569;border-bottom-color:rgba(15,23,42,.18)} .hd-board.hd-light .hd-tbl td{color:#1e293b;border-bottom-color:rgba(15,23,42,.08)} .hd-board.hd-light .hd-tbl tbody tr:hover td{background:rgba(37,99,235,.05)} .hd-board.hd-light .hd-tbl tr.hd-total td{background:rgba(37,99,235,.08);color:#0f172a} .hd-board.hd-light .hd-num.good{color:#059669} .hd-board.hd-light .hd-num.bad{color:#dc2626} .hd-board.hd-light .hd-num.strong{color:#0f172a} .hd-board.hd-light .hd-link{color:#2563eb} .hd-board.hd-light .hd-foot{color:#94a3b8}',
+    /* ==== 浅色皮肤：深墨蓝顶栏 + 浅色内容（上深下浅，政务大屏稳重调性）==== */
+    /* 背景：单一淡色渐变；去掉点阵网格 */
+    '.hd-board.hd-light{background:linear-gradient(180deg,#fbfcfe 0%,#f2f6fb 100%)}',
+    '.hd-board.hd-light::before{display:none}',
+    /* 顶栏：深墨蓝压场，底部一条极细亮线；不叠加光晕/光带 */
+    '.hd-board.hd-light .hd-head{background:linear-gradient(180deg,#112c50 0%,#0c203b 100%);padding:16px 22px 15px;border-bottom:1px solid rgba(130,175,230,.28)}',
+    '.hd-board.hd-light .hd-logo{filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))}',
+    '.hd-board.hd-light .hd-title h1{background:none;background-image:none;-webkit-background-clip:border-box;background-clip:border-box;-webkit-text-fill-color:#ffffff;color:#ffffff;font-size:21px;font-weight:700;letter-spacing:2px}',
+    '.hd-board.hd-light .hd-tool{color:rgba(226,238,255,.72)}',
+    '.hd-board.hd-light .hd-clock{color:#8fd8f5}',
+    /* 顶栏控件：半透明深底 + 浅字 + 细亮边；下拉展开仍用白底深字 */
+    '.hd-board.hd-light .hd-sel{background:rgba(255,255,255,.08);color:#eef5ff;border-color:rgba(160,195,235,.35);border-radius:6px}',
+    '.hd-board.hd-light .hd-sel option{background:#ffffff;color:#1e293b}',
+    '.hd-board.hd-light .hd-seg{border-color:rgba(160,195,235,.35);background:rgba(255,255,255,.06)}',
+    '.hd-board.hd-light .hd-seg button{color:rgba(226,238,255,.75)}',
+    '.hd-board.hd-light .hd-seg button.on{background:#2f6fd0;color:#ffffff;text-shadow:none}',
+    '.hd-board.hd-light .hd-btn{background:rgba(255,255,255,.08);color:#eef5ff;border-color:rgba(160,195,235,.35);border-radius:6px}',
+    '.hd-board.hd-light .hd-btn:hover{background:rgba(255,255,255,.16);border-color:rgba(190,215,245,.6);color:#ffffff}',
+    '.hd-board.hd-light .hd-btn.primary{background:#2f6fd0;border-color:#2f6fd0;color:#ffffff}',
+    '.hd-board.hd-light .hd-qcbar-hd .hd-btn{background:#eef4ff;border-color:rgba(37,99,235,.32);color:#1d4ed8}',
+    /* 登录同款点缀：顶栏底部渐变线 + 渐变标题条 */
+    '.hd-board.hd-light .hd-head{position:relative}',
+    '.hd-board.hd-light .hd-head::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:linear-gradient(90deg,rgba(59,130,246,0),#3b82f6 28%,#22d3ee 62%,rgba(34,211,238,0));opacity:.5;pointer-events:none}',
+    '.hd-board.hd-light .hd-p-title::before,.hd-board.hd-light .hd-panel-h h3::before,.hd-board.hd-light .hd-qcbar-t::before{width:4px;border-radius:2px;background:linear-gradient(180deg,#2f6fd0,#22d3ee)}',
+    /* KPI：白底卡片 + 轻阴影，数值用墨蓝与顶栏呼应 */
+    '.hd-board.hd-light .hd-kpi{background:#ffffff;border:1px solid rgba(15,23,42,.09);border-radius:8px;box-shadow:0 2px 10px rgba(16,40,90,.05)}',
+    '.hd-board.hd-light .hd-kpi-v{color:#112c50}',
+    '.hd-board.hd-light .hd-kpi-l{color:#64748b}',
+    /* 质量横条 / 面板：白底 + 细边框 + 轻阴影，标题细条用纯色蓝 */
+    '.hd-board.hd-light .hd-qcbar{border:1px solid rgba(15,23,42,.09);border-radius:8px;background:#ffffff;box-shadow:0 2px 10px rgba(16,40,90,.05)}',
+    '.hd-board.hd-light .hd-qcbar-t::before,.hd-board.hd-light .hd-p-title::before,.hd-board.hd-light .hd-panel-h h3::before{background:#2f6fd0}',
+    '.hd-board.hd-light .hd-qcbar-grid{background:rgba(15,23,42,.06)}',
+    '.hd-board.hd-light .hd-qc-cell{background:#ffffff}',
+    '.hd-board.hd-light .hd-qc-cell.tone-warn .hd-qc-v{color:#b45309}',
+    '.hd-board.hd-light .hd-panel{border:1px solid rgba(15,23,42,.09);border-radius:8px;background:#ffffff;box-shadow:0 2px 10px rgba(16,40,90,.05)}',
+    '.hd-board.hd-light .hd-p-head,.hd-board.hd-light .hd-panel-h{border-bottom:1px solid rgba(15,23,42,.08)}',
+    '.hd-board.hd-light .hd-scope,.hd-board.hd-light .hd-focus{background:#f1f5f9;border:1px solid rgba(15,23,42,.1);color:#334155}',
+    /* 地图：白底图例 / 浮层，描边改深一点的蓝 */
+    '.hd-board.hd-light .hd-map-grid{background-image:radial-gradient(circle,rgba(37,99,235,.10) 1px,transparent 1px);opacity:.6}',
+    '.hd-board.hd-light .hd-region{stroke:rgba(37,99,235,.45)}',
+    '.hd-board.hd-light .hd-legend-map{background:rgba(255,255,255,.96);border:1px solid rgba(15,23,42,.12);border-radius:6px}',
+    '.hd-board.hd-light .hd-tip{background:#ffffff;border:1px solid rgba(15,23,42,.18);box-shadow:0 8px 20px rgba(16,40,90,.15)}',
+    /* 横条 / 仪表 / 漏斗：统一蓝色，数值清晰 */
+    '.hd-board.hd-light .hd-hb-track{background:rgba(15,23,42,.06)}',
+    '.hd-board.hd-light .hd-hb-fill,.hd-board.hd-light .hd-hb-fill.top,.hd-board.hd-light .hd-hb-fill.warm,.hd-board.hd-light .hd-hb-fill.bad,.hd-board.hd-light .hd-hb-fill.good{background:#3b82f6}',
+    '.hd-board.hd-light .hd-hb-name b{background:#e2e8f0;color:#334155}',
+    '.hd-board.hd-light .hd-gauge-track i{background:#3b82f6}',
+    '.hd-board.hd-light .hd-gauge.bad .hd-gauge-track i{background:#e11d48}',
+    '.hd-board.hd-light .hd-fs-track i{background:#3b82f6;color:#fff}',
+    '.hd-board.hd-light .hd-tag.ok{background:rgba(5,150,105,.08);border-color:rgba(5,150,105,.25)}',
+    '.hd-board.hd-light .hd-tag.bad{background:rgba(225,29,72,.07);border-color:rgba(225,29,72,.25)}',
+    /* 表格 / 链接 / 页脚 */
+    '.hd-board.hd-light .hd-tbl th{background:#f1f5f9;color:#334155}',
+    '.hd-board.hd-light .hd-link{color:#2f6fd0}',
+    '.hd-board.hd-light .hd-foot{border-top:1px solid rgba(15,23,42,.08);color:#64748b}',
+    /* ==== 深色皮肤 t-night：登录同款沉浸质感（大图背景 + 玻璃卡片 + 渐变点缀）==== */
+    '.hd-board.t-night{--tx:#e6f0ff;--mu:#8ba5c9;--line:rgba(255,255,255,.12);--line2:rgba(255,255,255,.2);--cy:#63c8ff;--gd:#ffd166;--acc:rgba(120,180,255,.55);background:radial-gradient(1500px 900px at 66% 30%,rgba(30,72,140,.34),transparent 68%),linear-gradient(180deg,rgba(4,14,30,.88),rgba(6,18,38,.94)),url("login-hero.jpg") center 40%/cover no-repeat #081a31}',
+    '.hd-board.t-night::before{display:none}',
+    /* 顶栏与标题：玻璃压场 + 白→浅蓝渐变标题（登录同款） */
+    '.hd-board.t-night .hd-head{background:linear-gradient(180deg,rgba(10,24,48,.78),rgba(7,18,38,.7));backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);border-bottom:1px solid rgba(140,180,235,.22)}',
+    '.hd-board.t-night .hd-title h1{background:linear-gradient(180deg,#ffffff 30%,#9dc0ff 96%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;filter:drop-shadow(0 8px 22px rgba(20,60,140,.45))}',
+    /* 顶栏控件：玻璃底 + 浅字；主按钮/选中态用登录同款蓝渐变 */
+    '.hd-board.t-night .hd-sel{background:rgba(255,255,255,.08);color:#eef5ff;border-color:rgba(160,195,235,.32)}',
+    '.hd-board.t-night .hd-sel option{background:#ffffff;color:#1e293b}',
+    '.hd-board.t-night .hd-btn{background:rgba(255,255,255,.08);border-color:rgba(160,195,235,.32)}',
+    '.hd-board.t-night .hd-btn:hover{background:rgba(255,255,255,.16);border-color:rgba(190,215,245,.6);color:#ffffff}',
+    '.hd-board.t-night .hd-btn.primary,.hd-board.t-night .hd-seg button.on{background:linear-gradient(90deg,#2f6fd0,#3b82f6);border-color:rgba(126,176,255,.6);color:#ffffff;box-shadow:0 8px 22px rgba(38,98,196,.4)}',
+    '.hd-board.t-night .hd-clock{color:#8fd8f5}',
+    /* 卡片：玻璃拟态（KPI/质量横条/面板）+ 面板顶部渐变光带 */
+    '.hd-board.t-night .hd-kpi,.hd-board.t-night .hd-qcbar,.hd-board.t-night .hd-panel{background:linear-gradient(180deg,rgba(17,33,60,.6),rgba(9,20,40,.66));backdrop-filter:blur(18px) saturate(1.35);-webkit-backdrop-filter:blur(18px) saturate(1.35);border:1px solid rgba(255,255,255,.12);border-radius:14px;box-shadow:0 18px 44px rgba(2,8,20,.5),inset 0 1px 0 rgba(255,255,255,.16)}',
+    '.hd-board.t-night .hd-panel::after{content:"";position:absolute;left:12%;right:12%;top:0;height:1px;background:linear-gradient(90deg,transparent,var(--acc),transparent);pointer-events:none}',
+    '.hd-board.t-night .hd-kpi-v{color:#f2f8ff}',
+    /* 地图图例 / 浮层 / 页脚 */
+    '.hd-board.t-night .hd-legend-map{background:rgba(8,20,40,.82);border-radius:8px}',
+    '.hd-board.t-night .hd-tip{background:rgba(10,24,46,.94);border:1px solid rgba(140,180,235,.3);box-shadow:0 14px 34px rgba(2,10,25,.55)}',
+    /* 登录卡同款渐变光环描边（面板外圈 / KPI 内圈）+ 顶栏渐变线 + 渐变标题条 */
+    '.hd-board.t-night .hd-panel::before{content:"";position:absolute;inset:-1px;border-radius:15px;padding:1px;pointer-events:none;background:linear-gradient(160deg,rgba(255,255,255,.34),rgba(255,255,255,.05) 34%,transparent 62%,var(--acc));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude}',
+    '.hd-board.t-night .hd-kpi::before{content:"";position:absolute;inset:0;border-radius:14px;padding:1px;pointer-events:none;background:linear-gradient(160deg,rgba(255,255,255,.3),rgba(255,255,255,.05) 34%,transparent 62%,var(--acc));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude}',
+    '.hd-board.t-night .hd-head{position:relative}',
+    '.hd-board.t-night .hd-head::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,rgba(140,190,255,.55),transparent);pointer-events:none}',
+    '.hd-board.t-night .hd-p-title::before,.hd-board.t-night .hd-panel-h h3::before,.hd-board.t-night .hd-qcbar-t::before{width:4px;border-radius:2px;background:linear-gradient(180deg,#3b82f6,#22d3ee)}',
+    '.hd-board.t-night .hd-kpi-v{text-shadow:0 2px 14px rgba(99,178,255,.3)}',
+    '.hd-board.t-night .hd-foot{color:rgba(160,190,235,.55)}'
   ].join('');
 
   var st = document.createElement('style');
@@ -1302,7 +1411,7 @@
   document.head.appendChild(st);
 
   /* ==================== 12. 接线（包装 renderPage） ==================== */
-  var ST = { year: CUR_YEAR, domain: 'inc', metric: 'cases', city: '', fs: false };
+  var ST = { year: CUR_YEAR, domain: 'inc', metric: 'cases', city: '', fs: false, mono: false, theme: themeSaved() || 'night' };
   // 2026 年（当年）默认聚焦已登记完整年度，避免首屏全是"累计"
   if (CUR_MONTH < 6) ST.year = CUR_YEAR - 1;
 

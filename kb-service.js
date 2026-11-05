@@ -4,7 +4,7 @@
    侧导航「科普与培训 → 社区咨询」下的二级节点，三级是 10 个业务页面：
 
      在线咨询    咨询会话 / 咨询问题分类 / 分配与处理日志
-     咨询问题分析 咨询问题分类统计（数量、占比、高紧急度、主要话题）
+     咨询问题分析 咨询问题分类统计（数量、占比）
      互动社区    社区主页（用户侧）/ 社区板块配置 / 社区主帖内容 /
                  社区评论与回复 / 社区用户行为日志 / 社区优质内容推荐配置
 
@@ -21,8 +21,8 @@
      是手动分析单条文本，既然留了它就得养一个永远无法自然进入的状态机，
      现在分析结果只由会话回复时自动产生。分析类页面只统计、不生产。
    · 分析类三页（智能分析结果 / 热点统计 / 洞察建议）合并为一页：它们本是同一批
-     分析数据的三个切面，运营要的维度只有一个——问题分类。热点的话题排行并进
-     「主要话题」列；统计页只统计、不生产，「科普转化」与行内采纳动作一并下线。
+     分析数据的三个切面，运营要的维度只有一个——问题分类。统计页只统计、不生产，
+     「高紧急度」「主要话题」「科普转化」与行内采纳动作一并下线。
    · 社区主页是唯一面向用户的页面，也是社区各后台页的数据来源：它在浏览器里
      直接读写 DB，与后台页共用同一份内存数据，所以「主页发帖 → 后台审核 →
      主页可见」这条链路是真的通的，不是两套假数据。
@@ -187,10 +187,10 @@
       { id: 'HC-2026-0008', user: '周先生', phone: '186****9034', cat: '肿瘤防治', topic: '疼痛管理', q: '癌痛吃吗啡类止痛药会不会成瘾？', status: '待分配', time: '2026-08-25 08:30', assignee: '', priority: '中', msgs: [] }
     ],
     categories: [
-      { id: 'CAT-01', name: '肿瘤防治', desc: '确诊后治疗、用药、护理等问题', status: '启用', owner: '王医生' },
-      { id: 'CAT-02', name: '康复随访', desc: '术后 / 放疗 / 化疗后的恢复与随访', status: '启用', owner: '李医生' },
-      { id: 'CAT-03', name: '健康科普', desc: '体检报告解读、日常保健常识', status: '启用', owner: '赵医生' },
-      { id: 'CAT-04', name: '心理支持', desc: '情绪疏导与心理关怀', status: '停用', owner: '周医生' }
+      { id: 'CAT-01', name: '肿瘤防治', desc: '确诊后治疗、用药、护理等问题', status: '启用' },
+      { id: 'CAT-02', name: '康复随访', desc: '术后 / 放疗 / 化疗后的恢复与随访', status: '启用' },
+      { id: 'CAT-03', name: '健康科普', desc: '体检报告解读、日常保健常识', status: '启用' },
+      { id: 'CAT-04', name: '心理支持', desc: '情绪疏导与心理关怀', status: '停用' }
     ],
     assigns: [
       { id: 'ASG-5001', session: 'HC-2026-0001', to: '王医生', note: '转肿瘤防治组处理', time: '2026-08-27 09:20' },
@@ -262,22 +262,18 @@
   })();
 
   /* ---------- 派生：分类统计是唯一口径，页面与采纳动作都读它 ---------- */
-  /* 按问题分类汇总咨询文本：数量、占比、高紧急度条数、主要话题。
+  /* 按问题分类汇总咨询文本：数量与占比。
      分类取自分析结果自身的 label，而不是分类配置表——停用的分类、甚至已被删掉的
      分类下若仍留有文本，数字也要算得进来，否则合计对不上明细。 */
   function catStat() {
     var map = {}, total = 0;
     DB.analysis.forEach(function (a) {
       var k = a.label || '未分类';
-      if (!map[k]) map[k] = { l: k, v: 0, urgent: 0, topics: {} };
+      if (!map[k]) map[k] = { l: k, v: 0 };
       map[k].v += 1; total += 1;
-      if (a.urgency === '高') map[k].urgent += 1;
-      map[k].topics[a.topic || '—'] = (map[k].topics[a.topic || '—'] || 0) + 1;
     });
     var list = Object.keys(map).map(function (k) {
-      var t = map[k].topics;
-      var top = Object.keys(t).sort(function (x, y) { return t[y] - t[x] || (x < y ? -1 : 1); })[0] || '—';
-      return { l: k, v: map[k].v, urgent: map[k].urgent, top: top, share: pct(map[k].v, total) };
+      return { l: k, v: map[k].v, share: pct(map[k].v, total) };
     }).sort(function (x, y) { return y.v - x.v || (x.l < y.l ? -1 : x.l > y.l ? 1 : 0); });
     return { list: list, total: total };
   }
@@ -454,18 +450,14 @@
       '<div class="hcs-kv">' +
       '<div><div class="k">咨询人</div><div class="v">' + esc(s.user) + '（' + esc(s.phone) + '）</div></div>' +
       '<div><div class="k">问题分类 / 话题</div><div class="v">' + esc(s.cat) + ' · ' + esc(s.topic || '—') + '</div></div>' +
-      '<div><div class="k">状态</div><div class="v">' + badge(s.status) + ' ' + priBadge(s.priority || '低') + '</div></div>' +
-      '<div><div class="k">处理人 / 发起时间</div><div class="v">' + esc(s.assignee || '未分配') + ' · ' + esc(s.time) + '</div></div>' +
       '</div>' +
-      '<div class="hcs-note"><b>咨询问题：</b>' + esc(s.q) + '</div>' +
       '<div style="font-size:12px;color:#667085;font-weight:600;margin:14px 0 8px">消息流（' + sessionMsgs(id).length + ' 条）</div>' +
       '<div class="hcs-thread">' + threadHtml(id) + '</div>' +
       (done
         ? '<div class="hcs-note" style="border-left-color:#94a3b8;background:#f8fafc;border-color:#e2e8f0">会话已办结，如需继续沟通请重新发起会话。</div>'
         : '<div style="border-top:1px solid var(--border);padding-top:12px">' +
         '<label style="display:block;font-size:12px;color:#475569;font-weight:600;margin-bottom:5px"><span class="req">*</span> 回复内容</label>' +
-        '<textarea id="hcs-reply" rows="4" style="width:100%;border:1px solid #d1d8e0;border-radius:4px;padding:8px 10px;font-size:13px;line-height:1.6;box-sizing:border-box;resize:vertical;font-family:inherit" placeholder="请输入回复内容"></textarea>' +
-        '<div style="margin-top:8px;font-size:12px;color:#94a3b8">发送后会话状态变为「已回复」</div></div>');
+        '<textarea id="hcs-reply" rows="4" style="width:100%;border:1px solid #d1d8e0;border-radius:4px;padding:8px 10px;font-size:13px;line-height:1.6;box-sizing:border-box;resize:vertical;font-family:inherit" placeholder="请输入回复内容"></textarea></div>');
     var ft = '<button class="btn btn-ghost btn-sm" data-hcs="close">关闭</button>';
     if (!done) {
       ft += '<button class="btn btn-outline btn-sm" data-hcs="assignForm" data-arg="' + esc(id) + '">分配 / 改派</button>' +
@@ -529,7 +521,6 @@
     var c = id ? find(DB.categories, id) : null;
     formModal(c ? '编辑分类 · ' + c.name : '新增问题分类', c ? c.id : '分类用于会话归集', [
       { k: 'ct-name', label: '分类名称', req: true, value: c ? c.name : '', ph: '例如：营养与饮食' },
-      { k: 'ct-owner', label: '负责人', type: 'select', options: DOCTORS, value: c ? c.owner : DOCTORS[0] },
       { k: 'ct-desc', label: '分类说明', full: true, value: c ? c.desc : '', ph: '一句话描述该分类覆盖的问题范围' },
       { k: 'ct-status', label: '状态', type: 'select', options: ['启用', '停用'], value: c ? c.status : '启用' }
     ], '保存', 'doCategory', id || '');
@@ -539,8 +530,8 @@
     var name = val('hcs-f-ct-name');
     if (!name) { say('分类名称不能为空', 'error'); return; }
     if (!c && DB.categories.some(function (x) { return x.name === name; })) { say('该分类名称已存在', 'error'); return; }
-    if (c) { c.name = name; c.desc = val('hcs-f-ct-desc'); c.owner = val('hcs-f-ct-owner'); c.status = val('hcs-f-ct-status'); }
-    else DB.categories.push({ id: nextId('CAT-'), name: name, desc: val('hcs-f-ct-desc'), owner: val('hcs-f-ct-owner'), status: val('hcs-f-ct-status') });
+    if (c) { c.name = name; c.desc = val('hcs-f-ct-desc'); c.status = val('hcs-f-ct-status'); }
+    else DB.categories.push({ id: nextId('CAT-'), name: name, desc: val('hcs-f-ct-desc'), status: val('hcs-f-ct-status') });
     log('管理员', c ? '编辑问题分类' : '新增问题分类', name);
     closeModal(); say(c ? '分类已更新' : '分类已新增'); refresh();
   }
@@ -1075,9 +1066,17 @@
   function unreadTotal() { return mySessions().reduce(function (n, s) { return n + unreadOf(s); }, 0); }
   function lastMsgOf(s) { var m = s.msgs || []; return m.length ? m[m.length - 1] : null; }
 
+  /* 是否正停在社区主页：以页面容器的 data-page 为准，而不是 S.pageId——
+     总览页和未知 id 走 renderOverview 时 S.pageId 保持旧值，拿它判断会让按钮在别的页面复活。 */
+  function onHomePage() {
+    var el = $('pageContainer');
+    return !!(el && el.querySelector('.hcs-page[data-page="hc-home"]'));
+  }
   function renderChatFab() {
     var old = $('hcsChatFab');
     if (old) old.remove();
+    /* 悬浮咨询入口只挂在社区主页：其他页面（含咨询总览、后台各页）一律不出现 */
+    if (!onHomePage()) return;
     var n = unreadTotal();
     var b = document.createElement('button');
     b.id = 'hcsChatFab';
@@ -1373,9 +1372,9 @@
      原来这里是三页：智能分析结果（话题明细）、热点统计（话题排行）、
      洞察建议（按话题生成的运营建议）。三者其实是同一批分析数据的三个切面，
      而运营真正要看的维度只有一个——问题分类。
-     现在合成一页，而且只统计、不生产：按分类给数量/占比/高紧急度/主要话题，
-     行内不带任何动作。分析页的职责是把数据摆出来，采纳、生成科普、看明细
-     都是另一套状态机与另一个页面的事，不该挂在统计表的右边。
+     现在合成一页，而且只统计、不生产：按分类给数量与占比，行内不带任何动作。
+     分析页的职责是把数据摆出来，采纳、生成科普、看明细都是另一套状态机与另一个
+     页面的事，不该挂在统计表的右边。
      ============================================================ */
   function tAI(pageId) {
     var st = catStat();
@@ -1383,12 +1382,10 @@
       return '<tr><td>' + (i + 1) + '</td>' +
         '<td><strong>' + esc(c.l) + '</strong></td>' +
         '<td>' + c.v + '</td>' +
-        '<td>' + c.share + '%</td>' +
-        '<td>' + (c.urgent || '—') + '</td>' +
-        '<td>' + esc(c.top) + '</td></tr>';
+        '<td>' + c.share + '%</td></tr>';
     });
     return bar('<span style="font-size:12px;color:#64748b">统计口径：咨询问题按分类汇总，数量与占比实时计算</span>', '') +
-      table(['排名', '问题分类', '咨询量', '占比', '其中高紧急度', '主要话题'], rows, '暂无分析数据') +
+      table(['排名', '问题分类', '咨询量', '占比'], rows, '暂无分析数据') +
       (st.total ? '<div style="padding-top:10px;font-size:12px;color:#64748b;text-align:right">合计 ' + st.total + ' 条咨询</div>' : '');
   }
 
@@ -1566,9 +1563,11 @@
     if (!el) return;
     /* 入口先归一到 12 个三级页：旧咨询 id 走 LEGACY；其余不认识的 id 落到入口表 */
     var pid = LEGACY[pageId] || pageId;
-    if (pageId === 'hc-service') { renderOverview(); return; }
+    /* 在线咨询（悬浮按钮 + 聊天窗）只属于社区主页：离开 hc-home 时连聊天窗一起收起 */
+    if (pid !== 'hc-home' && chatIsOpen()) closeChat();
+    if (pageId === 'hc-service') { renderOverview(); renderChatFab(); return; }
     var meta = metaOf(pid);
-    if (!meta) { renderOverview(); return; }
+    if (!meta) { renderOverview(); renderChatFab(); return; }
     S.pageId = pid;
     var body = TAB_RENDER[meta.tab](pid);
     var acts = meta.acts || '';
@@ -1590,6 +1589,8 @@
     } catch (e) { }
     var mc = $('mainContent');
     if (mc) mc.scrollTop = 0;
+    /* 页面已就位，按当前页刷新悬浮按钮：进 hc-home 亮出，离开则被 renderChatFab 移除 */
+    renderChatFab();
   }
   /* 不带页 id 直接进「社区咨询」：给一张 10 个三级页的入口表 */
   function renderOverview() {
@@ -1729,8 +1730,8 @@
   });
 
   /* ================= 注册 ================= */
-  /* 悬浮的在线咨询入口：全站常驻，不只在社区主页出现——
-     用户在任何页面看到「有回复了」的角标，都能点开继续聊。 */
+  /* 悬浮的在线咨询入口只挂在社区主页（render → renderChatFab 控制显隐），
+     未读角标在进入主页时随按钮亮出。 */
   renderChatFab();
   var IDS = [];
   PAGES.forEach(function (g) { g.items.forEach(function (it) { IDS.push(it.id); }); });

@@ -121,6 +121,7 @@
       '<div class="fu-modal"><div class="fu-modal-h"><span>执行随访</span><span class="cd-close" onclick="closeFuModal()">×</span></div>' +
       '<div class="fu-modal-b">' +
       '<div style="margin-bottom:14px;font-size:13px;color:#475569">' + t.patient + ' · ' + t.diag + '　' + t.id + '　' + typeBadge(t.type) + '</div>' +
+      (window.followupContactLine ? window.followupContactLine(t.patient, t.idNo || t.id, t.id) : '') +
       '<div class="form-grid" style="grid-template-columns:1fr 1fr">' +
       '<div class="form-group"><label>随访方式</label><select id="fuExecMethod">' + methodOpts + '</select></div>' +
       '<div class="form-group"><label>接触日期</label><input type="date" id="fuExecDate" value="2026-07-22"></div>' +
@@ -161,7 +162,7 @@
         rec.place = rec.place && rec.place !== '-' ? rec.place : '医院';
         rec.cause = rec.cause && rec.cause !== '-' ? rec.cause : ((rec.site || '') + '恶性肿瘤');
         rec.causeIcd = rec.causeIcd && rec.causeIcd !== '-' ? rec.causeIcd : (rec.icd10 || '-');
-        rec.checkStatus = (!rec.causeIcd || rec.causeIcd === '-') ? '校验错误' : (rec.checkStatus || '未校验');
+        rec.checkStatus = (rec.cause !== '死因不详' && (!rec.causeIcd || rec.causeIcd === '-')) ? '校验错误' : (rec.checkStatus || '未校验');
       }
       rec.event = event;
       rec.source = method;

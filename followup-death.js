@@ -4,6 +4,13 @@
  */
 (function () {
   'use strict';
+  /* 根本死因切换时同步「死因 ICD10」必填状态（死因不详 → 免填，其余必填）。 */
+  document.addEventListener('change', function (e) {
+    var id = (e.target && e.target.id) || '';
+    if (/Cause$/.test(id) && typeof window.toggleFollowupFormFields === 'function') {
+      window.toggleFollowupFormFields(String(id).replace(/Cause$/, ''));
+    }
+  });
 
   var CONTACT = ['存活', '死亡', '移居', '失访', '不详'];
   var CHECK = ['未校验', '校验通过', '校验错误'];
@@ -115,7 +122,7 @@
         unit: c.reportUnit,
         reportDate: c.reportDate,
         cardType: (c.cardType || '').replace(/<[^>]+>/g, '').trim() || '原始卡',
-        checkStatus: isDead && (!f.causicd || f.causicd === '-') ? '校验错误' :
+        checkStatus: isDead && f.caus !== '死因不详' && (!f.causicd || f.causicd === '-') ? '校验错误' :
           (String(c.checkStatus || '').indexOf('错误') >= 0 ? '校验错误' :
             String(c.checkStatus || '').indexOf('警告') >= 0 ? '未校验' : '校验通过'),
         source: isDead && f.caus ? '报卡录入' : '报卡录入',
@@ -346,7 +353,7 @@
     var req = typeof requiredMark === 'function' ? requiredMark() : '<span class="required">*</span>';
     var statusOpts = ['请选择', '存活', '死亡', '移居', '失访', '不详'];
     var placeOpts = ['请选择', '医院', '家中', '其他', '不详'];
-    var causeOpts = ['请选择', '肿瘤', '心脑血管疾病', '呼吸系统疾病', '其他'];
+    var causeOpts = ['请选择', '肿瘤', '心脑血管疾病', '呼吸系统疾病', '其他', '死因不详'];
     var lostReasonOpts = ['请选择', '电话无法接通', '地址变更无法联系', '拒访', '迁居外地', '其他'];
     function sel(id, label, list, cur) {
       return '<select id="' + p + id + '" data-required="' + label + '">' +
@@ -366,7 +373,7 @@
       '<div class="form-group" data-field="lostReason"><label>失访原因</label>' + sel('LostReason', '失访原因', lostReasonOpts, v.lostReason) + '</div>' +
       '<div class="form-group" data-field="deathPlace"><label>死亡地点 ' + req + '</label>' + sel('Place', '死亡地点', placeOpts, v.place) + '</div>' +
       '<div class="form-group" data-field="deathCause"><label>根本死因 ' + req + '</label>' + sel('Cause', '根本死因', causeOpts, v.cause) + '</div>' +
-      '<div class="form-group" data-field="deathIcd"><label>死因ICD10编码 ' + req + '</label>' +
+      '<div class="form-group" data-field="deathIcd"><label>死因ICD10编码 <span id="' + p + 'CauseIcdReq">' + req + '</span></label>' +
       '<input id="' + p + 'CauseIcd" placeholder="死因ICD10编码" data-required="死因ICD10编码" value="' +
       esc((v.causeIcd && v.causeIcd !== '-') ? v.causeIcd : '') + '"></div>' +
       '<div class="form-group" data-field="deathDate"><label>死亡日期 ' + req + '</label>' +
@@ -417,6 +424,25 @@
       var lr = document.getElementById(p + 'LostReason');
       if (lr) lr.selectedIndex = 0;
     }
+
+    /* 需求：根本死因 = 死因不详 → 死因 ICD10 不必填；其余死亡结局必填。
+       并把死亡字段 data-required 按「是否死亡」动态挂载，避免隐藏字段被通用必填扫描误判。 */
+    var causeEl = document.getElementById(p + 'Cause');
+    var icdEl = document.getElementById(p + 'CauseIcd');
+    var reqEl = document.getElementById(p + 'CauseIcdReq');
+    var unknown = status === '死亡' && causeEl && causeEl.value === '死因不详';
+    var deathReq = [['Place', '死亡地点'], ['Cause', '根本死因'], ['CauseIcd', '死因ICD10编码'], ['DeathDate', '死亡日期']];
+    deathReq.forEach(function (pair) {
+      var el = document.getElementById(p + pair[0]);
+      if (!el) return;
+      if (status === '死亡' && !(pair[0] === 'CauseIcd' && unknown)) el.setAttribute('data-required', pair[1]);
+      else el.removeAttribute('data-required');
+    });
+    if (icdEl) {
+      if (unknown) { icdEl.value = ''; icdEl.disabled = true; icdEl.placeholder = '死因不详无需填写'; }
+      else { icdEl.disabled = false; icdEl.placeholder = '死因ICD10编码'; }
+    }
+    if (reqEl) reqEl.style.display = unknown ? 'none' : '';
   };
 
   window.readFollowupReportForm = function (prefix) {
@@ -447,7 +473,7 @@
     if (data.status === '死亡') {
       if (!data.place) missing.push('死亡地点');
       if (!data.cause) missing.push('根本死因');
-      if (!data.causeIcd) missing.push('死因ICD10编码');
+      if (data.cause !== '死因不详' && !data.causeIcd) missing.push('死因ICD10编码');
       if (!data.deathDate) missing.push('死亡日期');
       if (data.deathDate && data.lastContact && data.lastContact > data.deathDate) {
         toast('最后接触日期不得晚于死亡日期', 'error');
@@ -671,7 +697,7 @@
       r.place = data.place || '-';
       r.cause = data.cause || '-';
       r.causeIcd = data.causeIcd || '-';
-      r.checkStatus = (!data.causeIcd) ? '校验错误' : '未校验';
+      r.checkStatus = (data.cause !== '死因不详' && !data.causeIcd) ? '校验错误' : '未校验';
       store().forEach(function (x) {
         if (x.idNo && r.idNo && x.idNo === r.idNo && x.id !== r.id) {
           x.status = '死亡';
@@ -711,7 +737,7 @@
   window.followupVerify = function (id) {
     var r = findRec(id);
     if (!r) return;
-    if (r.status === '死亡' && (!r.causeIcd || r.causeIcd === '-')) {
+    if (r.status === '死亡' && r.cause !== '死因不详' && (!r.causeIcd || r.causeIcd === '-')) {
       r.checkStatus = '校验错误';
       toast('死因ICD缺失，校验错误', 'error');
     } else {
@@ -1159,7 +1185,7 @@
       if (!deathDate) errors.push('死亡结局须填写死亡日期');
       else if (!/^\d{4}-\d{2}-\d{2}$/.test(deathDate)) errors.push('死亡日期格式不正确');
       if (!cause) errors.push('死亡结局须填写根本死因');
-      if (!causeIcd) errors.push('死亡结局须填写死因 ICD10');
+      if (cause !== '死因不详' && !causeIcd) errors.push('死亡结局须填写死因 ICD10');
       if (!place) errors.push('死亡结局须填写死亡地点');
       if (deathDate && lastContact && deathDate !== lastContact) {
         warns.push('死亡日期与最后接触日期不一致');
