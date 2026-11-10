@@ -78,7 +78,7 @@ const raw={...window.SPCost.demo().records[0],patientKey:owner};
 function live(rows,updatedAt='2026-10-30'){window.SPCost.setData({mode:'live',connected:true,updatedAt,records:rows})}
 check('独立费用页签显示样例费用指标与占比',()=>{
  window.SPCost.setData(window.SPCost.demo());
- api.spDomainPanel('cost');
+ api.spDomainPanel('cost','chart');
  document.getElementById('pageContainer').innerHTML=window.renderSpecialtyPortrait('overview');
  const panel=document.querySelector('.sp-cost-overview'),values=panel.querySelectorAll('.sp-cost-overview-kpis .sp-cost-kpi .v');
  assert.equal(values.length,5);assert.ok(!panel.textContent.includes('未接入'));

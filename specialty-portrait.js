@@ -10,7 +10,7 @@
    多原发瘤例切换键在顶部患者条，切换后四块画像同步变化。
 */
 (function(){ 'use strict';
-var SP_BUILD='V14.8-examtitle@20261103';
+var SP_BUILD='V15.0-grouped-report@20261106';
 if(typeof console!=='undefined')console.log('[specialty-portrait] '+SP_BUILD+' loaded');
 
 /* ===================== 样式 ===================== */
@@ -883,12 +883,19 @@ var SP_PROFILE_SECTIONS=[
     {keys:['sex','insurance','screentype'],layout:'sp-compact-rounds'},
     {keys:['age','region']},
     {keys:['hospital','screenorg']}
+  ],tables:[
+    {title:'人口特征',keys:['sex','age','insurance']},
+    {title:'地域与就诊',keys:['region','hospital']},
+    {title:'筛查分布',keys:['screenorg','screentype']}
   ],records:{title:'筛查记录',keys:['screenorg','screentype','screendate','screenresult','screenadvice']}},
   {key:'tumor',label:'肿瘤特征',groups:[
     {title:'瘤种、分级与分期',keys:['site','path','icd10','icdo3topo','icdo3morph','grade','tnm','stage','diagdate','diag_basis']}
   ],charts:[
     {keys:['stage','grade','diag_basis'],layout:'sp-compact-rounds'},
     {keys:['site','path']}
+  ],tables:[
+    {title:'分期与诊断',keys:['stage','grade','diag_basis']},
+    {title:'肿瘤分布',keys:['site','path']}
   ],records:{title:'分期与编码明细',keys:['tnm','stage','diagdate','icd10','icdo3topo','icdo3morph']}},
   {key:'treat',label:'诊疗过程',groups:[
     {title:'治疗与 MDT',keys:['tfirst','diag_to_treat','mdt']},
@@ -897,12 +904,19 @@ var SP_PROFILE_SECTIONS=[
     {keys:['mdt','referral'],layout:'sp-process-rounds'},
     {kind:'treatment'},
     {keys:['diag_to_treat','tfirst']}
+  ],tables:[
+    {title:'诊疗协同',keys:['mdt','referral']},
+    {title:'治疗方式',kind:'treatment'},
+    {title:'治疗时序',keys:['diag_to_treat','tfirst']}
   ]},
   {key:'outcome',label:'随访与结局',groups:[
     {keys:['vital','followstate','lastfu','survival','deathdate','death']}
   ],charts:[
     {keys:['vital','followstate'],layout:'sp-process-rounds'},
     {keys:['lastfu','survival']}
+  ],tables:[
+    {title:'随访结局',keys:['vital','followstate']},
+    {title:'随访时间',keys:['lastfu','survival']}
   ],records:{title:'死亡记录',keys:['deathdate','death'],deathsOnly:true}}
 ];
 function spProfileSection(key){return SP_PROFILE_SECTIONS.find(function(s){return s.key===key})}
@@ -924,6 +938,9 @@ function spProfileRead(e,key){
   return {value:missing?null:v,text:text,state:state};
 }
 function spProfileKv(e,key){var f=spProfileField(key),r=spProfileRead(e,key);return '<div class="sp-kv-item sp-inline" data-profile-field="'+key+'"><span class="k">'+f.label+'</span><span class="v">'+esc(r.text)+'</span></div>'}
+function spFieldBands(key){
+  return key==='age'?['0–39 岁','40–49 岁','50–59 岁','60–69 岁','70 岁及以上']:key==='diag_to_treat'?['0–7 天','8–14 天','15–30 天','超过 30 天']:['不足 6 个月','6–11.9 个月','12–23.9 个月','24 个月及以上'];
+}
 function spFieldSummary(list,key){
   var f=spProfileField(key),rows=spUnique(list,spTumorKey).map(function(e){return {event:e,events:[e],result:spProfileRead(e,key)}});
   if(f.unit==='患者'){
@@ -942,7 +959,7 @@ function spFieldSummary(list,key){
     row.buckets=labels;
     labels.forEach(function(label){if(!buckets.has(label))buckets.set(label,{label:label,count:0,state:r.state});buckets.get(label).count++});
   });
-  var bands=key==='age'?['0–39 岁','40–49 岁','50–59 岁','60–69 岁','70 岁及以上']:key==='diag_to_treat'?['0–7 天','8–14 天','15–30 天','超过 30 天']:['不足 6 个月','6–11.9 个月','12–23.9 个月','24 个月及以上'];
+  var bands=spFieldBands(key);
   return {field:f,rows:rows,total:rows.length,valid:valid,missing:missing,na:na,conflict:conflict,median:spMedian(numbers),buckets:Array.from(buckets.values()).sort(function(a,b){return (a.state==='valid'?0:1)-(b.state==='valid'?0:1)||(f.kind==='date'?a.label.localeCompare(b.label):f.kind==='number'?bands.indexOf(a.label)-bands.indexOf(b.label):b.count-a.count)})};
 }
 /* ---- 兼容既有指标消费者的字段字典 ----
@@ -1575,7 +1592,9 @@ function spMapPanel(list,metric,scopeCity){
 var _spScope={city:'',site:'',hospital:'',from:'',to:'',cutoff:spToday()};
 var _spMapMetricKey='患者规模';
 var _spDomain='burden';
-/* 总览只呈现四个业务分区；字段定义保留在数据层。 */
+var _spOverviewView='table';
+var _spStatExpanded=Object.create(null);
+/* 总览四个业务分区和医保费用共用视图状态；字段定义保留在数据层。 */
 var SP_DOMAINS=SP_PROFILE_SECTIONS.map(function(s){return {key:s.key,label:s.label}}).concat([{key:'cost',label:'医保费用'}]);
 
 function spScopeBar(){
@@ -1590,9 +1609,7 @@ function spScopeBar(){
     '<div class="form-group"><label>确诊开始日期</label><input type="date" id="spScopeFrom" value="'+esc(_spScope.from)+'" onchange="window._spScopeField(\'from\',this.value)"></div>'+
     '<div class="form-group"><label>确诊结束日期</label><input type="date" id="spScopeTo" value="'+esc(_spScope.to)+'" onchange="window._spScopeField(\'to\',this.value)"></div>'+
     '<div class="form-group"><label>统计截止日</label><input type="date" id="spScopeCutoff" value="'+esc(_spScope.cutoff)+'" max="'+spToday()+'" onchange="window._spScopeField(\'cutoff\',this.value)"></div>'+
-    '<div class="sp-filter-actions"><button class="btn btn-ghost btn-sm" onclick="window._spScopeReset()">重置</button>'+
-    '<button class="btn btn-outline btn-sm" onclick="window._spGpToPatients()">查看患者</button>'+
-    '<button class="btn btn-primary btn-sm" onclick="window._spExportMetricsCSV()">导出 CSV</button></div>'+
+    '<div class="sp-filter-actions"><button class="btn btn-ghost btn-sm" onclick="window._spScopeReset()">重置</button></div>'+
   '</div>';
 }
 function spScopeLabel(){
@@ -1629,11 +1646,17 @@ function spCareCascade(list){
 }
 
 function spCostContext(list){var people=spPersons(list);return {patientKeys:people.map(spPatientKey),tumorIds:list.map(function(e){return e.id}),patientEventKeys:list.reduce(function(map,e){map[e.id]=spPatientKey(e);return map},{}),cohortSize:people.length,cutoff:spCutoff()}}
+function spOverviewViewToggle(){
+  return '<div class="sp-overview-view" role="group" aria-label="总览视图">'+['table','chart'].map(function(view){
+    var icon='<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">'+(view==='table'?'<rect x="3" y="3" width="14" height="14" rx="1.5"/><path d="M3 8h14M3 12.5h14M9 8v9"/>':'<path d="M3 3v14h14M7 13V9M11 13V5M15 13V7"/>')+'</svg>';
+    return '<button type="button" data-overview-view="'+view+'" aria-pressed="'+(_spOverviewView===view)+'" aria-controls="spDomainBody" onclick="window._spSetOverviewView(this.dataset.overviewView)">'+icon+(view==='table'?'表格视图':'图表视图')+'</button>';
+  }).join('')+'</div>';
+}
 function renderOverview(){
   var list=spScopeEvents(_spScope);
-  var h='<div class="sp-overview-v14"><div class="sp-overview-title"><h2>画像指标总览</h2><span>示例数据</span></div>'+spScopeBar();
-  h+='<div class="sp-domain-tabs" role="tablist" aria-label="画像分析维度">'+SP_DOMAINS.map(function(d){var active=_spDomain===d.key;return '<button type="button" id="spDomainTab-'+d.key+'" class="sp-domain-tab'+(active?' active':'')+'" role="tab" aria-controls="spDomainBody" aria-selected="'+active+'" aria-pressed="'+active+'" tabindex="'+(active?0:-1)+'" data-domain="'+d.key+'" onkeydown="window._spDomainKey(event,this)" onclick="window._spSetDomain(\''+d.key+'\')">'+d.label+'</button>'}).join('')+'</div>';
-  h+='<div id="spDomainBody" role="tabpanel" aria-labelledby="spDomainTab-'+_spDomain+'">'+spDomainPanel(list)+'</div>';
+  var h='<div class="sp-overview-v14"><div class="sp-overview-title"><h2>画像指标总览</h2><div class="sp-overview-actions"><span>示例数据</span>'+spOverviewViewToggle()+'</div></div>'+spScopeBar();
+  h+='<div class="sp-domain-tabs" role="tablist" aria-label="画像分析维度"'+(_spOverviewView==='table'?' hidden':'')+'>'+SP_DOMAINS.map(function(d){var active=_spDomain===d.key;return '<button type="button" id="spDomainTab-'+d.key+'" class="sp-domain-tab'+(active?' active':'')+'" role="tab" aria-controls="spDomainBody" aria-selected="'+active+'" aria-pressed="'+active+'" tabindex="'+(active?0:-1)+'" data-domain="'+d.key+'" onkeydown="window._spDomainKey(event,this)" onclick="window._spSetDomain(\''+d.key+'\')">'+d.label+'</button>'}).join('')+'</div>';
+  h+='<div id="spDomainBody"'+(_spOverviewView==='chart'?' role="tabpanel" aria-labelledby="spDomainTab-'+_spDomain+'"':'')+'>'+spDomainPanel(list)+'</div>';
   return h+'</div>';
 }
 
@@ -1684,8 +1707,8 @@ function spObserveBand(e){
   var m=s.n;
   return m<6?'<6 个月':m<12?'6–11 个月':m<24?'12–23 个月':'≥24 个月';
 }
-function spFieldLink(key,bucket,label,cls){
-  return '<button type="button" class="sp-field-link '+(cls||'')+'" data-field-key="'+key+'" data-field-bucket="'+bucket+'" onclick="window._spFieldEvidence(this.dataset.fieldKey,Number(this.dataset.fieldBucket))">'+esc(label)+'</button>';
+function spFieldLink(key,bucket,label,cls,ariaLabel){
+  return '<button type="button" class="sp-field-link '+(cls||'')+'"'+(ariaLabel?' aria-label="'+esc(ariaLabel)+'"':'')+' data-field-key="'+key+'" data-field-bucket="'+bucket+'" onclick="window._spFieldEvidence(this.dataset.fieldKey,Number(this.dataset.fieldBucket))">'+esc(label)+'</button>';
 }
 /* 图形只负责表达，所有分段继续使用同一字段汇总及原始 bucket 索引下钻。 */
 var SP_FIELD_PALETTE=['#4b82dc','#35a69d','#8d78cb','#d59b40','#ce718d','#549eb9'];
@@ -1730,7 +1753,7 @@ function spFieldBarChart(s){
   return '<div class="sp-field-bars">'+s.buckets.map(function(b,i){return '<div class="sp-field-bar-row'+(b.state==='valid'?'':' is-missing')+'">'+spFieldLink(s.field.key,i,b.label)+'<div class="sp-field-track" aria-hidden="true"><i style="width:'+(b.count/max*100)+'%;background:'+spFieldColor(s.field.key,b,i)+'"></i></div><strong>'+b.count+'<small> '+unit+'</small></strong><span>'+(b.count/s.total*100).toFixed(1)+'%</span></div>'}).join('')+'</div>';
 }
 function spFieldColumns(s){
-  var key=s.field.key,bands=key==='age'?['0–39 岁','40–49 岁','50–59 岁','60–69 岁','70 岁及以上']:key==='diag_to_treat'?['0–7 天','8–14 天','15–30 天','超过 30 天']:['不足 6 个月','6–11.9 个月','12–23.9 个月','24 个月及以上'];
+  var key=s.field.key,bands=spFieldBands(key);
   var max=Math.max.apply(null,s.buckets.filter(function(b){return b.state==='valid'}).map(function(b){return b.count}).concat([1]));
   return '<div class="sp-column-chart" role="group" aria-label="'+s.field.label+'分布柱状图">'+bands.map(function(label,i){
     var index=s.buckets.findIndex(function(b){return b.label===label}),b=index<0?{label:label,count:0,state:'valid'}:s.buckets[index],color=SP_FIELD_PALETTE[i%SP_FIELD_PALETTE.length];
@@ -1778,9 +1801,53 @@ function spOverviewRecords(list,section){
   var config=section.records,rows=spUnique(list,spTumorKey).filter(function(e){return !config.deathsOnly||spDeathFieldApplies(e)});
   return '<details class="sp-overview-records" data-record-section="'+section.key+'"><summary>'+config.title+'<span>'+rows.length+' 例</span></summary><div class="sp-table-wrap"><table class="data-table sp-field-table"><thead><tr><th>患者</th><th>原发部位</th>'+config.keys.map(function(k){return '<th data-record-field="'+k+'">'+esc(spProfileField(k).label)+'</th>'}).join('')+'<th>画像</th></tr></thead><tbody>'+(rows.length?rows.map(function(e){return '<tr data-record-event="'+esc(e.id)+'"><td>'+esc(e.patient)+'</td><td>'+esc(spProfileRead(e,'site').text)+'</td>'+config.keys.map(function(k){return '<td data-record-value="'+k+'">'+esc(spProfileRead(e,k).text)+'</td>'}).join('')+'<td><button type="button" class="sp-field-link" data-event-id="'+esc(e.id)+'" onclick="window._spEvidencePatient(this.dataset.eventId)">查看画像</button></td></tr>'}).join(''):'<tr><td colspan="'+(config.keys.length+3)+'" class="sp-field-empty">暂无死亡记录</td></tr>')+'</tbody></table></div></details>';
 }
+/* 表格和图表使用同一字段汇总；补零行只补展示，不新增证据 bucket。 */
+function spFieldTableBuckets(s){
+  var rows=s.buckets.map(function(b,i){return {label:b.label,count:b.count,state:b.state,index:i}}),valid=rows.filter(function(b){return b.state==='valid'});
+  if(s.field.kind==='number'){
+    return spFieldBands(s.field.key).map(function(label){return valid.find(function(b){return b.label===label})||{label:label,count:0,state:'valid',index:-1}}).concat(rows.filter(function(b){return b.state!=='valid'}));
+  }
+  if(s.field.kind==='date'&&valid.length){
+    function month(label){return Number(label.slice(0,4))*12+Number(label.slice(5,7))-1}
+    var months=[],last=month(valid[valid.length-1].label);
+    for(var m=month(valid[0].label);m<=last;m++){
+      var label=Math.floor(m/12)+'-'+String(m%12+1).padStart(2,'0');
+      months.push(valid.find(function(b){return b.label===label})||{label:label,count:0,state:'valid',index:-1});
+    }
+    return months.concat(rows.filter(function(b){return b.state!=='valid'}));
+  }
+  return rows;
+}
+function spStatCount(s,b,index){
+  var unit=s.field.unit==='患者'?'人':'例';
+  return index<0?'<span class="sp-stat-zero">'+b.count+'</span>':spFieldLink(s.field.key,index,String(b.count),'sp-stat-count-link',s.field.label+'，'+b.label+'：'+b.count+' '+unit+'，查看记录');
+}
+/* 一个字段对应同一总表内的一组行；所有分类完整展开，原 bucket 索引保持不变。 */
+function spSummaryFieldRows(list,key){
+  var s=spFieldSummary(list,key),f=s.field,unit=f.unit==='患者'?'人':'例',rows=spFieldTableBuckets(s);
+  if(!rows.length)rows=[{label:'暂无纳入记录',count:0,state:'empty',index:-1}];
+  var titles={age:'确诊年龄',stage:'分期期别',mdt:'MDT 会诊',tfirst:'首次治疗月份',diag_to_treat:'确诊至首治间隔',lastfu:'末次随访月份',survival:'观察时长'};
+  var median=f.kind==='number'?'<span class="sp-stat-median">中位数 <strong>'+(s.median===null?'—':spNumber(s.median))+'</strong> '+(key==='age'?'岁':key==='diag_to_treat'?'天':'个月')+'</span>':'';
+  var hint=key==='hospital'?'<span class="sp-summary-hint">一人可计入多家机构，人数与占比不相加。</span>':'';
+  return '<tbody data-stat-field="'+key+'" id="spStatRows-'+key+'">'+rows.map(function(b,i){
+    return '<tr data-stat-bucket="'+b.index+'" data-stat-state="'+b.state+'">'+
+      (i===0?'<th scope="rowgroup" rowspan="'+rows.length+'" class="sp-summary-metric" title="'+esc(f.rule)+'">'+spFieldLink(key,-1,titles[key]||f.label)+median+hint+'</th>':'')+
+      '<th scope="row" class="sp-stat-category">'+esc(b.label)+'</th><td class="sp-stat-number"><span data-stat-count>'+spStatCount(s,b,b.index)+'</span><small> '+unit+'</small></td><td class="sp-stat-number" data-stat-share>'+(s.total?(b.count/s.total*100).toFixed(1)+'%':'—')+'</td>'+
+      (i===0?'<td rowspan="'+rows.length+'" class="sp-stat-number sp-summary-total" data-stat-total>'+s.total+' '+unit+'</td>':'')+'</tr>';
+  }).join('')+'</tbody>';
+}
+function spOverviewStatsTable(list){
+  var rows=SP_PROFILE_SECTIONS.map(function(section){
+    var fields=SP_PROFILE_FIELDS.filter(function(f){return f.dim===section.label});
+    return '<tbody data-summary-section="'+section.key+'"><tr class="sp-summary-section"><th colspan="5" scope="colgroup">'+esc(section.label)+'<span>'+fields.length+' 项指标</span></th></tr></tbody>'+fields.map(function(f){return spSummaryFieldRows(list,f.key)}).join('');
+  }).join('');
+  rows+=window.SPCost&&window.SPCost.renderPopulationRows?window.SPCost.renderPopulationRows(spCostContext(list)):'<tbody data-summary-section="cost"><tr class="sp-summary-section"><th colspan="5" scope="colgroup">医保费用</th></tr><tr><td colspan="5" class="sp-field-empty">医保费用模块未加载</td></tr></tbody>';
+  return '<div class="sp-overview-stats"><div class="sp-summary-toolbar"><strong>全部画像指标</strong><span>四类画像与医保费用在同一张表中查看 · 点击数量查看记录</span></div><div class="sp-summary-scroll" tabindex="0" role="region" aria-label="全部画像指标统计表，可滚动"><table class="sp-stat-table sp-summary-table" id="spOverviewTable"><caption class="sp-sr-only">画像指标总览，当前范围 '+esc(spScopeLabel())+'</caption><colgroup><col class="sp-summary-metric-col"><col class="sp-summary-category-col"><col class="sp-summary-value-col"><col class="sp-summary-share-col"><col class="sp-summary-total-col"></colgroup><thead><tr><th scope="col">画像指标</th><th scope="col">分类 / 分段 / 月份</th><th scope="col" class="sp-stat-number">数量 / 金额</th><th scope="col" class="sp-stat-number">占比</th><th scope="col" class="sp-stat-number">纳入总数 / 基数</th></tr></thead>'+rows+'</table></div><p class="sp-stat-table-note">各指标使用各自纳入总数计算占比，未记录、冲突及不适用项均保留；费用占比以医疗总费用为基数。</p></div>';
+}
 function spDomainPanel(list){
-  if(_spDomain==='cost')return window.SPCost&&window.SPCost.renderPopulation?window.SPCost.renderPopulation(spCostContext(list)):'<div class="sp-field-empty">医保费用模块未加载</div>';
   if(!list.length)return '<div class="sp-gp-empty">当前范围无纳入画像。<br><button class="btn btn-outline btn-sm" onclick="window._spScopeReset()">重置筛选条件</button></div>';
+  if(_spOverviewView==='table')return spOverviewStatsTable(list);
+  if(_spDomain==='cost')return window.SPCost&&window.SPCost.renderPopulation?window.SPCost.renderPopulation(spCostContext(list),{view:'chart'}):'<div class="sp-field-empty">医保费用模块未加载</div>';
   var section=spProfileSection(_spDomain);
   if(!section){_spDomain='burden';section=spProfileSection('burden')}
   var h=section.charts.map(function(group){
@@ -3029,21 +3096,33 @@ window._spMapMetric=function(m){
   _spMapMetricKey=m;spRefresh();
   window._spBindMap();
 };
+window._spSetOverviewView=function(view){
+  if((view!=='table'&&view!=='chart')||view===_spOverviewView)return;
+  _spOverviewView=view;
+  var body=document.getElementById('spDomainBody');
+  if(body){
+    body.innerHTML=spDomainPanel(spScopeEvents(_spScope));
+    if(view==='chart'){body.setAttribute('role','tabpanel');body.setAttribute('aria-labelledby','spDomainTab-'+_spDomain)}
+    else{body.removeAttribute('role');body.removeAttribute('aria-labelledby')}
+  }
+  var tabs=document.querySelector('#spMainContent .sp-domain-tabs');
+  if(tabs)tabs.hidden=view==='table';
+  var buttons=document.querySelectorAll('#spMainContent [data-overview-view]');
+  for(var i=0;i<buttons.length;i++)buttons[i].setAttribute('aria-pressed',String(buttons[i].dataset.overviewView===view));
+};
 window._spSetDomain=function(d){
   if(!SP_DOMAINS.some(function(item){return item.key===d}))return;
   _spDomain=d;
+  var tabs=document.querySelectorAll('#spMainContent .sp-domain-tab');
+  for(var i=0;i<tabs.length;i++){
+    var selected=tabs[i].dataset.domain===d;
+    tabs[i].classList.toggle('active',selected);tabs[i].setAttribute('aria-pressed',String(selected));
+    tabs[i].setAttribute('aria-selected',String(selected));tabs[i].tabIndex=selected?0:-1;
+  }
   var body=document.getElementById('spDomainBody');
-  if(body){
-    var list=spScopeEvents(_spScope);
-    body.innerHTML=spDomainPanel(list);
+  if(body&&_spOverviewView==='chart'){
+    body.innerHTML=spDomainPanel(spScopeEvents(_spScope));
     body.setAttribute('aria-labelledby','spDomainTab-'+d);
-    var tabs=document.querySelectorAll('#spMainContent .sp-domain-tab');
-    for(var i=0;i<tabs.length;i++){
-      var selected=tabs[i].dataset.domain===d;
-      tabs[i].classList.toggle('active',selected);tabs[i].setAttribute('aria-pressed',String(selected));
-      tabs[i].setAttribute('aria-selected',String(selected));tabs[i].tabIndex=selected?0:-1;
-    }
-    /* 滚动定位到 Tab 行：点击后既能看到激活的 Tab 又能看到面板内容 */
     var tabsBox=document.querySelector('#spMainContent .sp-domain-tabs');
     (tabsBox||body).scrollIntoView({block:'start',behavior:'smooth'});
   }
@@ -3373,5 +3452,5 @@ function render(sub){
 }
 window.renderSpecialtyPortrait=render;
 /* 调试导出：仅供本地回归测试读取内部状态，不影响业务逻辑 */
-if(window.__SP_TEST__){window.__SP_TEST__={SP_PROFILE_SECTIONS:function(){return SP_PROFILE_SECTIONS},tumorEvents:function(){return tumorEvents},spDetailPage:function(e){return spDetailPage(e)},spProfileCompleteness:function(e){return spProfileCompleteness(e)},spDiagBasisType:function(e){return spDiagBasisType(e)},spGradeText:function(e){return spGradeText(e)},_spElements:function(){return _spElements},SP_ELEM_CHECK:function(){return SP_ELEM_CHECK},SP_ELEM_FIELD_MAP:function(){return SP_ELEM_FIELD_MAP},spFieldFn:function(k){return spFieldFn(k)},spCheck:function(id){return spCheck(id)},spKpiJudge:function(id,m){return spKpiJudge(id,m)},SP_METRIC_KPI:function(){return SP_METRIC_KPI},spStage:function(e){return spStage(e)},spAgg:function(l){return spAgg(l)},spScopeEvents:function(){return spScopeEvents({})},spMetricsFlatRows:function(){return spMetricsFlatRows()},spDomainPanel:function(d){_spDomain=d;var l=spScopeEvents(_spScope);return spDomainPanel(l,spAgg(l),spSiteRows(l),spCityRows(l))},SP_PORTRAIT_FIELDS:function(){return SP_PORTRAIT_FIELDS},SP_METRIC_FIELD:function(){return SP_METRIC_FIELD},SP_GAP_FIELDS:function(){return SP_GAP_FIELDS},spModeFlags:function(e){return spModeFlags(e)},spOtherModes:function(e){return spOtherModes(e)},spInstitutionChanges:spInstitutionChanges,spReferralState:spReferralState,spRefTable:spRefTable,spTimeline:spTimeline,spPatientKey:spPatientKey,spProfileFields:function(){return SP_PROFILE_FIELDS},spProfileRead:spProfileRead,spFieldSummary:spFieldSummary,spFirstTreat:spFirstTreat,spModeState:spModeState,spCostContext:spCostContext};}
+if(window.__SP_TEST__){window.__SP_TEST__={SP_PROFILE_SECTIONS:function(){return SP_PROFILE_SECTIONS},tumorEvents:function(){return tumorEvents},spDetailPage:function(e){return spDetailPage(e)},spProfileCompleteness:function(e){return spProfileCompleteness(e)},spDiagBasisType:function(e){return spDiagBasisType(e)},spGradeText:function(e){return spGradeText(e)},_spElements:function(){return _spElements},SP_ELEM_CHECK:function(){return SP_ELEM_CHECK},SP_ELEM_FIELD_MAP:function(){return SP_ELEM_FIELD_MAP},spFieldFn:function(k){return spFieldFn(k)},spCheck:function(id){return spCheck(id)},spKpiJudge:function(id,m){return spKpiJudge(id,m)},SP_METRIC_KPI:function(){return SP_METRIC_KPI},spStage:function(e){return spStage(e)},spAgg:function(l){return spAgg(l)},spScopeEvents:function(){return spScopeEvents({})},spMetricsFlatRows:function(){return spMetricsFlatRows()},spDomainPanel:function(d,view){_spDomain=d;if(view==='table'||view==='chart')_spOverviewView=view;return spDomainPanel(spScopeEvents(_spScope))},SP_PORTRAIT_FIELDS:function(){return SP_PORTRAIT_FIELDS},SP_METRIC_FIELD:function(){return SP_METRIC_FIELD},SP_GAP_FIELDS:function(){return SP_GAP_FIELDS},spModeFlags:function(e){return spModeFlags(e)},spOtherModes:function(e){return spOtherModes(e)},spInstitutionChanges:spInstitutionChanges,spReferralState:spReferralState,spRefTable:spRefTable,spTimeline:spTimeline,spPatientKey:spPatientKey,spProfileFields:function(){return SP_PROFILE_FIELDS},spProfileRead:spProfileRead,spFieldSummary:spFieldSummary,spFirstTreat:spFirstTreat,spModeState:spModeState,spCostContext:spCostContext};}
 })();

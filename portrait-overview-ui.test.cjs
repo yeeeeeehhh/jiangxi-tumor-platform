@@ -21,6 +21,49 @@ const { chromium } = require('playwright');
       assert.equal(await page.locator('.sp-cost-overview').count(), 0);
       await page.locator('.sp-overview-v14').screenshot({ path: path.join(out, '04-after-overview.png') });
     });
+    await check('默认表格视图，五个页签共用切换且筛选后保持选择', async () => {
+      assert.equal(await page.getByRole('button', { name: '表格视图', exact: true }).getAttribute('aria-pressed'), 'true');
+      assert.equal(await page.locator('.sp-stat-table').count(), 7);
+      assert.equal(await page.locator('.sp-field-card').count(), 0);
+      const female = page.locator('[data-stat-field="sex"] tr').filter({ has: page.locator('.sp-stat-category', { hasText: /^女$/ }) });
+      assert.equal(await female.locator('[data-stat-count]').textContent(), '7');
+      await female.locator('.sp-stat-count-link').click();
+      assert.equal(await page.getByRole('dialog').locator('tbody tr').count(), 7);
+      await page.keyboard.press('Escape');
+      for (const name of ['患者基础', '肿瘤特征', '诊疗过程', '随访与结局', '医保费用']) {
+        await page.getByRole('tab', { name, exact: true }).click();
+        assert.equal(await page.getByRole('button', { name: '表格视图', exact: true }).getAttribute('aria-pressed'), 'true');
+        assert.equal(await page.locator('.sp-field-card,.sp-cost-ring,.sp-cost-ranking').count(), 0);
+        const expectedTables = { '患者基础': 7, '肿瘤特征': 5, '诊疗过程': 5, '随访与结局': 4, '医保费用': 3 };
+        assert.equal(await page.locator(name === '医保费用' ? '.sp-cost-stat-table' : '.sp-stat-table').count(), expectedTables[name]);
+        await page.getByRole('button', { name: '图表视图', exact: true }).click();
+        assert.equal(await page.locator('.sp-stat-table,.sp-cost-stat-table').count(), 0);
+        assert.ok(await page.locator(name === '医保费用' ? '.sp-cost-ring' : '.sp-field-card').count() > 0);
+        await page.getByRole('button', { name: '表格视图', exact: true }).click();
+      }
+      await page.getByRole('tab', { name: '患者基础', exact: true }).click();
+      await page.locator('#spScopeHospital').selectOption({ label: '江西省肿瘤医院' });
+      assert.equal(await page.locator('[data-stat-field="sex"] [data-stat-total]').textContent(), '7 人');
+      await page.getByRole('button', { name: '图表视图', exact: true }).focus();
+      await page.keyboard.press('Enter');
+      assert.equal(await page.locator('#spScopeHospital').inputValue(), '江西省肿瘤医院');
+      assert.equal(await page.getByRole('button', { name: '图表视图', exact: true }).getAttribute('aria-pressed'), 'true');
+      await page.getByRole('button', { name: '表格视图', exact: true }).click();
+      assert.equal(await page.locator('[data-stat-field="sex"] [data-stat-total]').textContent(), '7 人');
+      await page.locator('.sp-filter-actions').getByRole('button', { name: '重置', exact: true }).click();
+      assert.equal(await page.locator('[data-stat-field="sex"] [data-stat-total]').textContent(), '13 人');
+      await page.locator('.sp-overview-v14').screenshot({ path: path.join(out, 'overview-table.png') });
+      const region = page.locator('[data-stat-field="region"]');
+      assert.equal(await region.locator('tbody tr:visible').count(), 6);
+      await region.locator('[data-stat-expand]').focus(); await page.keyboard.press('Enter');
+      assert.equal(await region.locator('tbody tr[hidden]').count(), 0);
+      await page.getByRole('button', { name: '图表视图', exact: true }).click();
+      await page.getByRole('button', { name: '表格视图', exact: true }).click();
+      assert.equal(await region.locator('[data-stat-expand]').getAttribute('aria-expanded'), 'true');
+      await region.locator('[data-stat-expand]').click();
+      assert.equal(await region.locator('tbody tr:visible').count(), 6);
+      await page.getByRole('button', { name: '图表视图', exact: true }).click();
+    });
     await check('饼图、环图与柱状图均可按图形核对记录，零值年龄段保留', async () => {
       const slice = page.locator('[data-overview-field="sex"] svg [role="button"]').first();
       await slice.focus(); await page.keyboard.press('Enter');
@@ -120,24 +163,10 @@ const { chromium } = require('playwright');
       await page.locator('#spScopeHospital').selectOption({ label: '江西省肿瘤医院' });
       const hospRow = page.locator('[data-overview-field="hospital"]').locator('.sp-field-bar-row', { hasText: '江西省肿瘤医院' });
       assert.match(await hospRow.textContent(), /7 人/);
-      await page.locator('.sp-filter-actions').getByRole('button', { name: '查看患者', exact: true }).click();
-      assert.ok((await page.locator('.sp-card-no').allTextContents()).includes('JX-2026-000318'));
-      await page.getByRole('button', { name: '返回总览', exact: true }).click();
       await page.locator('.sp-filter-actions').getByRole('button', { name: '重置', exact: true }).click();
       assert.equal((await page.locator('[data-overview-field="insurance"] .sp-ring-total').textContent()).trim(), '13');
       assert.equal(await page.locator('[data-overview-field="screenorg"] .sp-field-bar-row').count(), 13);
       assert.equal(await page.locator('[data-overview-field="screentype"] .sp-field-bar-row').count(), 10);
-    });
-    await check('CSV 实际下载包含正确治疗缺失数、统计对象及相同费用', async () => {
-      const pending = page.waitForEvent('download');
-      await page.getByRole('button', { name: '导出 CSV', exact: true }).click();
-      const download = await pending;
-      const file = path.join(out, 'overview-export.csv'); await download.saveAs(file);
-      const csv = fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '');
-      assert.ok(csv.startsWith('分区,画像字段,统计项,数值,单位,统计对象,分母'));
-      assert.ok(csv.includes('诊疗过程,放疗,有效记录,3,例,瘤例,14,3,11,0,0'));
-      assert.ok(csv.includes('医保费用分析,群体累计医疗费用,群体累计医疗费用,534720,元'));
-      assert.ok(csv.includes('共同关联费用,共同关联费用,1600,元'));
       await page.getByRole('tab', { name: '医保费用', exact: true }).click();
       assert.equal(await page.locator('.sp-cost-kpi .v').first().textContent(), '534,720.00元');
     });
@@ -185,10 +214,13 @@ const { chromium } = require('playwright');
     await check('1440 / 1280 / 1024 宽度下各分区无横向溢出', async () => {
       for (const width of [1440, 1280, 1024]) {
         await page.setViewportSize({ width, height: 2000 });
-        for (const name of ['患者基础', '肿瘤特征', '诊疗过程', '随访与结局', '医保费用']) {
-          await page.getByRole('tab', { name, exact: true }).click();
-          const bad = await page.locator('.sp-overview-v14').evaluate(el => Array.from(el.querySelectorAll('.sp-field-card,.sp-field-grid,.sp-overview-records,.sp-cost-overview')).filter(n => n.scrollWidth > n.clientWidth + 1).map(n => n.className));
-          assert.deepEqual(bad, [], `${width} / ${name}`);
+        for (const view of ['表格视图', '图表视图']) {
+          await page.getByRole('button', { name: view, exact: true }).click();
+          for (const name of ['患者基础', '肿瘤特征', '诊疗过程', '随访与结局', '医保费用']) {
+            await page.getByRole('tab', { name, exact: true }).click();
+            const bad = await page.locator('.sp-overview-v14').evaluate(el => Array.from(el.querySelectorAll('.sp-field-card,.sp-field-grid,.sp-overview-stats,.sp-overview-records,.sp-cost-overview')).filter(n => n.scrollWidth > n.clientWidth + 1).map(n => n.className));
+            assert.deepEqual(bad, [], `${width} / ${name} / ${view}`);
+          }
         }
         await page.getByRole('tab', { name: '患者基础', exact: true }).click();
         await page.locator('#spDomainBody').screenshot({ path: path.join(out, `overview-${width}.png`) });

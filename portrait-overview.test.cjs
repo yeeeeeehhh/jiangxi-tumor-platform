@@ -4,7 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { parseHTML } = require(process.env.SP_DOM_MODULE || 'linkedom');
-const { document } = parseHTML('<html><head></head><body><div id="pageContainer"></div></body></html>');
+const { document, HTMLElement } = parseHTML('<html><head></head><body><div id="pageContainer"></div></body></html>');
+// linkedom 不计算布局，分区导航滚动在真实浏览器中另行验证。
+HTMLElement.prototype.scrollIntoView = () => {};
 const ActualDate = Date;
 class FixedDate extends ActualDate { constructor(...args) { super(...(args.length ? args : ['2026-10-30T12:00:00+08:00'])); } }
 const window = { document, __SP_TEST__: true };
@@ -16,6 +18,136 @@ let count = 0;
 function check(name, fn) { fn(); count++; console.log('PASS ' + name); }
 function overview() { document.getElementById('pageContainer').innerHTML = window.renderSpecialtyPortrait('overview'); }
 overview();
+
+check('总览默认统计表，视图切换只替换面板且保留筛选与选择', () => {
+  assert.equal(document.querySelector('[data-overview-view="table"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(document.querySelectorAll('.sp-stat-table').length, 7);
+  assert.equal(document.querySelectorAll('.sp-field-card').length, 0);
+  const filters = document.querySelector('.sp-filter-bar');
+  for (let i = 0; i < 3; i++) {
+    window._spSetOverviewView('chart');
+    assert.equal(document.querySelectorAll('.sp-stat-table').length, 0);
+    assert.equal(document.querySelectorAll('.sp-field-card').length, 7);
+    window._spSetOverviewView('table');
+    assert.equal(document.querySelectorAll('.sp-stat-table').length, 7);
+    assert.equal(document.querySelector('.sp-filter-bar'), filters);
+  }
+  window._spSetOverviewView('invalid');
+  assert.equal(document.querySelector('[data-overview-view="table"]').getAttribute('aria-pressed'), 'true');
+  window._spScopeField('hospital', '江西省肿瘤医院');
+  assert.equal(document.querySelector('[data-stat-field="sex"] [data-stat-total]').textContent, '7 人');
+  window._spSetDomain('tumor');
+  assert.equal(document.querySelector('[data-overview-view="table"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(document.querySelector('#spScopeHospital option[selected]').value, '江西省肿瘤医院');
+  window._spSetOverviewView('chart');
+  window._spScopeReset();
+  assert.equal(document.querySelector('[data-overview-view="chart"]').getAttribute('aria-pressed'), 'true');
+  T.spDomainPanel('burden', 'table'); overview();
+});
+check('分组短表逐行对账同源分类、数量、占比和纳入总数', () => {
+  for (const section of T.SP_PROFILE_SECTIONS()) {
+    const holder = document.createElement('div'); holder.innerHTML = T.spDomainPanel(section.key, 'table');
+    const expected = section.tables.flatMap(group => group.kind === 'treatment' ? Array.from({ length: 6 }, (_, i) => 'mode' + i) : Array.from(group.keys));
+    assert.deepEqual(Array.from(holder.querySelectorAll('[data-stat-field]'), node => node.dataset.statField), Array.from(expected));
+    assert.equal(holder.querySelectorAll('.sp-field-card,.sp-treatment-chart,[rowspan]').length, 0);
+    assert.equal(holder.querySelectorAll('.sp-stat-group').length, section.tables.length);
+    for (const key of expected) {
+      const s = T.spFieldSummary(events, key), unit = s.field.unit === '患者' ? '人' : '例';
+      const block = holder.querySelector(`[data-stat-field="${key}"]`);
+      assert.equal(block.querySelector('[data-stat-total]').textContent, s.total + ' ' + unit);
+      if (key.startsWith('mode')) {
+        const stateMatches = { yes: b => b.state === 'valid' && b.label === '有', no: b => b.state === 'valid' && b.label === '明确无', missing: b => b.state === 'missing', conflict: b => b.state === 'conflict' };
+        for (const [name, matches] of Object.entries(stateMatches)) {
+          const cell = block.querySelector(`[data-treatment-state="${name}"]`);
+          const count = s.buckets.filter(matches).reduce((n, b) => n + b.count, 0);
+          assert.equal(Number(cell.dataset.statCount), count);
+          for (const button of cell.querySelectorAll('button')) assert.equal(button.textContent, String(s.buckets[Number(button.dataset.fieldBucket)].count));
+        }
+        const yes = s.buckets.find(b => b.label === '有');
+        assert.equal(block.querySelector('[data-stat-share]').textContent, ((yes ? yes.count : 0) / s.total * 100).toFixed(1) + '%');
+        continue;
+      }
+      for (const row of block.querySelectorAll('tbody tr')) {
+        const index = Number(row.dataset.statBucket), b = s.buckets[index];
+        assert.equal(row.querySelector('[data-stat-count]').textContent, String(b ? b.count : 0));
+        assert.equal(row.querySelector('[data-stat-share]').textContent, ((b ? b.count : 0) / s.total * 100).toFixed(1) + '%');
+        if (b) {
+          assert.equal(row.querySelector('.sp-stat-category').textContent, b.label);
+          assert.equal(row.dataset.statState, b.state);
+          assert.equal(row.querySelector('button').dataset.fieldBucket, String(index));
+        } else assert.equal(row.querySelector('button'), null, '补零行不下钻到全部记录');
+      }
+      if (s.field.kind === 'number') {
+        assert.equal(block.querySelectorAll('tr[data-stat-state="valid"]').length, key === 'age' ? 5 : 4);
+        assert.ok(block.querySelector('.sp-stat-median').textContent.includes(String(Math.round(s.median * 10) / 10)));
+      }
+      assert.ok(block.querySelectorAll('tr[data-stat-state="valid"]:not([hidden])').length <= (s.field.kind === 'number' ? 5 : 6));
+      assert.equal(block.querySelectorAll('tr[hidden]:not([data-stat-state="valid"])').length, 0, '异常状态必须可见');
+    }
+  }
+  const holder = document.createElement('div'); holder.innerHTML = T.spDomainPanel('treat', 'table');
+  assert.ok(holder.querySelectorAll('[data-stat-field="tfirst"] tr[data-stat-bucket="-1"]').length > 0, '连续月份补零');
+  assert.equal(holder.querySelectorAll('.sp-treatment-table tbody tr').length, 6);
+  holder.innerHTML = T.spDomainPanel('burden', 'table');
+  assert.ok(holder.querySelector('[data-stat-field="hospital"] .sp-stat-hint').textContent.includes('不相加'));
+  T.spDomainPanel('burden', 'table'); overview();
+});
+check('展开收起保留原桶索引，跨视图和筛选状态不丢失', () => {
+  T.spDomainPanel('burden', 'table'); overview();
+  const button = document.querySelector('[data-stat-expand="region"]');
+  const table = document.getElementById('spStatTable-region');
+  const indices = Array.from(table.querySelectorAll('tbody tr'), row => row.dataset.statBucket);
+  assert.equal(table.querySelectorAll('tbody tr:not([hidden])').length, 6);
+  window._spToggleStatRows(button);
+  assert.equal(button.getAttribute('aria-expanded'), 'true');
+  assert.equal(table.querySelectorAll('tr[hidden]').length, 0);
+  assert.deepEqual(Array.from(table.querySelectorAll('tbody tr'), row => row.dataset.statBucket), indices);
+  window._spSetOverviewView('chart'); window._spSetOverviewView('table');
+  assert.equal(document.querySelector('[data-stat-expand="region"]').getAttribute('aria-expanded'), 'true');
+  window._spSetDomain('tumor'); window._spSetDomain('burden');
+  assert.equal(document.getElementById('spStatTable-region').querySelectorAll('tr[hidden]').length, 0);
+  window._spToggleStatRows(document.querySelector('[data-stat-expand="region"]'));
+  assert.equal(document.getElementById('spStatTable-region').querySelectorAll('tbody tr:not([hidden])').length, 6);
+  window._spScopeField('hospital', '江西省肿瘤医院');
+  assert.equal(document.querySelector('[data-stat-field="sex"] [data-stat-total]').textContent, '7 人');
+  assert.ok(document.querySelector('[data-stat-field="region"]'));
+  window._spScopeReset();
+});
+check('医保费用统计表、图表及元/万元切换数值相同且数据刷新保留模式', () => {
+  window.SPCost.setData(window.SPCost.demo());
+  T.spDomainPanel('cost', 'table'); overview();
+  const summaryValues = () => Array.from(document.querySelectorAll('.sp-cost-summary-table td:last-child'), n => n.textContent);
+  const original = ['534,720.00元', '13 / 13 人', '41,132.31元', '29.1%', '11.0%'];
+  assert.deepEqual(summaryValues(), original);
+  assert.equal(document.querySelectorAll('.sp-cost-stat-table').length, 3);
+  assert.equal(document.querySelectorAll('.sp-cost-ring,.sp-cost-ranking,.sp-cost-kpi').length, 0);
+  const tables = Array.from(document.querySelectorAll('.sp-cost-stat-table'));
+  assert.equal(tables[1].querySelectorAll('tbody tr').length, 5);
+  assert.equal(tables[2].querySelectorAll('tbody tr').length, 6);
+  window.SPCost.setOverviewUnit('wan');
+  assert.deepEqual(summaryValues(), ['53.47万元', '13 / 13 人', '4.11万元', '29.1%', '11.0%']);
+  window.SPCost.setData(window.SPCost.demo());
+  assert.equal(document.querySelectorAll('.sp-cost-stat-table').length, 3);
+  window._spSetOverviewView('chart');
+  assert.equal(document.querySelectorAll('.sp-cost-summary-table').length, 0);
+  assert.deepEqual(Array.from(document.querySelectorAll('.sp-cost-kpi .v'), n => n.textContent), ['53.47万元', '13 / 13 人', '4.11万元', '29.1%', '11.0%']);
+  assert.equal(document.querySelectorAll('.sp-cost-ring').length, 1);
+  window.SPCost.setOverviewUnit('yuan');
+  assert.equal(document.querySelectorAll('.sp-cost-ring').length, 1);
+  window._spSetOverviewView('table');
+  assert.deepEqual(summaryValues(), original);
+  const incomplete = copy(window.SPCost.demo()); incomplete.records[0].cash = null; incomplete.records[0].items = null;
+  window.SPCost.setData(incomplete);
+  assert.equal(document.querySelectorAll('.sp-cost-stat-table').length, 1);
+  assert.equal(document.querySelectorAll('.sp-cost-overview-empty').length, 2);
+  assert.equal(summaryValues()[3], '—');
+  window.SPCost.setData({ mode: 'live', connected: false, records: [] });
+  assert.ok(document.querySelector('.sp-cost-overview').textContent.includes('医保结算数据未接入'));
+  window.SPCost.setData({ mode: 'live', connected: true, records: [] });
+  assert.ok(document.querySelector('.sp-cost-overview').textContent.includes('暂无已关联的有效医保费用'));
+  window.SPCost.setData(window.SPCost.demo());
+  T.spDomainPanel('burden', 'table'); overview();
+});
 
 /* 详情页按分区 groups 展示；治疗机构变化只进总览图表与下方机构变化明细表，不再占详情键值位。 */
 const sectionGroups = () => T.SP_PROFILE_SECTIONS().reduce((m, s) => (s.groups.forEach(g => g.keys.forEach(k => m.set(k, s.label))), m), new Map());
@@ -38,7 +170,7 @@ check('全部 14 份详情都展示分区定义的每个画像字段，且值与
 check('四个分区图表与业务明细覆盖本区全部画像字段，详情块只展示分区定义的键值项', () => {
   const sections = { burden: '患者基础', tumor: '肿瘤特征', treat: '诊疗过程', outcome: '随访与结局' };
   for (const [key, label] of Object.entries(sections)) {
-    const holder = document.createElement('div'); holder.innerHTML = T.spDomainPanel(key);
+    const holder = document.createElement('div'); holder.innerHTML = T.spDomainPanel(key, 'chart');
     assert.equal(holder.querySelectorAll('.sp-cost-overview').length, 0, label);
     const chartKeys = Array.from(holder.querySelectorAll('[data-overview-field]'), n => n.getAttribute('data-overview-field'));
     const recordKeys = Array.from(holder.querySelectorAll('[data-record-field]'), n => n.getAttribute('data-record-field'));
@@ -73,7 +205,7 @@ check('更新同一份画像的分期和筛查结果，总览实时使用更新�
   const e = events[0], originalStage = e.stage, originalResult = e.screenResult;
   try {
     e.stage = 'I期'; e.screenResult = '新的筛查结果';
-    const tumor = document.createElement('div'); tumor.innerHTML = T.spDomainPanel('tumor');
+    const tumor = document.createElement('div'); tumor.innerHTML = T.spDomainPanel('tumor', 'chart');
     const expected = events.filter(e => e.stage === 'I期').length;
     const legend = Array.from(tumor.querySelectorAll('[data-overview-field="stage"] .sp-chart-legend-row')).find(n => n.querySelector('button').textContent === 'I期');
     assert.equal(parseInt(legend.querySelector('strong').textContent, 10), expected);

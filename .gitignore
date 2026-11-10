@@ -3,6 +3,7 @@
 /肿瘤知识库/
 
 # ==== DSH/Agent 工作目录 ====
+/.dsh/
 /.agent-teams/
 /.dsh-vision-router/
 /.dsh-vision-toolkit/

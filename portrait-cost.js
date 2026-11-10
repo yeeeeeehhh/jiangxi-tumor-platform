@@ -7,7 +7,7 @@
   var CATEGORIES=['药品费','检查检验费','治疗费','手术费','耗材费','其他费用'];
   var VISIT_TYPES=['住院','门诊慢特病','普通门急诊'];
   var COLORS=['var(--color-primary)','var(--color-warning-solid)','var(--color-success-solid)','var(--color-primary-300)','var(--color-primary-500)','var(--color-gray-400)'];
-  var current=null,dataset=null,overviewContext=null,overviewUnit='yuan';
+  var current=null,dataset=null,overviewContext=null,overviewUnit='yuan',overviewView='table';
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
   function day(v){var s=String(v||'').slice(0,10),d=new Date(s+'T00:00:00Z');return /^\d{4}-\d{2}-\d{2}$/.test(s)&&!isNaN(d)&&d.toISOString().slice(0,10)===s?s:''}
   function cents(v){if(v===null||v===undefined||v===''||typeof v==='boolean')return null;var n=Number(v);return Number.isFinite(n)&&n>=0&&Number.isSafeInteger(Math.round(n*100))?Math.round(n*100):null}
@@ -137,6 +137,9 @@
       shared:shared.length,sharedTotal:sum(shared,'total'),
       pending:records.filter(function(r){return !r.tumorIds.length&&r.attribution!=='非肿瘤费用'}).length,issues:normalized.issues};
   }
+  function overviewTable(label,headers,rows,cls){
+    return '<div class="sp-table-wrap" tabindex="0" role="region" aria-label="'+esc(label)+'，可横向滚动"><table class="data-table sp-field-table sp-cost-stat-table '+(cls||'')+'"><thead><tr>'+headers.map(function(header,i){return '<th scope="col"'+(i?' class="sp-stat-number"':'')+'>'+esc(header)+'</th>'}).join('')+'</tr></thead><tbody>'+rows.map(function(row){return '<tr>'+row.map(function(value,i){return '<td'+(i?' class="sp-stat-number"':'')+'>'+(i?value:esc(value))+'</td>'}).join('')+'</tr>'}).join('')+'</tbody></table></div>';
+  }
   function populationContent(){
     var m=populationModel(overviewContext),a=m.stats;
     if(!m.available){
@@ -154,34 +157,42 @@
       ['个人支付占比',personalShare],
       ['省外费用占比',outShare]
     ];
-    var cards=rows.map(function(x){return '<div class="sp-cost-kpi"><div class="k">'+x[0]+'</div><div class="v">'+x[1]+'</div></div>'}).join('');
+    var cards=overviewView==='chart'?rows.map(function(x){return '<div class="sp-cost-kpi"><div class="k">'+x[0]+'</div><div class="v">'+x[1]+'</div></div>'}).join(''):'';
     var payment=[{label:'医保基金支付',value:a.fund,color:'var(--color-primary)'},{label:'个人支付',value:a.personal,color:'var(--color-warning-solid)'},{label:'其他保障支付',value:a.other,color:'var(--color-accent)'}];
     var paymentBody='<div class="sp-cost-overview-empty">支付构成数据待补全或核对</div>';
     if(a.paymentComplete){
-      var end=0,stops=payment.map(function(entry){var start=end;end+=entry.value/total*100;return entry.color+' '+start+'% '+end+'%'});
-      paymentBody='<div class="sp-cost-overview-payment"><div class="sp-cost-ring" style="background:conic-gradient('+stops.join(',')+')" aria-hidden="true"><div><strong>'+percent(a.fund,total)+'</strong><span>医保基金支付占比</span></div></div>'+
-        '<ul class="sp-cost-overview-legend">'+payment.map(function(entry){return '<li style="--cost-color:'+entry.color+'"><span class="sp-cost-row-label"><i class="sp-cost-dot" aria-hidden="true"></i>'+entry.label+'</span><strong>'+percent(entry.value,total)+'</strong><span class="sp-cost-legend-amount">'+overviewAmount(entry.value)+'</span></li>'}).join('')+'</ul></div>'+
-        '<div class="sp-cost-payment-summary"><span>个人账户<strong>'+overviewAmount(a.account)+'</strong></span><span>现金支付<strong>'+overviewAmount(a.cash)+'</strong></span></div>';
+      if(overviewView==='table'){
+        var paymentRows=payment.map(function(entry){return [entry.label,overviewAmount(entry.value),percent(entry.value,total)]});
+        paymentRows.push(['其中：个人账户支付',overviewAmount(a.account),percent(a.account,total)],['其中：现金支付',overviewAmount(a.cash),percent(a.cash,total)]);
+        paymentBody=overviewTable('支付构成统计表',['支付项目','金额','占总费用'],paymentRows);
+      }else{
+        var end=0,stops=payment.map(function(entry){var start=end;end+=entry.value/total*100;return entry.color+' '+start+'% '+end+'%'});
+        paymentBody='<div class="sp-cost-overview-payment"><div class="sp-cost-ring" style="background:conic-gradient('+stops.join(',')+')" aria-hidden="true"><div><strong>'+percent(a.fund,total)+'</strong><span>医保基金支付占比</span></div></div>'+
+          '<ul class="sp-cost-overview-legend">'+payment.map(function(entry){return '<li style="--cost-color:'+entry.color+'"><span class="sp-cost-row-label"><i class="sp-cost-dot" aria-hidden="true"></i>'+entry.label+'</span><strong>'+percent(entry.value,total)+'</strong><span class="sp-cost-legend-amount">'+overviewAmount(entry.value)+'</span></li>'}).join('')+'</ul></div>'+
+          '<div class="sp-cost-payment-summary"><span>个人账户<strong>'+overviewAmount(a.account)+'</strong></span><span>现金支付<strong>'+overviewAmount(a.cash)+'</strong></span></div>';
+      }
     }
     var categories=CATEGORIES.map(function(label){return {label:label,value:a.items[label]||0}}).sort(function(x,y){return y.value-x.value});
-    var categoryBody=a.itemsComplete?'<div class="sp-cost-ranking-head"><span>费用类别</span><span>金额 / 占总费用</span></div><ol class="sp-cost-ranking">'+categories.map(function(entry,i){
-      return '<li><span class="sp-cost-rank-number">'+(i+1)+'</span><span class="sp-cost-rank-label">'+entry.label+'</span><div class="sp-cost-row-track" aria-hidden="true"><span style="width:'+(entry.value/total*100)+'%"></span></div><span class="sp-cost-row-amount">'+overviewAmount(entry.value)+'</span><strong class="sp-cost-row-share">'+percent(entry.value,total)+'</strong></li>';
-    }).join('')+'</ol>':'<div class="sp-cost-overview-empty">费用类别数据待补全或核对</div>';
+    var categoryBody='<div class="sp-cost-overview-empty">费用类别数据待补全或核对</div>';
+    if(a.itemsComplete){
+      categoryBody=overviewView==='table'?overviewTable('费用类别统计表',['费用类别','金额','占总费用'],categories.map(function(entry){return [entry.label,overviewAmount(entry.value),percent(entry.value,total)]})):
+        '<div class="sp-cost-ranking-head"><span>费用类别</span><span>金额 / 占总费用</span></div><ol class="sp-cost-ranking">'+categories.map(function(entry,i){
+          return '<li><span class="sp-cost-rank-number">'+(i+1)+'</span><span class="sp-cost-rank-label">'+entry.label+'</span><div class="sp-cost-row-track" aria-hidden="true"><span style="width:'+(entry.value/total*100)+'%"></span></div><span class="sp-cost-row-amount">'+overviewAmount(entry.value)+'</span><strong class="sp-cost-row-share">'+percent(entry.value,total)+'</strong></li>';
+        }).join('')+'</ol>';
+    }
     var notes=[];
     if(m.shared)notes.push('多瘤例共同费用：'+overviewAmount(m.sharedTotal)+'（'+m.shared+' 笔）');
     if(m.pending)notes.push('待确认归属：'+m.pending+' 笔');
     if(m.issues.length)notes.push('待核对结算：'+m.issues.length+' 项');
     var oldBasis=root.document&&root.document.getElementById('spCostOverviewBasis');
-    return '<div class="sp-cost-context"><div class="sp-cost-overview-tools"><div class="sp-cost-unit" role="group" aria-label="费用金额单位">'+['yuan','wan'].map(function(unit){return '<button type="button" aria-pressed="'+(overviewUnit===unit)+'" onclick="SPCost.setOverviewUnit(\''+unit+'\')">'+(unit==='yuan'?'元':'万元')+'</button>'}).join('')+'</div></div></div>'+
-      '<div class="sp-cost-kpis sp-cost-overview-kpis">'+cards+'</div>'+
-      '<div class="sp-cost-overview-distributions">'+
-        '<section aria-labelledby="spCostOverviewPayment"><div class="sp-cost-breakdown-heading"><h4 id="spCostOverviewPayment">支付构成</h4></div>'+paymentBody+'</section>'+
-        '<section aria-labelledby="spCostOverviewCategories"><div class="sp-cost-breakdown-heading"><h4 id="spCostOverviewCategories">费用类别</h4></div>'+categoryBody+'</section>'+
-      '</div>'+(notes.length?'<details class="sp-cost-overview-basis" id="spCostOverviewBasis"'+(oldBasis&&oldBasis.open?' open':'')+'><summary><span>未计入总额的费用</span></summary><div>'+notes.map(function(note){return '<p>'+note+'</p>'}).join('')+'</div></details>':'');
+    var content=overviewView==='table'?'<div class="sp-cost-report"><section aria-labelledby="spCostSummaryTitle"><h4 id="spCostSummaryTitle">费用概况</h4>'+overviewTable('医保费用概览统计表',['指标','统计值'],rows,'sp-cost-summary-table')+'<div class="sp-cost-payments"><h4 id="spCostOverviewPayment">支付构成</h4>'+paymentBody+'</div></section><section aria-labelledby="spCostOverviewCategories"><h4 id="spCostOverviewCategories">费用类别</h4>'+categoryBody+'</section></div>':
+      '<div class="sp-cost-kpis sp-cost-overview-kpis">'+cards+'</div><div class="sp-cost-overview-distributions"><section aria-labelledby="spCostOverviewPayment"><div class="sp-cost-breakdown-heading"><h4 id="spCostOverviewPayment">支付构成</h4></div>'+paymentBody+'</section><section aria-labelledby="spCostOverviewCategories"><div class="sp-cost-breakdown-heading"><h4 id="spCostOverviewCategories">费用类别</h4></div>'+categoryBody+'</section></div>';
+    return '<div class="sp-cost-context"><div class="sp-cost-overview-tools"><div class="sp-cost-unit" role="group" aria-label="费用金额单位">'+['yuan','wan'].map(function(unit){return '<button type="button" aria-pressed="'+(overviewUnit===unit)+'" onclick="SPCost.setOverviewUnit(\''+unit+'\')">'+(unit==='yuan'?'元':'万元')+'</button>'}).join('')+'</div></div></div>'+content+
+      (notes.length?'<details class="sp-cost-overview-basis" id="spCostOverviewBasis"'+(oldBasis&&oldBasis.open?' open':'')+'><summary><span>未计入总额的费用</span></summary><div>'+notes.map(function(note){return '<p>'+note+'</p>'}).join('')+'</div></details>':'');
   }
   function overviewAmount(value){return (overviewUnit==='wan'?(value/1000000).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2}):money(value))+'<small>'+(overviewUnit==='wan'?'万元':'元')+'</small>'}
   function setOverviewUnit(unit){if(unit!=='yuan'&&unit!=='wan')return;overviewUnit=unit;refreshPopulation();var active=root.document&&root.document.querySelector('.sp-cost-unit button[aria-pressed="true"]');if(active)active.focus({preventScroll:true})}
-  function renderPopulation(ctx){overviewContext=ctx||{};return '<section class="panel sp-cost sp-cost-overview" aria-label="群体医保费用分析"><div class="panel-header"><h3>医保费用分析</h3></div><div class="panel-body" id="spCostOverviewBody">'+populationContent()+'</div></section>'}
+  function renderPopulation(ctx,options){overviewContext=ctx||{};overviewView=options&&options.view==='chart'?'chart':'table';return '<section class="panel sp-cost sp-cost-overview" aria-label="群体医保费用分析"><div class="panel-header"><h3>医保费用分析</h3></div><div class="panel-body" id="spCostOverviewBody">'+populationContent()+'</div></section>'}
   function refreshPopulation(){var el=root.document&&root.document.getElementById('spCostOverviewBody');if(el&&overviewContext)el.innerHTML=populationContent()}
   function metric(label,value,sub,title){
     return '<div class="sp-cost-kpi" title="'+esc(title)+'"><div class="k">'+esc(label)+'</div><div class="v">'+esc(value)+'<small>元</small></div><div class="s">'+esc(sub)+'</div></div>';
